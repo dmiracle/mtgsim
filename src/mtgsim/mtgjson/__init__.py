@@ -1,0 +1,1 @@
+"""MTGJSON data access subpackage."""
