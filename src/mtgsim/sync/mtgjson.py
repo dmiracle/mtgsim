@@ -8,7 +8,8 @@ from pathlib import Path
 import requests
 from sqlmodel import Session, select
 
-from .deck_db import Deck, DeckCard, DeckList, init_deck_db
+from ..db.deck_models import Deck, DeckCard, DeckList
+from ..db.session import init_deck_db
 
 REFERENCE_BASE_DIR = Path.home() / ".mtgsim" / "reference"
 MTGJSON_DIR = REFERENCE_BASE_DIR / "mtgjson"

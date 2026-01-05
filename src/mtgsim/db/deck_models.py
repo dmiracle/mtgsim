@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from sqlalchemy import JSON, Column
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
+from sqlmodel import Field, Relationship, SQLModel, create_engine
 
 
 class DeckList(SQLModel, table=True):
@@ -101,9 +101,3 @@ ALL_DECKS_DB_PATH = REFERENCE_DB_DIR / "AllDecks.sqlite"
 def get_deck_engine():
     REFERENCE_DB_DIR.mkdir(parents=True, exist_ok=True)
     return create_engine(f"sqlite:///{ALL_DECKS_DB_PATH}")
-
-
-def init_deck_db():
-    engine = get_deck_engine()
-    SQLModel.metadata.create_all(engine)
-    return engine

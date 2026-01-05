@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 
-from .card import Card, CardType, Color, ManaCost, Rarity, Supertype
-from .db import (
+from ..domain.card import Card, CardType, Color, ManaCost, Rarity, Supertype
+from ..db.models import (
     CardColorLink,
     CardDB,
     CardLegalityLink,

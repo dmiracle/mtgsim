@@ -1,10 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
+from sqlmodel import Field, Relationship, SQLModel
 
-from .card import CardType, Color, Rarity, Supertype
+from ..domain.card import CardType, Supertype
 
 
 class Format(str, Enum):
@@ -131,24 +130,3 @@ class AllPrintingsMetadata(SQLModel, table=True):
     version: str | None = None
     fingerprint: str | None = None
     record_count: int | None = None
-
-
-DATABASE_PATH = Path.home() / ".mtgsim" / "mtgsim.db"
-
-
-def get_engine(db_path: Path | None = None):
-    if db_path is None:
-        db_path = DATABASE_PATH
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    return create_engine(f"sqlite:///{db_path}")
-
-
-def init_db(db_path: Path | None = None):
-    engine = get_engine(db_path)
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-def get_session(db_path: Path | None = None) -> Session:
-    engine = get_engine(db_path)
-    return Session(engine)

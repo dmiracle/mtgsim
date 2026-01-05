@@ -1,4 +1,4 @@
-from .card import Card, CardType, Supertype
+from ..domain.card import Card, CardType, Supertype
 
 
 def render_card(card: Card, width: int = 40) -> str:

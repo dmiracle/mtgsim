@@ -5,7 +5,7 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from .card import Card, CardType, ManaCost, Rarity, Supertype
+from ..domain.card import Card, CardType, ManaCost, Rarity, Supertype
 
 SYSTEM_PROMPT = """You are an expert Magic: The Gathering card scanner.
 Analyze the provided card image and extract the data strictly adhering to the schema.

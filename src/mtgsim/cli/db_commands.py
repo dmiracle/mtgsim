@@ -2,153 +2,12 @@ from pathlib import Path
 
 import typer
 
-from .ascii_card import render_card
-from .card import Card, CardType, ManaCost, Rarity, Supertype
-from .db import DATABASE_PATH, get_session, init_db
-from .extract import get_pipeline
-from .mtgjson.cli import mtgjson_app
-from .repository import CardRepository, db_to_card
-from .sync import update_decks, update_references
+from ..db.session import DATABASE_PATH, get_session, init_db
+from ..domain.card import Card, Rarity
+from ..repository.card_repository import CardRepository, db_to_card
+from ..sync.mtgjson import update_decks, update_references
 
-app = typer.Typer(help="MTG card simulator CLI")
 db_app = typer.Typer(help="Database operations")
-app.add_typer(db_app, name="db")
-app.add_typer(mtgjson_app, name="mtgjson")
-
-
-def parse_card_types(types: str) -> list[CardType]:
-    return [CardType(t.strip()) for t in types.split(",")]
-
-
-def parse_supertypes(types: str | None) -> list[Supertype]:
-    if not types:
-        return []
-    return [Supertype(t.strip()) for t in types.split(",")]
-
-
-def parse_subtypes(types: str | None) -> list[str]:
-    if not types:
-        return []
-    return [t.strip() for t in types.split(",")]
-
-
-@app.command()
-def card(
-    name: str = typer.Argument(..., help="Card name"),
-    types: str = typer.Option(
-        ...,
-        "--types",
-        "-t",
-        help=(
-            "Card types (comma-separated): Creature, Instant, Sorcery, Enchantment, Artifact, Land, Planeswalker, "
-            "Battle"
-        ),
-    ),
-    oracle: str = typer.Option("", "--oracle", "-o", help="Oracle text"),
-    supertypes: str | None = typer.Option(
-        None,
-        "--supertypes",
-        "-s",
-        help="Supertypes (comma-separated): Basic, Legendary, Snow, World",
-    ),
-    subtypes: str | None = typer.Option(
-        None,
-        "--subtypes",
-        help="Subtypes (comma-separated): e.g., Elf, Warrior, Forest",
-    ),
-    mana: str | None = typer.Option(
-        None,
-        "--mana",
-        "-m",
-        help="Mana cost: W=white, U=blue, B=black, R=red, G=green, C=colorless, number=generic. e.g., '2GG'",
-    ),
-    power: int | None = typer.Option(None, "--power", "-p", help="Power (creatures only)"),
-    toughness: int | None = typer.Option(None, "--toughness", help="Toughness (creatures only)"),
-    loyalty: int | None = typer.Option(None, "--loyalty", help="Loyalty (planeswalkers only)"),
-    defense: int | None = typer.Option(None, "--defense", help="Defense (battles only)"),
-    rarity: str = typer.Option("common", "--rarity", "-r", help="Rarity: common, uncommon, rare, mythic"),
-):
-    """Generate and display an ASCII card."""
-    mana_cost = parse_mana_cost(mana) if mana else None
-
-    c = Card(
-        name=name,
-        card_types=parse_card_types(types),
-        supertypes=parse_supertypes(supertypes),
-        subtypes=parse_subtypes(subtypes),
-        mana_cost=mana_cost,
-        oracle_text=oracle,
-        power=power,
-        toughness=toughness,
-        loyalty=loyalty,
-        defense=defense,
-        rarity=Rarity(rarity),
-    )
-
-    typer.echo(render_card(c))
-
-
-@app.command()
-def extract(
-    image_path: Path = typer.Argument(..., help="Path to card image file"),
-    pipeline: str = typer.Option("mock", "--pipeline", "-p", help="Extraction pipeline to use"),
-    output: str = typer.Option("ascii", "--output", "-o", help="Output format: ascii, json"),
-    save: bool = typer.Option(False, "--save", "-s", help="Save extracted card to database"),
-):
-    """Extract card data from an image."""
-    if not image_path.exists():
-        typer.echo(f"Error: File not found: {image_path}")
-        raise typer.Exit(1)
-
-    extractor = get_pipeline(pipeline)
-    card = extractor.extract(image_path)
-
-    if output == "json":
-        typer.echo(card.model_dump_json(indent=2))
-    else:
-        typer.echo(render_card(card))
-        typer.echo()
-        typer.echo(f"Source: {image_path}")
-        if card.raw_text:
-            typer.echo(f"Raw OCR: {card.raw_text}")
-
-    if save:
-        init_db()
-        with get_session() as session:
-            repo = CardRepository(session)
-            db_card = repo.add(card)
-            typer.echo(f"\nSaved to database with ID {db_card.id}")
-
-
-def parse_mana_cost(mana_str: str) -> ManaCost:
-    white = mana_str.count("W")
-    blue = mana_str.count("U")
-    black = mana_str.count("B")
-    red = mana_str.count("R")
-    green = mana_str.count("G")
-    colorless = mana_str.count("C")
-
-    # Extract generic mana (numbers)
-    generic = 0
-    num_str = ""
-    for char in mana_str:
-        if char.isdigit():
-            num_str += char
-        elif num_str:
-            generic += int(num_str)
-            num_str = ""
-    if num_str:
-        generic += int(num_str)
-
-    return ManaCost(
-        white=white,
-        blue=blue,
-        black=black,
-        red=red,
-        green=green,
-        colorless=colorless,
-        generic=generic,
-    )
 
 
 @db_app.command("init")
@@ -206,6 +65,8 @@ def db_add(
     foil: bool = typer.Option(False, "--foil", help="Mark as foil"),
 ):
     """Add a card to the database."""
+    from .card_commands import parse_card_types, parse_supertypes, parse_subtypes, parse_mana_cost
+
     init_db()
     mana_cost = parse_mana_cost(mana) if mana else None
 
@@ -279,6 +140,8 @@ def db_show(
     card_id: int = typer.Argument(..., help="Card ID"),
 ):
     """Show a card from the database as ASCII art."""
+    from ..render.ascii import render_card
+
     init_db()
     with get_session() as session:
         repo = CardRepository(session)
@@ -287,8 +150,8 @@ def db_show(
             typer.echo(f"Card with ID {card_id} not found.")
             raise typer.Exit(1)
 
-        card = db_to_card(db_card)
-        typer.echo(render_card(card))
+        card_data = db_to_card(db_card)
+        typer.echo(render_card(card_data))
         typer.echo()
         if db_card.set_code:
             typer.echo(f"Set: {db_card.set_name or db_card.set_code} ({db_card.set_code})")
@@ -379,11 +242,3 @@ def db_delete(
 
         repo.delete(card_id)
         typer.echo(f"Deleted '{db_card.name}'.")
-
-
-def main():
-    app()
-
-
-if __name__ == "__main__":
-    main()
