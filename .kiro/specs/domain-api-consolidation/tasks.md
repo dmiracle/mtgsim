@@ -16,13 +16,13 @@ This implementation plan converts the domain-API consolidation design into discr
   - **Property 1: Domain Model Completeness**
   - **Validates: Requirements 1.1**
 
-- [ ] 2. Implement reference table sync system
+- [-] 2. Implement reference table sync system
   - [ ] 2.1 Create CLI commands for reference table synchronization
     - Implement `sync_reference` and `sync_mtgjson` CLI commands
     - Add table copying utilities with prefix support (mtgjson_*)
     - _Requirements: 2.1, 5.1_
 
-  - [ ]* 2.2 Write property test for reference table sync integrity
+  - [ ] 2.2 Write property test for reference table sync integrity
     - **Property 2: Reference Table Sync Integrity**
     - **Validates: Requirements 2.1, 2.2**
 

@@ -54,6 +54,7 @@ class MigrationLog(SQLModel, table=True):
     processed_items: int = 0
     failed_items: int = 0
     skipped_items: int = 0
+    rows_affected: int = 0  # Total rows affected by the operation
 
     # Operation details
     parameters: dict = Field(default_factory=dict, sa_column=Column(JSON))

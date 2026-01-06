@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Create PR on Task Completion",
+  "description": "Creates a pull request using gh CLI when work is complete on a task or when requested. If on main branch, creates a new branch first with a name reflecting the current task.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Check the current git branch. If we're on main, create a new branch with a descriptive name based on the current task/work being done, then create a PR from that branch using `gh pr create`. If we're already on a feature branch, create a PR directly from the current branch using `gh pr create`. Use appropriate PR title and description based on the changes made."
+  }
+}

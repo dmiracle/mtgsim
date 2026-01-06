@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Git Task Setup",
+  "description": "Fetches origin, verifies changes are incorporated into main, rebases to origin main, and creates a new working branch when starting a new task",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Execute the following git workflow steps in order: 1) Run `git fetch origin` to get latest changes, 2) Run `git checkout main` to switch to main branch, 3) Run `git pull origin main` to ensure main is up to date, 4) Run `git rebase origin/main` to rebase current work, 5) Generate an appropriate branch name based on the current task or work being done (use kebab-case format like 'feature-name' or 'fix-issue-description'), then run `git checkout -b <generated-branch-name>` to create and switch to the new working branch. Verify each step completes successfully before proceeding to the next."
+  }
+}
