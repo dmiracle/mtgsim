@@ -897,11 +897,16 @@
                 </select>
             </div>
             <div class="filter-box">
-                <label>Deck type</label>
+                <label>Deck size</label>
                 <select id="cardCountFilter" onchange="applyFilters()">
                     <option value="">Any size</option>
-                    <option value="60">Constructed (60)</option>
-                    <option value="100">Commander (100)</option>
+                    <option value="lands5">Land Pack (5)</option>
+                    <option value="sample">Sample (6-20)</option>
+                    <option value="limited">Limited (21-50)</option>
+                    <option value="constructed">Constructed (51-75)</option>
+                    <option value="commander">Commander (76-115)</option>
+                    <option value="large">Large (116-299)</option>
+                    <option value="cube">Cube (300+)</option>
                 </select>
             </div>
             <div class="filter-box">
@@ -1162,7 +1167,7 @@
                 const query = document.getElementById('search').value;
                 const format = document.getElementById('formatFilter').value;
                 const set = document.getElementById('setFilter').value;
-                const type = document.getElementById('cardCountFilter').value;
+                const cardCountFilter = document.getElementById('cardCountFilter').value;
                 const priceRange = document.getElementById('deckPriceFilter').value;
                 const sortValue = document.getElementById('sortBy').value;
                 const selectedColors = Array.from(document.querySelectorAll('#colorFilter input:checked')).map(cb => cb.value).join('');
@@ -1178,12 +1183,22 @@
                 else if (priceRange === '50') { priceMin = 50; priceMax = 100; }
                 else if (priceRange === '0') { priceMax = 50; }
 
+                let cardCountMin = null, cardCountMax = null;
+                if (cardCountFilter === 'lands5') { cardCountMin = 5; cardCountMax = 5; }
+                else if (cardCountFilter === 'sample') { cardCountMin = 6; cardCountMax = 20; }
+                else if (cardCountFilter === 'limited') { cardCountMin = 21; cardCountMax = 50; }
+                else if (cardCountFilter === 'constructed') { cardCountMin = 51; cardCountMax = 75; }
+                else if (cardCountFilter === 'commander') { cardCountMin = 76; cardCountMax = 115; }
+                else if (cardCountFilter === 'large') { cardCountMin = 116; cardCountMax = 299; }
+                else if (cardCountFilter === 'cube') { cardCountMin = 300; }
+
                 const data = await api('/decks', {
                     q: query,
                     format,
                     set,
-                    type,
                     colors: selectedColors,
+                    card_count_min: cardCountMin,
+                    card_count_max: cardCountMax,
                     price_min: priceMin,
                     price_max: priceMax,
                     sort,
@@ -1527,9 +1542,11 @@
 
                     <div class="stat-card">
                         <h4>Prices</h4>
-                        ${stats.price ? Object.entries(stats.price).map(([source, val]) => `
+                        ${stats.price?.total ? `<div class="stat-row"><span>Total</span><span>${formatPrice(stats.price.total)}</span></div>` : ''}
+                        ${stats.price?.by_source ? Object.entries(stats.price.by_source).filter(([k,v]) => v !== null).map(([source, val]) => `
                             <div class="stat-row"><span>${source}</span><span>${formatPrice(val)}</span></div>
-                        `).join('') : '<div class="stat-row">No price data</div>'}
+                        `).join('') : ''}
+                        ${!stats.price?.total && !Object.values(stats.price?.by_source || {}).some(v => v !== null) ? '<div class="stat-row">No price data</div>' : ''}
                     </div>
 
                     <div class="stat-card">

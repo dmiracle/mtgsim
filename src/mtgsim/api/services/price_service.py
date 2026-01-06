@@ -1,19 +1,19 @@
 """Price service - handles price data access and calculations."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from mtgsim.api.data import prices_data
 from mtgsim.api.models.common import Pagination
 from mtgsim.api.models.price import (
-    PriceSummary,
-    PriceDetail,
-    PriceListResponse,
-    PriceListMeta,
-    PricesBySource,
-    PaperPrices,
     MtgoPrices,
-    SourcePrices,
+    PaperPrices,
+    PriceDetail,
+    PriceListMeta,
+    PriceListResponse,
+    PricesBySource,
+    PriceSummary,
     RetailBuylistPrices,
-    PriceHistoryPoint,
+    SourcePrices,
 )
 
 
@@ -32,113 +32,111 @@ class PriceService:
         page: int = 1,
         limit: int = 50,
     ) -> PriceListResponse:
-        """
-        Search price data with filters.
+        """Search price data with filters."""
+        results, total = prices_data.search_prices(
+            q=q,
+            set_code=set_code,
+            rarity=rarity,
+            price_min=price_min,
+            price_max=price_max,
+            sort=sort,
+            order=order,
+            page=page,
+            limit=limit,
+        )
 
-        TODO: Implement actual database queries:
-        1. Search card_index by name (q parameter)
-        2. Join with price data
-        3. Apply filters (set_code, rarity, price range)
-        4. Calculate average USD price for each card
-        5. Sort and paginate
-        """
+        data = [
+            PriceSummary(
+                uuid=r["uuid"],
+                name=r["name"],
+                set_code=r["set_code"],
+                rarity=r["rarity"],
+                image_url=None,
+                prices=PricesBySource(
+                    tcgplayer=r["prices"].get("tcgplayer"),
+                    cardkingdom=r["prices"].get("cardkingdom"),
+                    cardsphere=r["prices"].get("cardsphere"),
+                    cardmarket=r["prices"].get("cardmarket"),
+                    mtgo=None,
+                ),
+                average_usd=r["average_usd"],
+            )
+            for r in results
+        ]
+
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+        stats = prices_data.get_price_stats()
+
         return PriceListResponse(
-            data=[
-                PriceSummary(
-                    uuid="stub-price-001",
-                    name="Expensive Card",
-                    set_code="TST",
-                    rarity="mythic",
-                    image_url="https://cards.scryfall.io/small/front/a/b/stub.jpg",
-                    prices=PricesBySource(
-                        tcgplayer=50.00,
-                        cardkingdom=55.00,
-                        cardsphere=48.00,
-                        cardmarket=45.00,
-                        mtgo=10.00,
-                    ),
-                    average_usd=51.00,
-                )
-            ],
-            pagination=Pagination(page=page, limit=limit, total=1, pages=1),
+            data=data,
+            pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
             meta=PriceListMeta(
-                last_updated=datetime.now(timezone.utc),
-                total_cards_with_prices=105230,
+                last_updated=datetime.fromisoformat(stats["last_updated"])
+                if stats.get("last_updated")
+                else datetime.now(UTC),
+                total_cards_with_prices=stats.get("total_cards_with_prices", 0),
             ),
         )
 
     async def get_price(self, uuid: str) -> PriceDetail | None:
-        """
-        Get detailed price data for a card.
+        """Get detailed price data for a card."""
+        price_data = prices_data.get_card_prices(uuid)
+        if not price_data:
+            return None
 
-        TODO: Implement actual data loading:
-        1. Fetch price data from AllPricesToday.json by uuid
-        2. Parse all price sources (paper and MTGO)
-        3. Include retail and buylist prices
-        4. Optionally load price history if available
-        """
+        paper = price_data.get("paper", {})
+        mtgo = price_data.get("mtgo", {})
+
+        def build_source_prices(provider_data: dict) -> SourcePrices:
+            retail = provider_data.get("retail", {})
+            buylist = provider_data.get("buylist", {})
+            return SourcePrices(
+                retail=RetailBuylistPrices(
+                    normal=retail.get("normal"),
+                    foil=retail.get("foil"),
+                ),
+                buylist=RetailBuylistPrices(
+                    normal=buylist.get("normal"),
+                    foil=buylist.get("foil"),
+                )
+                if buylist
+                else None,
+            )
+
         return PriceDetail(
             uuid=uuid,
-            name="Expensive Card",
-            set_code="TST",
+            name="",  # Would need to join with cards DB
+            set_code="",
             paper=PaperPrices(
-                tcgplayer=SourcePrices(
-                    retail=RetailBuylistPrices(normal=50.00, foil=100.00),
-                    buylist=RetailBuylistPrices(normal=35.00, foil=70.00),
-                ),
-                cardkingdom=SourcePrices(
-                    retail=RetailBuylistPrices(normal=55.00, foil=110.00),
-                    buylist=RetailBuylistPrices(normal=40.00, foil=80.00),
-                ),
-                cardsphere=SourcePrices(
-                    retail=RetailBuylistPrices(normal=48.00, foil=95.00),
-                ),
-                cardmarket=SourcePrices(
-                    retail=RetailBuylistPrices(normal=45.00, foil=90.00),
-                ),
+                tcgplayer=build_source_prices(paper.get("tcgplayer", {})) if paper.get("tcgplayer") else None,
+                cardkingdom=build_source_prices(paper.get("cardkingdom", {})) if paper.get("cardkingdom") else None,
+                cardsphere=build_source_prices(paper.get("cardsphere", {})) if paper.get("cardsphere") else None,
+                cardmarket=build_source_prices(paper.get("cardmarket", {})) if paper.get("cardmarket") else None,
             ),
             mtgo=MtgoPrices(
-                cardhoarder=SourcePrices(
-                    retail=RetailBuylistPrices(normal=10.00, foil=20.00),
-                ),
+                cardhoarder=build_source_prices(mtgo.get("cardhoarder", {})) if mtgo.get("cardhoarder") else None,
             ),
-            price_history=[
-                PriceHistoryPoint(date="2024-01-01", tcgplayer=48.00),
-                PriceHistoryPoint(date="2024-01-02", tcgplayer=49.50),
-                PriceHistoryPoint(date="2024-01-03", tcgplayer=50.00),
-            ],
+            price_history=[],
         )
 
     async def get_average_usd_price(self, uuid: str) -> float:
-        """
-        Calculate average USD price for a card.
-
-        TODO: Implement actual calculation:
-        1. Get prices from tcgplayer, cardkingdom, cardsphere
-        2. Average the available values
-        """
-        return 51.00
+        """Calculate average USD price for a card."""
+        avg = prices_data.get_average_price(uuid)
+        return avg if avg else 0.0
 
     async def calculate_deck_price(self, deck_file: str) -> float:
-        """
-        Calculate total deck price.
-
-        TODO: Implement actual calculation:
-        1. Load deck file
-        2. For each card, get average USD price
-        3. Multiply by count and sum
-        """
-        return 99.99
+        """Calculate total deck price."""
+        # Would need to load deck and calculate
+        return 0.0
 
     async def get_price_data_info(self) -> PriceListMeta:
-        """
-        Get metadata about price data.
-
-        TODO: Return actual metadata from loaded price data
-        """
+        """Get metadata about price data."""
+        stats = prices_data.get_price_stats()
         return PriceListMeta(
-            last_updated=datetime.now(timezone.utc),
-            total_cards_with_prices=105230,
+            last_updated=datetime.fromisoformat(stats["last_updated"])
+            if stats.get("last_updated")
+            else datetime.now(UTC),
+            total_cards_with_prices=stats.get("total_cards_with_prices", 0),
         )
 
 

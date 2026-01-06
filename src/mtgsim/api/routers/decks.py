@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from mtgsim.api.models.deck import DeckListResponse, DeckDetail
+from mtgsim.api.models.deck import DeckDetail, DeckListResponse
 from mtgsim.api.services.deck_service import deck_service
 
 router = APIRouter(prefix="/decks", tags=["decks"])
@@ -15,6 +15,8 @@ async def list_decks(
     set: str | None = Query(None, description="Filter by set code"),
     type: str | None = Query(None, description="Filter by deck type (60, 100)"),
     colors: str | None = Query(None, description="Filter by color identity (e.g., 'WU', 'BRG')"),
+    card_count_min: int | None = Query(None, ge=0, description="Minimum card count"),
+    card_count_max: int | None = Query(None, ge=0, description="Maximum card count"),
     price_min: float | None = Query(None, ge=0, description="Minimum deck price"),
     price_max: float | None = Query(None, ge=0, description="Maximum deck price"),
     sort: str = Query("name", description="Sort field"),
@@ -30,6 +32,7 @@ async def list_decks(
     - **set**: Filter by set code
     - **type**: Filter by deck size (60 for standard, 100 for commander)
     - **colors**: Filter by color identity (e.g., "WU" for white-blue decks)
+    - **card_count_min/card_count_max**: Filter by card count range
     - **price_min/price_max**: Filter by deck price range
     - **sort**: Sort by name, release_date, card_count, price, colors
     - **order**: Sort order (asc, desc)
@@ -42,6 +45,8 @@ async def list_decks(
         set_code=set,
         deck_type=type,
         colors=color_list,
+        card_count_min=card_count_min,
+        card_count_max=card_count_max,
         price_min=price_min,
         price_max=price_max,
         sort=sort,

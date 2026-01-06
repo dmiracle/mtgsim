@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from mtgsim.api.models.price import PriceListResponse, PriceDetail
+from mtgsim.api.models.price import PriceDetail, PriceListResponse
 from mtgsim.api.services.price_service import price_service
 
 router = APIRouter(prefix="/prices", tags=["prices"])

@@ -1,7 +1,5 @@
 """Tests for main FastAPI app endpoints."""
 
-import pytest
-
 
 class TestRootEndpoint:
     """Tests for GET / endpoint."""

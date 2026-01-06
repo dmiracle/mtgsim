@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from mtgsim.api.data import keywords_data
+
 
 class KeywordDefinition(BaseModel):
     """Single keyword definition."""
@@ -37,49 +39,13 @@ async def get_keywords() -> KeywordsResponse:
     - **ability_words**: Words that have no rules meaning but group cards thematically
     - **keyword_abilities**: Keywords with specific rules meaning (flying, trample, etc.)
     - **keyword_actions**: Keywords that represent game actions (destroy, exile, etc.)
-
-    TODO: Load from Keywords.json
     """
-    # Stub data - should load from Keywords.json
+    all_keywords = keywords_data.get_all_keywords()
+
     return KeywordsResponse(
-        ability_words=[
-            KeywordDefinition(
-                term="Battalion",
-                definition="Whenever this creature and at least two other creatures attack...",
-            ),
-            KeywordDefinition(
-                term="Landfall",
-                definition="Whenever a land enters the battlefield under your control...",
-            ),
-        ],
-        keyword_abilities=[
-            KeywordDefinition(
-                term="Flying",
-                definition="This creature can't be blocked except by creatures with flying or reach.",
-            ),
-            KeywordDefinition(
-                term="Trample",
-                definition="This creature can deal excess combat damage to the player or planeswalker it's attacking.",
-            ),
-            KeywordDefinition(
-                term="Haste",
-                definition="This creature can attack and tap as soon as it comes under your control.",
-            ),
-        ],
-        keyword_actions=[
-            KeywordDefinition(
-                term="Destroy",
-                definition="Move a permanent from the battlefield to its owner's graveyard.",
-            ),
-            KeywordDefinition(
-                term="Exile",
-                definition="Move a card to the exile zone.",
-            ),
-            KeywordDefinition(
-                term="Sacrifice",
-                definition="Move a permanent you control to its owner's graveyard.",
-            ),
-        ],
+        ability_words=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["ability_words"]],
+        keyword_abilities=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["keyword_abilities"]],
+        keyword_actions=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["keyword_actions"]],
     )
 
 
@@ -90,44 +56,43 @@ async def get_formats() -> FormatsResponse:
 
     Returns list of supported formats with descriptions and deck counts.
     """
-    # Stub data
     return FormatsResponse(
         formats=[
             {
                 "id": "standard",
                 "name": "Standard",
                 "description": "Uses cards from recent sets",
-                "deck_count": 150,
+                "deck_count": 0,
             },
             {
                 "id": "pioneer",
                 "name": "Pioneer",
                 "description": "Uses cards from Return to Ravnica forward",
-                "deck_count": 300,
+                "deck_count": 0,
             },
             {
                 "id": "modern",
                 "name": "Modern",
                 "description": "Uses cards from 8th Edition forward",
-                "deck_count": 800,
+                "deck_count": 0,
             },
             {
                 "id": "legacy",
                 "name": "Legacy",
                 "description": "Uses cards from all sets with a ban list",
-                "deck_count": 500,
+                "deck_count": 0,
             },
             {
                 "id": "vintage",
                 "name": "Vintage",
                 "description": "Uses cards from all sets with restrictions",
-                "deck_count": 400,
+                "deck_count": 0,
             },
             {
                 "id": "commander",
                 "name": "Commander",
                 "description": "100-card singleton format with a commander",
-                "deck_count": 898,
+                "deck_count": 0,
             },
         ]
     )

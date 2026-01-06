@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from mtgsim.api.models.card import CardListResponse, CardDetail
+from mtgsim.api.models.card import CardDetail, CardListResponse
 from mtgsim.api.services.card_service import card_service
 
 router = APIRouter(prefix="/cards", tags=["cards"])

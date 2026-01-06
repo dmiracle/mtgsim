@@ -1,6 +1,5 @@
 from sqlmodel import Session, select
 
-from ..domain.card import Card, CardType, Color, ManaCost, Rarity, Supertype
 from ..db.models import (
     CardColorLink,
     CardDB,
@@ -10,6 +9,7 @@ from ..db.models import (
     CardTypeLink,
     Format,
 )
+from ..domain.card import Card, CardType, Color, ManaCost, Rarity, Supertype
 
 
 def card_to_db(card: Card, **metadata) -> CardDB:

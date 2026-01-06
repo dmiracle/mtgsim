@@ -3,9 +3,9 @@
 from pydantic import BaseModel
 
 from mtgsim.api.models.common import (
-    Pagination,
     HistogramBucket,
     KeywordCounts,
+    Pagination,
     WordFrequency,
 )
 from mtgsim.api.models.deck import PriceBySource
@@ -47,6 +47,7 @@ class SetCard(BaseModel):
     type: str | None = None
     rarity: str | None = None
     color_identity: list[str]
+    text: str | None = None
     price: float | None = None
     image_url: str | None = None
 

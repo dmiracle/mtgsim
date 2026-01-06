@@ -1,15 +1,16 @@
 """Card service - handles card data access and processing."""
 
+from mtgsim.api.data import cards_data, prices_data
+from mtgsim.api.models.card import (
+    CardAppearance,
+    CardDetail,
+    CardLegalities,
+    CardListResponse,
+    CardPrinting,
+    CardSummary,
+)
 from mtgsim.api.models.common import Pagination
 from mtgsim.api.models.deck import PriceBySource
-from mtgsim.api.models.card import (
-    CardSummary,
-    CardDetail,
-    CardListResponse,
-    CardLegalities,
-    CardAppearance,
-    CardPrinting,
-)
 
 
 class CardService:
@@ -29,100 +30,130 @@ class CardService:
         page: int = 1,
         limit: int = 50,
     ) -> CardListResponse:
-        """
-        Search cards with filters.
+        """Search cards with filters."""
+        cards, total = cards_data.search_cards(
+            q=q,
+            set_code=set_code,
+            rarity=rarity,
+            card_type=card_type,
+            colors=colors,
+            sort=sort,
+            order=order,
+            page=page,
+            limit=limit,
+        )
 
-        TODO: Implement actual database queries:
-        1. Query card_index (pre-loaded in memory or SQLite)
-        2. Apply text search on name field
-        3. Apply filters (set_code, rarity, card_type, colors, price range)
-        4. Join with price data for price filtering/sorting
-        5. Return paginated results
-        """
+        data = [
+            CardSummary(
+                uuid=c["uuid"],
+                name=c["name"],
+                type=c["type"],
+                mana_cost=c["mana_cost"],
+                mana_value=c["mana_value"],
+                rarity=c["rarity"],
+                set_code=c["set_code"],
+                color_identity=c["color_identity"],
+                text=c.get("text"),
+                price=c.get("price"),
+                image_url=c.get("image_url"),
+            )
+            for c in cards
+        ]
+
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+
         return CardListResponse(
-            data=[
-                CardSummary(
-                    uuid="stub-card-001",
-                    name="Stub Card",
-                    type="Creature - Human",
-                    mana_cost="{1}{W}",
-                    mana_value=2,
-                    rarity="common",
-                    set_code="TST",
-                    color_identity=["W"],
-                    price=1.50,
-                    image_url="https://cards.scryfall.io/small/front/a/b/stub.jpg",
-                )
-            ],
-            pagination=Pagination(page=page, limit=limit, total=1, pages=1),
+            data=data,
+            pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
         )
 
     async def get_card(self, uuid: str) -> CardDetail | None:
-        """
-        Get full card details.
+        """Get full card details."""
+        card = cards_data.get_card(uuid)
+        if not card:
+            return None
 
-        TODO: Implement actual data loading:
-        1. Fetch card data from SQLite/card_index by uuid
-        2. Fetch price data from price cache
-        3. Query card-to-decks mapping for deck appearances
-        4. Query other printings by card name
-        5. Build complete response
-        """
+        # Get legalities
+        legalities = card.get("legalities", {})
+
+        # Get prices
+        prices_data.get_average_price(uuid)
+        tcg_price = prices_data.get_tcgplayer_price(uuid)
+
+        # Get appearances in decks
+        appearances = cards_data.get_card_appearances(uuid)
+
+        # Get other printings
+        other_printings = cards_data.get_other_printings(uuid)
+
         return CardDetail(
-            uuid=uuid,
-            name="Stub Card",
-            mana_cost="{1}{W}",
-            mana_value=2,
-            type="Creature - Human Soldier",
-            types=["Creature"],
-            subtypes=["Human", "Soldier"],
-            text="When Stub Card enters the battlefield, gain 2 life.",
-            flavor_text="A test card for testing purposes.",
-            rarity="common",
-            set_code="TST",
-            set_name="Test Set",
-            color_identity=["W"],
-            colors=["W"],
-            power="2",
-            toughness="2",
-            image_url="https://cards.scryfall.io/normal/front/a/b/stub.jpg",
+            uuid=card["uuid"],
+            name=card["name"],
+            mana_cost=card["mana_cost"],
+            mana_value=card["mana_value"],
+            type=card["type"],
+            types=card["types"],
+            subtypes=card["subtypes"],
+            text=card["text"],
+            flavor_text=card["flavor_text"],
+            rarity=card["rarity"],
+            set_code=card["set_code"],
+            set_name=card["set_name"],
+            color_identity=card["color_identity"],
+            colors=card["colors"],
+            power=card["power"],
+            toughness=card["toughness"],
+            image_url=card.get("image_url"),
             prices=PriceBySource(
-                tcgplayer=1.50,
-                cardkingdom=1.75,
-                cardsphere=1.25,
-                cardmarket=1.00,
-                mtgo=0.10,
+                tcgplayer=tcg_price,
             ),
             legalities=CardLegalities(
-                standard="Not Legal",
-                pioneer="Not Legal",
-                modern="Legal",
-                legacy="Legal",
-                vintage="Legal",
-                commander="Legal",
+                standard=legalities.get("standard", "Not Legal"),
+                pioneer=legalities.get("pioneer", "Not Legal"),
+                modern=legalities.get("modern", "Not Legal"),
+                legacy=legalities.get("legacy", "Not Legal"),
+                vintage=legalities.get("vintage", "Not Legal"),
+                commander=legalities.get("commander", "Not Legal"),
             ),
             appears_in_decks=[
-                CardAppearance(file="TestDeck_TST.json", name="Test Deck", count=4),
+                CardAppearance(
+                    file=a["file"],
+                    name=a["name"],
+                    count=a["count"],
+                )
+                for a in appearances
             ],
             other_printings=[
-                CardPrinting(set_code="XYZ", set_name="Another Set", uuid="other-print-001"),
+                CardPrinting(
+                    set_code=p["set_code"],
+                    set_name=p["set_name"],
+                    uuid=p["uuid"],
+                )
+                for p in other_printings
             ],
         )
 
     async def get_card_by_name(self, name: str) -> list[CardSummary]:
-        """
-        Get all printings of a card by name.
-
-        TODO: Query all cards with matching name
-        """
-        return []
+        """Get all printings of a card by name."""
+        cards = cards_data.get_cards_by_name(name)
+        return [
+            CardSummary(
+                uuid=c["uuid"],
+                name=c["name"],
+                type="",
+                mana_cost=None,
+                mana_value=None,
+                rarity=c["rarity"],
+                set_code=c["set_code"],
+                color_identity=[],
+                price=None,
+                image_url=None,
+            )
+            for c in cards
+        ]
 
     async def get_cards_in_deck(self, deck_file: str) -> list[str]:
-        """
-        Get all card UUIDs in a deck.
-
-        TODO: Load deck and extract card UUIDs
-        """
+        """Get all card UUIDs in a deck."""
         return []
 
 

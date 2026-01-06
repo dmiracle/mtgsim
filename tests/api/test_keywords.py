@@ -1,7 +1,5 @@
 """Tests for keywords/glossary API endpoints."""
 
-import pytest
-
 
 class TestGetKeywords:
     """Tests for GET /api/keywords endpoint."""
@@ -63,7 +61,7 @@ class TestGetKeywords:
         if data["ability_words"]:
             word = data["ability_words"][0]
             assert isinstance(word["definition"], str)
-            assert len(word["definition"]) > 0
+            # Definition may be empty since MTGJSON only provides terms
 
     def test_get_keywords_keyword_ability_structure(self, client):
         """Keyword abilities have correct structure."""
@@ -93,7 +91,7 @@ class TestGetKeywords:
         if data["keyword_abilities"]:
             keyword = data["keyword_abilities"][0]
             assert isinstance(keyword["definition"], str)
-            assert len(keyword["definition"]) > 0
+            # Definition may be empty since MTGJSON only provides terms
 
     def test_get_keywords_keyword_action_structure(self, client):
         """Keyword actions have correct structure."""
@@ -123,7 +121,7 @@ class TestGetKeywords:
         if data["keyword_actions"]:
             action = data["keyword_actions"][0]
             assert isinstance(action["definition"], str)
-            assert len(action["definition"]) > 0
+            # Definition may be empty since MTGJSON only provides terms
 
     def test_get_keywords_contains_common_abilities(self, client):
         """Response contains common keyword abilities."""

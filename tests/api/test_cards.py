@@ -1,7 +1,5 @@
 """Tests for card API endpoints."""
 
-import pytest
-
 
 class TestSearchCards:
     """Tests for GET /api/cards endpoint."""

@@ -17,6 +17,7 @@ class CardSummary(BaseModel):
     rarity: str | None = None
     set_code: str | None = None
     color_identity: list[str] = []
+    text: str | None = None
     price: float | None = None
     image_url: str | None = None
 

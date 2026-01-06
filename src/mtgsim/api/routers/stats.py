@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from mtgsim.api.services.stats_service import stats_service, HomeStats, DeckAggregateStats
+from mtgsim.api.services.stats_service import DeckAggregateStats, HomeStats, stats_service
 
 router = APIRouter(prefix="/stats", tags=["statistics"])
 

@@ -1,8 +1,6 @@
-from pathlib import Path
-
 import typer
 
-from .card_commands import card_app
+from .card_commands import card, extract
 from .db_commands import db_app
 from .mtgjson_commands import mtgjson_app
 
@@ -20,7 +18,6 @@ app.add_typer(mtgjson_app, name="mtgjson")
 # cli/__init__.py: CLI app setup, registers subcommands
 # card_commands.py: card, extract commands
 
-from .card_commands import card, extract
 
 app.command()(card)
 app.command()(extract)

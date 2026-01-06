@@ -1,7 +1,5 @@
 """Tests for set API endpoints."""
 
-import pytest
-
 
 class TestListSets:
     """Tests for GET /api/sets endpoint."""

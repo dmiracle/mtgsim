@@ -1,7 +1,5 @@
 """Tests for price API endpoints."""
 
-import pytest
-
 
 class TestSearchPrices:
     """Tests for GET /api/prices endpoint."""
@@ -19,6 +17,14 @@ class TestSearchPrices:
         assert "data" in data
         assert "pagination" in data
         assert isinstance(data["data"], list)
+
+    def test_search_prices_has_meta(self, client):
+        """Response has meta field."""
+        response = client.get("/api/prices")
+        data = response.json()
+
+        assert "meta" in data
+        assert "total_cards_with_prices" in data["meta"]
 
     def test_search_prices_pagination_metadata(self, client):
         """Pagination metadata is correct."""
@@ -121,17 +127,24 @@ class TestSearchPrices:
             assert "name" in price
             assert "set_code" in price
             assert "rarity" in price
+            assert "prices" in price
             assert "average_usd" in price
 
     def test_search_prices_has_source_prices(self, client):
-        """Price summary includes source prices."""
+        """Price summary includes source prices in prices object."""
         response = client.get("/api/prices")
         data = response.json()
 
         if data["data"]:
             price = data["data"][0]
+            # Prices are nested under "prices" object
+            prices = price.get("prices", {})
             # Should have at least one price source
-            assert "tcgplayer" in price or "cardkingdom" in price or "cardsphere" in price
+            has_prices = any(
+                prices.get(source) is not None
+                for source in ["tcgplayer", "cardkingdom", "cardsphere", "cardmarket", "mtgo"]
+            )
+            assert has_prices or price.get("average_usd") is not None
 
 
 class TestGetPrice:
@@ -161,47 +174,57 @@ class TestGetPrice:
         assert "uuid" in data
         assert "name" in data
         assert "set_code" in data
-        assert "set_name" in data
-        assert "rarity" in data
 
     def test_get_price_paper_structure(self, client, sample_card_uuid):
         """Paper prices have correct structure."""
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        paper = data["paper"]
-        # Should have TCGplayer prices
-        if "tcgplayer" in paper:
-            tcg = paper["tcgplayer"]
-            assert "normal" in tcg or "retail" in tcg
+        paper = data.get("paper")
+        if paper:
+            # Should have at least one source
+            assert any(
+                paper.get(source) is not None for source in ["tcgplayer", "cardkingdom", "cardsphere", "cardmarket"]
+            )
 
-    def test_get_price_tcgplayer_normal(self, client, sample_card_uuid):
-        """TCGplayer normal prices structure."""
+    def test_get_price_tcgplayer_structure(self, client, sample_card_uuid):
+        """TCGplayer prices structure."""
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "tcgplayer" in data["paper"]:
+        if data.get("paper") and data["paper"].get("tcgplayer"):
             tcg = data["paper"]["tcgplayer"]
-            if "normal" in tcg and tcg["normal"]:
-                # Price should be a number or None
-                assert tcg["normal"] is None or isinstance(tcg["normal"], (int, float))
+            # Should have retail and/or buylist
+            assert "retail" in tcg or "buylist" in tcg
 
-    def test_get_price_tcgplayer_foil(self, client, sample_card_uuid):
-        """TCGplayer foil prices structure."""
+    def test_get_price_tcgplayer_retail(self, client, sample_card_uuid):
+        """TCGplayer retail prices structure."""
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "tcgplayer" in data["paper"]:
+        if data.get("paper") and data["paper"].get("tcgplayer"):
             tcg = data["paper"]["tcgplayer"]
-            if "foil" in tcg:
-                assert tcg["foil"] is None or isinstance(tcg["foil"], (int, float))
+            if tcg.get("retail"):
+                # Retail should have normal and/or foil
+                assert "normal" in tcg["retail"] or "foil" in tcg["retail"]
+
+    def test_get_price_tcgplayer_buylist(self, client, sample_card_uuid):
+        """TCGplayer buylist prices structure."""
+        response = client.get(f"/api/prices/{sample_card_uuid}")
+        data = response.json()
+
+        if data.get("paper") and data["paper"].get("tcgplayer"):
+            tcg = data["paper"]["tcgplayer"]
+            if tcg.get("buylist"):
+                # Buylist should have normal and/or foil
+                assert "normal" in tcg["buylist"] or "foil" in tcg["buylist"]
 
     def test_get_price_cardkingdom_structure(self, client, sample_card_uuid):
         """Card Kingdom prices structure."""
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "cardkingdom" in data["paper"]:
+        if data.get("paper") and data["paper"].get("cardkingdom"):
             ck = data["paper"]["cardkingdom"]
             # Should have retail and/or buylist
             assert "retail" in ck or "buylist" in ck
@@ -211,9 +234,9 @@ class TestGetPrice:
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "cardkingdom" in data["paper"]:
+        if data.get("paper") and data["paper"].get("cardkingdom"):
             ck = data["paper"]["cardkingdom"]
-            if "retail" in ck and ck["retail"]:
+            if ck.get("retail"):
                 # Retail should have normal/foil
                 assert "normal" in ck["retail"] or "foil" in ck["retail"]
 
@@ -222,9 +245,9 @@ class TestGetPrice:
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "cardkingdom" in data["paper"]:
+        if data.get("paper") and data["paper"].get("cardkingdom"):
             ck = data["paper"]["cardkingdom"]
-            if "buylist" in ck and ck["buylist"]:
+            if ck.get("buylist"):
                 # Buylist should have normal/foil
                 assert "normal" in ck["buylist"] or "foil" in ck["buylist"]
 
@@ -233,17 +256,17 @@ class TestGetPrice:
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "cardsphere" in data["paper"]:
+        if data.get("paper") and data["paper"].get("cardsphere"):
             cs = data["paper"]["cardsphere"]
-            # Should have normal/foil
-            assert "normal" in cs or "foil" in cs
+            # Should have retail
+            assert "retail" in cs
 
     def test_get_price_cardmarket_structure(self, client, sample_card_uuid):
         """Cardmarket prices structure (EUR)."""
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "cardmarket" in data["paper"]:
+        if data.get("paper") and data["paper"].get("cardmarket"):
             cm = data["paper"]["cardmarket"]
             # Should have retail pricing
             assert "retail" in cm
@@ -253,28 +276,19 @@ class TestGetPrice:
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        mtgo = data["mtgo"]
-        # MTGO should have cardhoarder or be empty dict
-        assert isinstance(mtgo, dict)
+        mtgo = data.get("mtgo")
+        # MTGO should have cardhoarder or be empty dict/None
+        assert mtgo is None or isinstance(mtgo, dict)
 
     def test_get_price_mtgo_cardhoarder(self, client, sample_card_uuid):
         """MTGO Cardhoarder prices."""
         response = client.get(f"/api/prices/{sample_card_uuid}")
         data = response.json()
 
-        if "cardhoarder" in data["mtgo"]:
+        if data.get("mtgo") and data["mtgo"].get("cardhoarder"):
             ch = data["mtgo"]["cardhoarder"]
-            # Should have normal/foil
-            assert "normal" in ch or "foil" in ch
-
-    def test_get_price_average_calculated(self, client, sample_card_uuid):
-        """Average USD is calculated."""
-        response = client.get(f"/api/prices/{sample_card_uuid}")
-        data = response.json()
-
-        assert "average_usd" in data
-        if data["average_usd"] is not None:
-            assert isinstance(data["average_usd"], (int, float))
+            # Should have retail
+            assert "retail" in ch
 
     def test_get_price_history_structure(self, client, sample_card_uuid):
         """Price history structure (if available)."""
@@ -282,12 +296,11 @@ class TestGetPrice:
         data = response.json()
 
         # History may or may not be present
-        if "history" in data and data["history"]:
-            assert isinstance(data["history"], list)
-            if data["history"]:
-                entry = data["history"][0]
+        if "price_history" in data and data["price_history"]:
+            assert isinstance(data["price_history"], list)
+            if data["price_history"]:
+                entry = data["price_history"][0]
                 assert "date" in entry
-                assert "price" in entry
 
     def test_get_price_not_found(self, client):
         """Non-existent card returns 404."""

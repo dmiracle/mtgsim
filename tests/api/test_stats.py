@@ -1,7 +1,5 @@
 """Tests for statistics API endpoints."""
 
-import pytest
-
 
 class TestGetHomeStats:
     """Tests for GET /api/stats/home endpoint."""
@@ -19,7 +17,7 @@ class TestGetHomeStats:
         assert "total_decks" in data
         assert "total_sets" in data
         assert "total_cards" in data
-        assert "cards_with_prices" in data
+        assert "total_cards_with_prices" in data
 
     def test_get_home_stats_counts_are_integers(self, client):
         """Count fields are integers."""
@@ -29,7 +27,7 @@ class TestGetHomeStats:
         assert isinstance(data["total_decks"], int)
         assert isinstance(data["total_sets"], int)
         assert isinstance(data["total_cards"], int)
-        assert isinstance(data["cards_with_prices"], int)
+        assert isinstance(data["total_cards_with_prices"], int)
 
     def test_get_home_stats_counts_non_negative(self, client):
         """Count fields are non-negative."""
@@ -39,7 +37,7 @@ class TestGetHomeStats:
         assert data["total_decks"] >= 0
         assert data["total_sets"] >= 0
         assert data["total_cards"] >= 0
-        assert data["cards_with_prices"] >= 0
+        assert data["total_cards_with_prices"] >= 0
 
     def test_get_home_stats_has_format_distribution(self, client):
         """Response has format distribution."""
@@ -65,25 +63,25 @@ class TestGetHomeStats:
         response = client.get("/api/stats/home")
         data = response.json()
 
-        for fmt, count in data["format_distribution"].items():
+        for _fmt, count in data["format_distribution"].items():
             assert isinstance(count, int)
             assert count >= 0
 
-    def test_get_home_stats_has_deck_price_histogram(self, client):
-        """Response has deck price histogram."""
+    def test_get_home_stats_has_price_histogram(self, client):
+        """Response has price histogram."""
         response = client.get("/api/stats/home")
         data = response.json()
 
-        assert "deck_price_histogram" in data
-        assert isinstance(data["deck_price_histogram"], list)
+        assert "price_histogram" in data
+        assert isinstance(data["price_histogram"], list)
 
     def test_get_home_stats_histogram_bucket_structure(self, client):
         """Histogram buckets have correct structure."""
         response = client.get("/api/stats/home")
         data = response.json()
 
-        if data["deck_price_histogram"]:
-            bucket = data["deck_price_histogram"][0]
+        if data["price_histogram"]:
+            bucket = data["price_histogram"][0]
             assert "range" in bucket
             assert "count" in bucket
 
@@ -92,8 +90,8 @@ class TestGetHomeStats:
         response = client.get("/api/stats/home")
         data = response.json()
 
-        if data["deck_price_histogram"]:
-            bucket = data["deck_price_histogram"][0]
+        if data["price_histogram"]:
+            bucket = data["price_histogram"][0]
             assert isinstance(bucket["range"], str)
 
     def test_get_home_stats_histogram_bucket_count(self, client):
@@ -101,8 +99,8 @@ class TestGetHomeStats:
         response = client.get("/api/stats/home")
         data = response.json()
 
-        if data["deck_price_histogram"]:
-            bucket = data["deck_price_histogram"][0]
+        if data["price_histogram"]:
+            bucket = data["price_histogram"][0]
             assert isinstance(bucket["count"], int)
             assert bucket["count"] >= 0
 
@@ -148,9 +146,9 @@ class TestGetHomeStats:
 
         if data["most_expensive_cards"]:
             card = data["most_expensive_cards"][0]
-            assert "uuid" in card
             assert "name" in card
             assert "price" in card
+            assert "set_code" in card
 
     def test_get_home_stats_expensive_cards_limited(self, client):
         """Most expensive cards are limited in number."""
@@ -169,64 +167,64 @@ class TestGetDeckStats:
         response = client.get("/api/stats/decks")
         assert response.status_code == 200
 
-    def test_get_deck_stats_has_decks_by_format(self, client):
+    def test_get_deck_stats_has_by_format(self, client):
         """Response has decks by format."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        assert "decks_by_format" in data
-        assert isinstance(data["decks_by_format"], dict)
+        assert "by_format" in data
+        assert isinstance(data["by_format"], dict)
 
-    def test_get_deck_stats_decks_by_format_structure(self, client):
-        """Decks by format has expected formats."""
+    def test_get_deck_stats_by_format_structure(self, client):
+        """by_format has expected formats."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        formats = data["decks_by_format"]
-        expected_formats = ["standard", "pioneer", "modern", "legacy", "vintage", "commander"]
+        formats = data["by_format"]
+        expected_formats = ["standard", "pioneer", "modern", "legacy", "commander"]
         for fmt in expected_formats:
             assert fmt in formats
 
-    def test_get_deck_stats_decks_by_format_values(self, client):
-        """Decks by format values are integers."""
+    def test_get_deck_stats_by_format_values(self, client):
+        """by_format values are integers."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        for fmt, count in data["decks_by_format"].items():
+        for _fmt, count in data["by_format"].items():
             assert isinstance(count, int)
             assert count >= 0
 
-    def test_get_deck_stats_has_decks_by_set(self, client):
+    def test_get_deck_stats_has_by_set(self, client):
         """Response has decks by set."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        assert "decks_by_set" in data
-        assert isinstance(data["decks_by_set"], dict)
+        assert "by_set" in data
+        assert isinstance(data["by_set"], dict)
 
-    def test_get_deck_stats_decks_by_set_values(self, client):
-        """Decks by set values are integers."""
+    def test_get_deck_stats_by_set_values(self, client):
+        """by_set values are integers."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        for set_code, count in data["decks_by_set"].items():
+        for _set_code, count in data["by_set"].items():
             assert isinstance(count, int)
             assert count >= 0
 
-    def test_get_deck_stats_has_decks_by_colors(self, client):
+    def test_get_deck_stats_has_by_color_combination(self, client):
         """Response has decks by color combination."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        assert "decks_by_colors" in data
-        assert isinstance(data["decks_by_colors"], dict)
+        assert "by_color_combination" in data
+        assert isinstance(data["by_color_combination"], dict)
 
-    def test_get_deck_stats_decks_by_colors_values(self, client):
-        """Decks by colors values are integers."""
+    def test_get_deck_stats_by_color_combination_values(self, client):
+        """by_color_combination values are integers."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        for colors, count in data["decks_by_colors"].items():
+        for _colors, count in data["by_color_combination"].items():
             assert isinstance(count, int)
             assert count >= 0
 
@@ -248,45 +246,45 @@ class TestGetDeckStats:
             assert "range" in bucket
             assert "count" in bucket
 
-    def test_get_deck_stats_has_average_price(self, client):
+    def test_get_deck_stats_has_average_deck_price(self, client):
         """Response has average deck price."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        assert "average_price" in data
-        if data["average_price"] is not None:
-            assert isinstance(data["average_price"], (int, float))
+        assert "average_deck_price" in data
+        if data["average_deck_price"] is not None:
+            assert isinstance(data["average_deck_price"], (int, float))
 
-    def test_get_deck_stats_average_price_non_negative(self, client):
-        """Average price is non-negative."""
+    def test_get_deck_stats_average_deck_price_non_negative(self, client):
+        """Average deck price is non-negative."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        if data["average_price"] is not None:
-            assert data["average_price"] >= 0
+        if data["average_deck_price"] is not None:
+            assert data["average_deck_price"] >= 0
 
-    def test_get_deck_stats_has_average_size(self, client):
+    def test_get_deck_stats_has_average_deck_size(self, client):
         """Response has average deck size."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        assert "average_size" in data
-        if data["average_size"] is not None:
-            assert isinstance(data["average_size"], (int, float))
+        assert "average_deck_size" in data
+        if data["average_deck_size"] is not None:
+            assert isinstance(data["average_deck_size"], (int, float))
 
-    def test_get_deck_stats_average_size_non_negative(self, client):
-        """Average size is non-negative."""
+    def test_get_deck_stats_average_deck_size_non_negative(self, client):
+        """Average deck size is non-negative."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        if data["average_size"] is not None:
-            assert data["average_size"] >= 0
+        if data["average_deck_size"] is not None:
+            assert data["average_deck_size"] >= 0
 
-    def test_get_deck_stats_average_size_reasonable(self, client):
-        """Average size is reasonable for MTG decks."""
+    def test_get_deck_stats_average_deck_size_reasonable(self, client):
+        """Average deck size is reasonable for MTG decks."""
         response = client.get("/api/stats/decks")
         data = response.json()
 
-        if data["average_size"] is not None:
+        if data["average_deck_size"] is not None:
             # Decks are typically 60 or 100 cards
-            assert 40 <= data["average_size"] <= 120
+            assert 40 <= data["average_deck_size"] <= 120

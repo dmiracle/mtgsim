@@ -1,43 +1,38 @@
 """FastAPI application for MTG Webapp REST API."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-from mtgsim.api.models.common import ErrorResponse, ErrorDetail
+from mtgsim.api.data import close_databases, init_databases
+from mtgsim.api.models.common import ErrorDetail, ErrorResponse
 from mtgsim.api.routers import (
-    decks_router,
-    sets_router,
     cards_router,
-    prices_router,
-    stats_router,
+    decks_router,
     keywords_router,
+    prices_router,
+    sets_router,
+    stats_router,
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Application lifespan handler for startup/shutdown.
-
-    TODO: Implement actual initialization:
-    1. Load price data into memory/cache
-    2. Build deck index with pre-calculated prices and colors
-    3. Build card-to-decks mapping
-    4. Load set index
-    5. Load card index
-    6. Load keywords
-    """
+    """Application lifespan handler for startup/shutdown."""
     # Startup
     print("Starting MTG API server...")
-    print("TODO: Initialize data caches")
+    init_databases()
+    print("Database connections initialized")
 
     yield
 
     # Shutdown
     print("Shutting down MTG API server...")
+    close_databases()
 
 
 app = FastAPI(
@@ -149,3 +144,27 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+# Mount static files for the webapp
+web_dir = Path("web")
+resources_dir = Path("resources")
+webapp_dir = Path("webapp")
+
+if web_dir.exists():
+    app.mount("/web", StaticFiles(directory=str(web_dir)), name="web")
+
+if resources_dir.exists():
+    app.mount("/resources", StaticFiles(directory=str(resources_dir)), name="resources")
+
+if webapp_dir.exists():
+    app.mount("/webapp", StaticFiles(directory=str(webapp_dir)), name="webapp")
+
+
+@app.get("/app")
+async def serve_webapp():
+    """Serve the main webapp."""
+    index_path = web_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"error": "Webapp not found"}

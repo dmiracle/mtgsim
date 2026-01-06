@@ -3,9 +3,10 @@ from pathlib import Path
 import typer
 
 from ..db.session import DATABASE_PATH, get_session, init_db
+from ..db.set_models import ALL_SETS_DB_PATH
 from ..domain.card import Card, Rarity
 from ..repository.card_repository import CardRepository, db_to_card
-from ..sync.mtgjson import update_decks, update_references
+from ..sync.mtgjson import update_decks, update_references, update_sets
 
 db_app = typer.Typer(help="Database operations")
 
@@ -27,6 +28,25 @@ def db_sync_decks(
         typer.echo("Deck sync complete.")
     except Exception as e:
         typer.echo(f"Error during deck sync: {e}")
+        raise typer.Exit(1)
+
+
+@db_app.command("sync-sets")
+def db_sync_sets(
+    set_files_dir: Path = typer.Option(None, "--dir", "-d", help="Path to AllSetFiles directory"),
+):
+    """Sync set data from AllSetFiles JSON to SQLite database.
+
+    This creates a reference database at ~/.mtgsim/reference/mtgjson/AllSets.sqlite
+    from the AllSetFiles JSON files. This is faster for querying than loading JSON.
+
+    By default, looks for AllSetFiles in the resources directory.
+    """
+    try:
+        update_sets(set_files_dir)
+        typer.echo(f"Sets database created at {ALL_SETS_DB_PATH}")
+    except Exception as e:
+        typer.echo(f"Error during set sync: {e}")
         raise typer.Exit(1)
 
 
@@ -65,7 +85,7 @@ def db_add(
     foil: bool = typer.Option(False, "--foil", help="Mark as foil"),
 ):
     """Add a card to the database."""
-    from .card_commands import parse_card_types, parse_supertypes, parse_subtypes, parse_mana_cost
+    from .card_commands import parse_card_types, parse_mana_cost, parse_subtypes, parse_supertypes
 
     init_db()
     mana_cost = parse_mana_cost(mana) if mana else None

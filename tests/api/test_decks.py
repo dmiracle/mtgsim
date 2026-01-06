@@ -1,7 +1,5 @@
 """Tests for deck API endpoints."""
 
-import pytest
-
 
 class TestListDecks:
     """Tests for GET /api/decks endpoint."""

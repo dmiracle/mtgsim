@@ -1,6 +1,6 @@
 """Common models used across the API."""
 
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ class Pagination(BaseModel):
     pages: int = Field(ge=0, description="Total number of pages")
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse[T](BaseModel):
     """Generic paginated response wrapper."""
 
     data: list[T]

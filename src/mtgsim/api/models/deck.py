@@ -3,9 +3,9 @@
 from pydantic import BaseModel, Field
 
 from mtgsim.api.models.common import (
-    Pagination,
     HistogramBucket,
     KeywordCounts,
+    Pagination,
 )
 
 
@@ -62,6 +62,7 @@ class DeckCard(BaseModel):
     mana_value: int = 0
     type: str | None = None
     rarity: str | None = None
+    text: str | None = None
     price: float | None = None
     image_url: str | None = None
 

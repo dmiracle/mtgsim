@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from mtgsim.api.models.set import SetListResponse, SetDetail
+from mtgsim.api.models.set import SetDetail, SetListResponse
 from mtgsim.api.services.set_service import set_service
 
 router = APIRouter(prefix="/sets", tags=["sets"])

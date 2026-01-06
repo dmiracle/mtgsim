@@ -3,15 +3,6 @@ from pathlib import Path
 from sqlmodel import Session, SQLModel, create_engine
 
 from .deck_models import Deck, DeckCard, DeckList
-from .models import (
-    AllPrintingsMetadata,
-    CardColorLink,
-    CardDB,
-    CardLegalityLink,
-    CardSubtypeLink,
-    CardSupertypeLink,
-    CardTypeLink,
-)
 
 DATABASE_PATH = Path.home() / ".mtgsim" / "mtgsim.db"
 
@@ -35,7 +26,7 @@ def get_session(db_path: Path | None = None) -> Session:
 
 
 def init_deck_db():
-    from .deck_models import ALL_DECKS_DB_PATH, get_deck_engine
+    from .deck_models import get_deck_engine
 
     engine = get_deck_engine()
     # Only create deck-related tables, not all SQLModel tables

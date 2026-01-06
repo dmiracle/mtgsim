@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from ..db.deck_models import Deck, DeckCard, DeckList
 from ..db.session import init_deck_db
+from ..db.set_models import SetCardDB, SetDB, init_sets_db
 
 REFERENCE_BASE_DIR = Path.home() / ".mtgsim" / "reference"
 MTGJSON_DIR = REFERENCE_BASE_DIR / "mtgjson"
@@ -236,3 +237,147 @@ def process_deck_files(engine, deck_dir: Path):
 
         session.commit()
     print("Deck processing complete.")
+
+
+def update_sets(set_files_dir: Path | None = None):
+    """
+    Sync set data from AllSetFiles JSON to SQLite database.
+
+    Args:
+        set_files_dir: Path to AllSetFiles directory. If None, looks in
+                       resources/AllSetFiles relative to the package.
+    """
+    if set_files_dir is None:
+        # Default to resources/AllSetFiles in the project
+        import mtgsim
+
+        package_dir = Path(mtgsim.__file__).parent.parent.parent
+        set_files_dir = package_dir / "resources" / "AllSetFiles"
+
+    if not set_files_dir.exists():
+        print(f"AllSetFiles directory not found at {set_files_dir}")
+        print("Please ensure the AllSetFiles directory exists.")
+        return
+
+    engine = init_sets_db()
+    process_set_files(engine, set_files_dir)
+
+
+def process_set_files(engine, set_dir: Path):
+    """Process all set JSON files in the directory."""
+    print("Processing set files...")
+
+    files = list(set_dir.glob("*.json"))
+    print(f"Found {len(files)} set files.")
+
+    with Session(engine) as session:
+        for i, file_path in enumerate(files):
+            if i % 50 == 0:
+                print(f"Processed {i}/{len(files)} sets...")
+                session.commit()
+
+            try:
+                with open(file_path) as f:
+                    content = json.load(f)
+
+                data = content.get("data", {})
+                set_code = data.get("code", file_path.stem)
+
+                # Check if set exists
+                existing_set = session.exec(select(SetDB).where(SetDB.code == set_code)).first()
+
+                if existing_set:
+                    set_db = existing_set
+                    # Update fields
+                    set_db.name = data.get("name", "")
+                    set_db.type = data.get("type", "")
+                    set_db.release_date = data.get("releaseDate")
+                    set_db.base_set_size = data.get("baseSetSize", 0)
+                    set_db.total_set_size = data.get("totalSetSize", 0)
+                    set_db.block = data.get("block")
+                    set_db.keyrune_code = data.get("keyruneCode")
+                    set_db.is_foil_only = data.get("isFoilOnly", False)
+                    set_db.is_online_only = data.get("isOnlineOnly", False)
+                    set_db.mtgo_code = data.get("mtgoCode")
+                    set_db.tcgplayer_group_id = data.get("tcgplayerGroupId")
+                    set_db.cardmarket_id = data.get("mcmId")
+                    set_db.cardsphere_set_id = data.get("cardsphereSetId")
+                    set_db.token_set_code = data.get("tokenSetCode")
+                    set_db.parent_code = data.get("parentCode")
+                    set_db.languages = data.get("languages", [])
+                    set_db.translations = data.get("translations", {})
+                else:
+                    set_db = SetDB(
+                        code=set_code,
+                        name=data.get("name", ""),
+                        type=data.get("type", ""),
+                        release_date=data.get("releaseDate"),
+                        base_set_size=data.get("baseSetSize", 0),
+                        total_set_size=data.get("totalSetSize", 0),
+                        block=data.get("block"),
+                        keyrune_code=data.get("keyruneCode"),
+                        is_foil_only=data.get("isFoilOnly", False),
+                        is_online_only=data.get("isOnlineOnly", False),
+                        mtgo_code=data.get("mtgoCode"),
+                        tcgplayer_group_id=data.get("tcgplayerGroupId"),
+                        cardmarket_id=data.get("mcmId"),
+                        cardsphere_set_id=data.get("cardsphereSetId"),
+                        token_set_code=data.get("tokenSetCode"),
+                        parent_code=data.get("parentCode"),
+                        languages=data.get("languages", []),
+                        translations=data.get("translations", {}),
+                    )
+                    session.add(set_db)
+
+                # Delete existing cards for this set
+                existing_cards = session.exec(select(SetCardDB).where(SetCardDB.set_code == set_code)).all()
+                for card in existing_cards:
+                    session.delete(card)
+
+                # Add cards from the set
+                cards_data = data.get("cards", [])
+                for card_data in cards_data:
+                    set_card = SetCardDB(
+                        uuid=card_data.get("uuid", ""),
+                        set_code=set_code,
+                        name=card_data.get("name", ""),
+                        mana_cost=card_data.get("manaCost"),
+                        mana_value=card_data.get("manaValue"),
+                        type=card_data.get("type"),
+                        text=card_data.get("text"),
+                        power=card_data.get("power"),
+                        toughness=card_data.get("toughness"),
+                        loyalty=card_data.get("loyalty"),
+                        defense=card_data.get("defense"),
+                        rarity=card_data.get("rarity"),
+                        number=card_data.get("number"),
+                        artist=card_data.get("artist"),
+                        flavor_text=card_data.get("flavorText"),
+                        layout=card_data.get("layout"),
+                        border_color=card_data.get("borderColor"),
+                        frame_version=card_data.get("frameVersion"),
+                        language=card_data.get("language"),
+                        colors=card_data.get("colors", []),
+                        color_identity=card_data.get("colorIdentity", []),
+                        types=card_data.get("types", []),
+                        subtypes=card_data.get("subtypes", []),
+                        supertypes=card_data.get("supertypes", []),
+                        keywords=card_data.get("keywords", []),
+                        finishes=card_data.get("finishes", []),
+                        printings=card_data.get("printings", []),
+                        legalities=card_data.get("legalities", {}),
+                        identifiers=card_data.get("identifiers", {}),
+                        purchase_urls=card_data.get("purchaseUrls", {}),
+                        has_foil=card_data.get("hasFoil", False),
+                        has_non_foil=card_data.get("hasNonFoil", False),
+                        is_reprint=card_data.get("isReprint", False),
+                        edhrec_rank=card_data.get("edhrecRank"),
+                        edhrec_saltiness=card_data.get("edhrecSaltiness"),
+                    )
+                    session.add(set_card)
+
+            except Exception as e:
+                print(f"Error processing {file_path.name}: {e}")
+
+        session.commit()
+    print("Set processing complete.")

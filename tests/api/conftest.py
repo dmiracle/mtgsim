@@ -3,7 +3,16 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from mtgsim.api.data import close_databases, init_databases
 from mtgsim.api.main import app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_databases():
+    """Initialize databases for all tests."""
+    init_databases()
+    yield
+    close_databases()
 
 
 @pytest.fixture
@@ -15,7 +24,7 @@ def client():
 @pytest.fixture
 def sample_deck_file():
     """Sample deck filename for testing."""
-    return "AggressiveRecruitment_KLD.json"
+    return "BlackAndGreenDelirium_KLD.json"
 
 
 @pytest.fixture
