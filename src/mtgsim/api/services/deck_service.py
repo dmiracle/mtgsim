@@ -1,6 +1,7 @@
 """Deck service - handles deck data access and processing."""
 
 from mtgsim.api.data import decks_data
+from mtgsim.api.data.pricing import PriceUtility
 from mtgsim.api.models.common import KeywordCounts, Pagination
 from mtgsim.api.models.deck import (
     DeckCard,
@@ -14,10 +15,19 @@ from mtgsim.api.models.deck import (
     DeckSummary,
     PriceBySource,
 )
+from mtgsim.api.models.mappers import DTOMapper
+from mtgsim.config import config
+from mtgsim.reference.repository import ReferenceRepository
 
 
 class DeckService:
     """Service for deck-related operations."""
+
+    def __init__(self):
+        """Initialize deck service with dependencies."""
+        self.reference_repo = ReferenceRepository(config)
+        self.price_utility = PriceUtility(self.reference_repo)
+        self.dto_mapper = DTOMapper()
 
     async def list_decks(
         self,
@@ -52,19 +62,34 @@ class DeckService:
             limit=limit,
         )
 
-        data = [
-            DeckSummary(
-                file=d["file"],
-                name=d["name"],
-                code=d["code"],
-                card_count=d["card_count"],
-                colors=d["colors"],
-                price=d.get("price"),
-                release_date=d["release_date"],
-                legality=DeckLegality(),
-            )
-            for d in decks
-        ]
+        # Use DTO mapper to convert decks to DeckSummary models
+        data = []
+        for d in decks:
+            # Create a mock row object for the mapper
+            row_dict = {
+                "file": d["file"],
+                "name": d["name"],
+                "code": d["code"],
+                "card_count": d["card_count"],
+                "colors": d["colors"] if isinstance(d["colors"], str) else str(d["colors"]),
+                "price": d.get("price"),
+                "releaseDate": d["release_date"],
+                "legalities": "{}"  # Default empty legalities
+            }
+            
+            # Convert dict to sqlite3.Row-like object
+            class MockRow:
+                def __init__(self, data):
+                    self._data = data
+                def __getitem__(self, key):
+                    return self._data[key]
+                def get(self, key, default=None):
+                    return self._data.get(key, default)
+                def keys(self):
+                    return self._data.keys()
+            
+            mock_row = MockRow(row_dict)
+            data.append(self.dto_mapper.map_deck_summary(mock_row))
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 
@@ -88,6 +113,33 @@ class DeckService:
         stats = deck["stats"]
         legality = deck["legality"]
 
+        # Calculate deck price using price utility
+        all_cards = deck["commander"] + deck["main_board"] + deck["side_board"]
+        deck_total_price = self.price_utility.calculate_deck_total(all_cards)
+
+        # Get individual card prices for deck cards
+        all_uuids = [c["uuid"] for c in all_cards if c.get("uuid")]
+        price_map = self.price_utility.get_bulk_average_prices(all_uuids)
+
+        def add_prices_to_cards(cards):
+            """Add price information to deck cards."""
+            result = []
+            for c in cards:
+                price = price_map.get(c["uuid"])
+                result.append(DeckCard(
+                    uuid=c["uuid"],
+                    name=c["name"],
+                    count=c["count"],
+                    mana_cost=c["mana_cost"],
+                    mana_value=c["mana_value"],
+                    type=c["type"],
+                    rarity=c["rarity"],
+                    text=c.get("text"),
+                    price=price,
+                    image_url=c.get("image_url"),
+                ))
+            return result
+
         return DeckDetail(
             meta=DeckMeta(
                 file=meta["file"],
@@ -105,54 +157,12 @@ class DeckService:
             ),
             colors=deck["colors"],
             price=DeckPrice(
-                total=deck.get("price") or 0,
+                total=deck_total_price,
                 by_source=PriceBySource(),
             ),
-            commander=[
-                DeckCard(
-                    uuid=c["uuid"],
-                    name=c["name"],
-                    count=c["count"],
-                    mana_cost=c["mana_cost"],
-                    mana_value=c["mana_value"],
-                    type=c["type"],
-                    rarity=c["rarity"],
-                    text=c.get("text"),
-                    price=c.get("price"),
-                    image_url=c.get("image_url"),
-                )
-                for c in deck["commander"]
-            ],
-            main_board=[
-                DeckCard(
-                    uuid=c["uuid"],
-                    name=c["name"],
-                    count=c["count"],
-                    mana_cost=c["mana_cost"],
-                    mana_value=c["mana_value"],
-                    type=c["type"],
-                    rarity=c["rarity"],
-                    text=c.get("text"),
-                    price=c.get("price"),
-                    image_url=c.get("image_url"),
-                )
-                for c in deck["main_board"]
-            ],
-            side_board=[
-                DeckCard(
-                    uuid=c["uuid"],
-                    name=c["name"],
-                    count=c["count"],
-                    mana_cost=c["mana_cost"],
-                    mana_value=c["mana_value"],
-                    type=c["type"],
-                    rarity=c["rarity"],
-                    text=c.get("text"),
-                    price=c.get("price"),
-                    image_url=c.get("image_url"),
-                )
-                for c in deck["side_board"]
-            ],
+            commander=add_prices_to_cards(deck["commander"]),
+            main_board=add_prices_to_cards(deck["main_board"]),
+            side_board=add_prices_to_cards(deck["side_board"]),
             stats=DeckStats(
                 total_cards=stats["total_cards"],
                 unique_cards=stats["unique_cards"],

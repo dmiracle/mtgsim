@@ -1,9 +1,8 @@
 """Database connection management for API data layer."""
 
 import sqlite3
-from pathlib import Path
 
-REFERENCE_DB_DIR = Path.home() / ".mtgsim" / "reference" / "mtgjson"
+from mtgsim.config import config
 
 
 class DatabaseManager:
@@ -21,10 +20,10 @@ class DatabaseManager:
         if self._initialized:
             return
 
-        sets_path = REFERENCE_DB_DIR / "AllSets.sqlite"
-        decks_path = REFERENCE_DB_DIR / "AllDecks.sqlite"
-        prices_path = REFERENCE_DB_DIR / "AllPricesToday.sqlite"
-        printings_path = REFERENCE_DB_DIR / "AllPrintings.sqlite"
+        sets_path = config.mtgjson_dir / "AllSets.sqlite"
+        decks_path = config.mtgjson_dir / "AllDecks.sqlite"
+        prices_path = config.mtgjson_dir / "AllPricesToday.sqlite"
+        printings_path = config.mtgjson_dir / "AllPrintings.sqlite"
 
         if sets_path.exists():
             self._sets_conn = sqlite3.connect(sets_path, check_same_thread=False)

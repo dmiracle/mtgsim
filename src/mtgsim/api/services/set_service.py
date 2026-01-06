@@ -1,8 +1,10 @@
 """Set service - handles set data access and processing."""
 
 from mtgsim.api.data import sets_data
+from mtgsim.api.data.pricing import PriceUtility
 from mtgsim.api.models.common import KeywordCounts, Pagination
 from mtgsim.api.models.deck import PriceBySource
+from mtgsim.api.models.mappers import DTOMapper
 from mtgsim.api.models.set import (
     ColorWordFrequencies,
     SetCard,
@@ -15,10 +17,18 @@ from mtgsim.api.models.set import (
     SetStats,
     SetSummary,
 )
+from mtgsim.config import config
+from mtgsim.reference.repository import ReferenceRepository
 
 
 class SetService:
     """Service for set-related operations."""
+
+    def __init__(self):
+        """Initialize set service with dependencies."""
+        self.reference_repo = ReferenceRepository(config)
+        self.price_utility = PriceUtility(self.reference_repo)
+        self.dto_mapper = DTOMapper()
 
     async def list_sets(
         self,
@@ -41,19 +51,34 @@ class SetService:
             limit=limit,
         )
 
-        data = [
-            SetSummary(
-                code=s["code"],
-                name=s["name"],
-                type=s["type"],
-                release_date=s["release_date"],
-                base_set_size=s["base_set_size"],
-                total_set_size=s["total_set_size"],
-                block=s["block"],
-                keyrune_code=s["keyrune_code"],
-            )
-            for s in sets
-        ]
+        # Use DTO mapper to convert sets to SetSummary models
+        data = []
+        for s in sets:
+            # Create a mock row object for the mapper
+            row_dict = {
+                "code": s["code"],
+                "name": s["name"],
+                "type": s["type"],
+                "releaseDate": s["release_date"],
+                "baseSetSize": s["base_set_size"],
+                "totalSetSize": s["total_set_size"],
+                "block": s["block"],
+                "keyruneCode": s["keyrune_code"],
+            }
+            
+            # Convert dict to sqlite3.Row-like object
+            class MockRow:
+                def __init__(self, data):
+                    self._data = data
+                def __getitem__(self, key):
+                    return self._data[key]
+                def get(self, key, default=None):
+                    return self._data.get(key, default)
+                def keys(self):
+                    return self._data.keys()
+            
+            mock_row = MockRow(row_dict)
+            data.append(self.dto_mapper.map_set_summary(mock_row))
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 
@@ -93,6 +118,13 @@ class SetService:
         # Get stats
         stats_data = sets_data.get_set_stats(code)
 
+        # Calculate set price using price utility
+        all_card_uuids = [c["uuid"] for c in cards if c.get("uuid")]
+        price_map = self.price_utility.get_bulk_average_prices(all_card_uuids)
+        
+        # Calculate total set price
+        total_price = sum(price_map.values())
+
         card_pages = (card_total + card_limit - 1) // card_limit if card_limit > 0 else 1
 
         return SetDetail(
@@ -109,8 +141,8 @@ class SetService:
             stats=SetStats(
                 rarity_count=stats_data["rarity_count"],
                 price=SetPrice(
-                    total=stats_data.get("total_price") or 0,
-                    by_source=PriceBySource(tcgplayer=stats_data.get("total_price")),
+                    total=total_price,
+                    by_source=PriceBySource(tcgplayer=total_price),
                 ),
                 price_histogram=[],
                 keywords=KeywordCounts(
@@ -136,7 +168,7 @@ class SetService:
                         rarity=c["rarity"],
                         color_identity=c["color_identity"],
                         text=c.get("text"),
-                        price=c.get("price"),
+                        price=price_map.get(c["uuid"]),
                         image_url=c.get("image_url"),
                     )
                     for c in cards

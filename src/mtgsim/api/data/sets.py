@@ -2,12 +2,18 @@
 
 import json
 
+from mtgsim.config import config
+from mtgsim.reference.repository import ReferenceRepository
+
 from .cards import get_scryfall_image_url
-from .database import db
 
 
 class SetsData:
     """Data access for sets."""
+
+    def __init__(self):
+        """Initialize with reference repository."""
+        self.repo = ReferenceRepository(config)
 
     def list_sets(
         self,
@@ -24,8 +30,6 @@ class SetsData:
 
         Returns: (list of sets, total count)
         """
-        conn = db.sets
-
         # Build WHERE clause
         conditions = []
         params = []
@@ -54,25 +58,20 @@ class SetsData:
         sort_field = sort_map.get(sort, "release_date")
         order_dir = "DESC" if order == "desc" else "ASC"
 
-        # Get total count
-        count_sql = f"SELECT COUNT(*) FROM setdb WHERE {where_clause}"
-        cursor = conn.execute(count_sql, params)
-        total = cursor.fetchone()[0]
-
-        # Get paginated results
-        offset = (page - 1) * limit
-        query_sql = f"""
+        # Build query
+        query = f"""
             SELECT code, name, type, release_date, base_set_size, total_set_size,
                    block, keyrune_code, is_foil_only, is_online_only
             FROM setdb
             WHERE {where_clause}
             ORDER BY {sort_field} {order_dir}
-            LIMIT ? OFFSET ?
         """
-        cursor = conn.execute(query_sql, params + [limit, offset])
+
+        # Execute paginated query
+        rows, total = self.repo.execute_paginated_query("sets", query, params, page, limit)
 
         sets = []
-        for row in cursor.fetchall():
+        for row in rows:
             sets.append(
                 {
                     "code": row["code"],
@@ -90,20 +89,18 @@ class SetsData:
 
     def get_set(self, code: str) -> dict | None:
         """Get set metadata by code."""
-        conn = db.sets
-
-        cursor = conn.execute(
+        row = self.repo.execute_single_query(
+            "sets",
             """
             SELECT code, name, type, release_date, base_set_size, total_set_size,
                    block, keyrune_code, is_foil_only, is_online_only, mtgo_code,
                    tcgplayer_group_id, cardmarket_id, languages, translations
             FROM setdb
             WHERE code = ?
-        """,
+            """,
             [code],
         )
 
-        row = cursor.fetchone()
         if not row:
             return None
 
@@ -121,8 +118,8 @@ class SetsData:
             "mtgo_code": row["mtgo_code"],
             "tcgplayer_group_id": row["tcgplayer_group_id"],
             "cardmarket_id": row["cardmarket_id"],
-            "languages": json.loads(row["languages"]) if row["languages"] else [],
-            "translations": json.loads(row["translations"]) if row["translations"] else {},
+            "languages": self.repo.decode_json_field(row["languages"]),
+            "translations": self.repo.decode_json_field(row["translations"]),
         }
 
     def get_set_cards(
@@ -139,8 +136,6 @@ class SetsData:
 
         Returns: (list of cards, total count)
         """
-        conn = db.sets
-
         conditions = ["set_code = ?"]
         params = [code]
 
@@ -158,45 +153,21 @@ class SetsData:
 
         where_clause = " AND ".join(conditions)
 
-        # Get total count
-        count_sql = f"SELECT COUNT(*) FROM setcarddb WHERE {where_clause}"
-        cursor = conn.execute(count_sql, params)
-        total = cursor.fetchone()[0]
-
-        # Get paginated results
-        offset = (page - 1) * limit
-        query_sql = f"""
+        # Build query
+        query = f"""
             SELECT uuid, name, mana_cost, mana_value, type, rarity,
                    color_identity, colors, power, toughness, number, identifiers, text
             FROM setcarddb
             WHERE {where_clause}
             ORDER BY CAST(number AS INTEGER), number
-            LIMIT ? OFFSET ?
         """
-        cursor = conn.execute(query_sql, params + [limit, offset])
-        rows = cursor.fetchall()
+
+        # Execute paginated query
+        rows, total = self.repo.execute_paginated_query("sets", query, params, page, limit)
 
         # Get prices for all cards in batch
-        price_map = {}
-        try:
-            prices_conn = db.prices
-            uuids = [row["uuid"] for row in rows]
-            if uuids:
-                placeholders = ",".join(["?"] * len(uuids))
-                price_cursor = prices_conn.execute(
-                    f"""
-                    SELECT uuid, price FROM cardPrices
-                    WHERE uuid IN ({placeholders})
-                      AND priceProvider = 'tcgplayer'
-                      AND providerListing = 'retail'
-                      AND cardFinish = 'normal'
-                      AND currency = 'USD'
-                """,
-                    uuids,
-                )
-                price_map = {r["uuid"]: r["price"] for r in price_cursor.fetchall()}
-        except RuntimeError:
-            pass
+        uuids = [row["uuid"] for row in rows]
+        price_map = self.repo.get_price_map(uuids)
 
         cards = []
         for row in rows:
@@ -208,8 +179,8 @@ class SetsData:
                     "mana_value": row["mana_value"],
                     "type": row["type"],
                     "rarity": row["rarity"],
-                    "color_identity": json.loads(row["color_identity"]) if row["color_identity"] else [],
-                    "colors": json.loads(row["colors"]) if row["colors"] else [],
+                    "color_identity": self.repo.decode_json_field(row["color_identity"]),
+                    "colors": self.repo.decode_json_field(row["colors"]),
                     "power": row["power"],
                     "toughness": row["toughness"],
                     "number": row["number"],
@@ -223,30 +194,24 @@ class SetsData:
 
     def get_set_stats(self, code: str) -> dict:
         """Calculate statistics for a set."""
-        conn = db.sets
-
         # Rarity distribution
-        cursor = conn.execute(
+        rows = self.repo.execute_query(
+            "sets",
             """
             SELECT rarity, COUNT(*) as count
             FROM setcarddb
             WHERE set_code = ?
             GROUP BY rarity
-        """,
+            """,
             [code],
         )
-        rarity_count = {row["rarity"]: row["count"] for row in cursor.fetchall()}
+        rarity_count = {row["rarity"]: row["count"] for row in rows}
 
         # Color distribution
-        cursor = conn.execute(
-            """
-            SELECT color_identity FROM setcarddb WHERE set_code = ?
-        """,
-            [code],
-        )
+        rows = self.repo.execute_query("sets", "SELECT color_identity FROM setcarddb WHERE set_code = ?", [code])
         color_count = {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "C": 0}
-        for row in cursor.fetchall():
-            colors = json.loads(row["color_identity"]) if row["color_identity"] else []
+        for row in rows:
+            colors = self.repo.decode_json_field(row["color_identity"])
             if not colors:
                 color_count["C"] += 1
             else:
@@ -255,28 +220,18 @@ class SetsData:
                         color_count[c] += 1
 
         # Type distribution
-        cursor = conn.execute(
-            """
-            SELECT types FROM setcarddb WHERE set_code = ?
-        """,
-            [code],
-        )
+        rows = self.repo.execute_query("sets", "SELECT types FROM setcarddb WHERE set_code = ?", [code])
         type_count = {}
-        for row in cursor.fetchall():
-            types = json.loads(row["types"]) if row["types"] else []
+        for row in rows:
+            types = self.repo.decode_json_field(row["types"])
             for t in types:
                 type_count[t] = type_count.get(t, 0) + 1
 
         # Keywords
-        cursor = conn.execute(
-            """
-            SELECT keywords FROM setcarddb WHERE set_code = ?
-        """,
-            [code],
-        )
+        rows = self.repo.execute_query("sets", "SELECT keywords FROM setcarddb WHERE set_code = ?", [code])
         keyword_count = {}
-        for row in cursor.fetchall():
-            keywords = json.loads(row["keywords"]) if row["keywords"] else []
+        for row in rows:
+            keywords = self.repo.decode_json_field(row["keywords"])
             for k in keywords:
                 keyword_count[k] = keyword_count.get(k, 0) + 1
 
@@ -293,55 +248,33 @@ class SetsData:
 
     def _get_set_price(self, code: str) -> float | None:
         """Calculate total set price from tcgplayer prices."""
-        try:
-            sets_conn = db.sets
-            prices_conn = db.prices
-        except RuntimeError:
-            return None
-
         # Get all card UUIDs in the set
-        cursor = sets_conn.execute(
-            """
-            SELECT uuid FROM setcarddb WHERE set_code = ?
-        """,
-            [code],
-        )
-        uuids = [row["uuid"] for row in cursor.fetchall()]
+        rows = self.repo.execute_query("sets", "SELECT uuid FROM setcarddb WHERE set_code = ?", [code])
+        uuids = [row["uuid"] for row in rows]
         if not uuids:
             return None
 
         # Get prices for these cards
-        placeholders = ",".join(["?"] * len(uuids))
-        cursor = prices_conn.execute(
-            f"""
-            SELECT uuid, price FROM cardPrices
-            WHERE uuid IN ({placeholders})
-              AND priceProvider = 'tcgplayer'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
-              AND currency = 'USD'
-        """,
-            uuids,
-        )
-
-        total = sum(row["price"] for row in cursor.fetchall() if row["price"])
+        price_map = self.repo.get_price_map(uuids)
+        total = sum(price_map.values())
         return round(total, 2) if total > 0 else None
 
     def get_available_types(self) -> list[str]:
         """Get list of unique set types."""
-        conn = db.sets
-        cursor = conn.execute("SELECT DISTINCT type FROM setdb ORDER BY type")
-        return [row["type"] for row in cursor.fetchall()]
+        rows = self.repo.execute_query("sets", "SELECT DISTINCT type FROM setdb ORDER BY type")
+        return [row["type"] for row in rows]
 
     def get_available_blocks(self) -> list[str]:
         """Get list of unique blocks."""
-        conn = db.sets
-        cursor = conn.execute("""
+        rows = self.repo.execute_query(
+            "sets",
+            """
             SELECT DISTINCT block FROM setdb
             WHERE block IS NOT NULL
             ORDER BY block
-        """)
-        return [row["block"] for row in cursor.fetchall()]
+            """,
+        )
+        return [row["block"] for row in rows]
 
 
 # Singleton instance

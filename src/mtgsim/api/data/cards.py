@@ -2,7 +2,8 @@
 
 import json
 
-from .database import db
+from mtgsim.config import config
+from mtgsim.reference.repository import ReferenceRepository
 
 
 def get_scryfall_image_url(identifiers_json: str | None, size: str = "normal") -> str | None:
@@ -22,6 +23,10 @@ def get_scryfall_image_url(identifiers_json: str | None, size: str = "normal") -
 class CardsData:
     """Data access for cards."""
 
+    def __init__(self):
+        """Initialize with reference repository."""
+        self.repo = ReferenceRepository(config)
+
     def search_cards(
         self,
         q: str | None = None,
@@ -39,8 +44,6 @@ class CardsData:
 
         Returns: (list of cards, total count)
         """
-        conn = db.sets
-
         conditions = []
         params = []
 
@@ -77,46 +80,22 @@ class CardsData:
         sort_field = sort_map.get(sort, "name")
         order_dir = "DESC" if order == "desc" else "ASC"
 
-        # Get total count
-        count_sql = f"SELECT COUNT(*) FROM setcarddb WHERE {where_clause}"
-        cursor = conn.execute(count_sql, params)
-        total = cursor.fetchone()[0]
-
-        # Get paginated results
-        offset = (page - 1) * limit
-        query_sql = f"""
+        # Build query
+        query = f"""
             SELECT uuid, name, mana_cost, mana_value, type, rarity,
                    set_code, color_identity, colors, power, toughness, number,
                    identifiers, text
             FROM setcarddb
             WHERE {where_clause}
             ORDER BY {sort_field} {order_dir}
-            LIMIT ? OFFSET ?
         """
-        cursor = conn.execute(query_sql, params + [limit, offset])
-        rows = cursor.fetchall()
+
+        # Execute paginated query
+        rows, total = self.repo.execute_paginated_query("sets", query, params, page, limit)
 
         # Get prices for all cards in batch
-        price_map = {}
-        try:
-            prices_conn = db.prices
-            uuids = [row["uuid"] for row in rows]
-            if uuids:
-                placeholders = ",".join(["?"] * len(uuids))
-                price_cursor = prices_conn.execute(
-                    f"""
-                    SELECT uuid, price FROM cardPrices
-                    WHERE uuid IN ({placeholders})
-                      AND priceProvider = 'tcgplayer'
-                      AND providerListing = 'retail'
-                      AND cardFinish = 'normal'
-                      AND currency = 'USD'
-                """,
-                    uuids,
-                )
-                price_map = {r["uuid"]: r["price"] for r in price_cursor.fetchall()}
-        except RuntimeError:
-            pass
+        uuids = [row["uuid"] for row in rows]
+        price_map = self.repo.get_price_map(uuids)
 
         cards = []
         for row in rows:
@@ -129,8 +108,8 @@ class CardsData:
                     "type": row["type"],
                     "rarity": row["rarity"],
                     "set_code": row["set_code"],
-                    "color_identity": json.loads(row["color_identity"]) if row["color_identity"] else [],
-                    "colors": json.loads(row["colors"]) if row["colors"] else [],
+                    "color_identity": self.repo.decode_json_field(row["color_identity"]),
+                    "colors": self.repo.decode_json_field(row["colors"]),
                     "power": row["power"],
                     "toughness": row["toughness"],
                     "number": row["number"],
@@ -144,9 +123,8 @@ class CardsData:
 
     def get_card(self, uuid: str) -> dict | None:
         """Get card details by UUID."""
-        conn = db.sets
-
-        cursor = conn.execute(
+        row = self.repo.execute_single_query(
+            "sets",
             """
             SELECT uuid, name, mana_cost, mana_value, type, types, subtypes,
                    supertypes, rarity, set_code, color_identity, colors,
@@ -154,21 +132,16 @@ class CardsData:
                    keywords, legalities, identifiers
             FROM setcarddb
             WHERE uuid = ?
-        """,
+            """,
             [uuid],
         )
 
-        row = cursor.fetchone()
         if not row:
             return None
 
         # Get set name
-        set_cursor = conn.execute("SELECT name FROM setdb WHERE code = ?", [row["set_code"]])
-        set_row = set_cursor.fetchone()
+        set_row = self.repo.execute_single_query("sets", "SELECT name FROM setdb WHERE code = ?", [row["set_code"]])
         set_name = set_row["name"] if set_row else None
-
-        # Parse legalities
-        legalities = json.loads(row["legalities"]) if row["legalities"] else {}
 
         return {
             "uuid": row["uuid"],
@@ -176,44 +149,42 @@ class CardsData:
             "mana_cost": row["mana_cost"],
             "mana_value": row["mana_value"],
             "type": row["type"],
-            "types": json.loads(row["types"]) if row["types"] else [],
-            "subtypes": json.loads(row["subtypes"]) if row["subtypes"] else [],
-            "supertypes": json.loads(row["supertypes"]) if row["supertypes"] else [],
+            "types": self.repo.decode_json_field(row["types"]),
+            "subtypes": self.repo.decode_json_field(row["subtypes"]),
+            "supertypes": self.repo.decode_json_field(row["supertypes"]),
             "rarity": row["rarity"],
             "set_code": row["set_code"],
             "set_name": set_name,
-            "color_identity": json.loads(row["color_identity"]) if row["color_identity"] else [],
-            "colors": json.loads(row["colors"]) if row["colors"] else [],
+            "color_identity": self.repo.decode_json_field(row["color_identity"]),
+            "colors": self.repo.decode_json_field(row["colors"]),
             "power": row["power"],
             "toughness": row["toughness"],
             "text": row["text"],
             "flavor_text": row["flavor_text"],
             "number": row["number"],
             "artist": row["artist"],
-            "keywords": json.loads(row["keywords"]) if row["keywords"] else [],
-            "legalities": legalities,
+            "keywords": self.repo.decode_json_field(row["keywords"]),
+            "legalities": self.repo.decode_json_field(row["legalities"]),
             "image_url": get_scryfall_image_url(row["identifiers"], "large"),
         }
 
     def get_cards_by_name(self, name: str) -> list[dict]:
         """Get all printings of a card by exact name."""
-        conn = db.sets
-
-        cursor = conn.execute(
+        rows = self.repo.execute_query(
+            "sets",
             """
             SELECT uuid, name, set_code, rarity, number
             FROM setcarddb
             WHERE name = ?
             ORDER BY set_code
-        """,
+            """,
             [name],
         )
 
         cards = []
-        for row in cursor.fetchall():
+        for row in rows:
             # Get set name
-            set_cursor = conn.execute("SELECT name FROM setdb WHERE code = ?", [row["set_code"]])
-            set_row = set_cursor.fetchone()
+            set_row = self.repo.execute_single_query("sets", "SELECT name FROM setdb WHERE code = ?", [row["set_code"]])
             set_name = set_row["name"] if set_row else None
 
             cards.append(
@@ -231,34 +202,31 @@ class CardsData:
 
     def get_card_appearances(self, uuid: str) -> list[dict]:
         """Get decks that contain this card."""
-        try:
-            conn = db.decks
-        except RuntimeError:
-            return []
-
         # First get the card name
-        sets_conn = db.sets
-        cursor = sets_conn.execute("SELECT name FROM setcarddb WHERE uuid = ?", [uuid])
-        row = cursor.fetchone()
+        row = self.repo.execute_single_query("sets", "SELECT name FROM setcarddb WHERE uuid = ?", [uuid])
         if not row:
             return []
         card_name = row["name"]
 
         # Find decks containing this card
-        cursor = conn.execute(
-            """
-            SELECT d.file_name, d.name, dc.count
-            FROM deckcard dc
-            JOIN deck d ON dc.deck_uuid = d.uuid
-            WHERE dc.name = ?
-            ORDER BY d.name
-            LIMIT 20
-        """,
-            [card_name],
-        )
+        try:
+            rows = self.repo.execute_query(
+                "decks",
+                """
+                SELECT d.file_name, d.name, dc.count
+                FROM deckcard dc
+                JOIN deck d ON dc.deck_uuid = d.uuid
+                WHERE dc.name = ?
+                ORDER BY d.name
+                LIMIT 20
+                """,
+                [card_name],
+            )
+        except RuntimeError:
+            return []
 
         appearances = []
-        for row in cursor.fetchall():
+        for row in rows:
             appearances.append(
                 {
                     "file": row["file_name"] + ".json",
@@ -271,30 +239,27 @@ class CardsData:
 
     def get_other_printings(self, uuid: str) -> list[dict]:
         """Get other printings of the same card."""
-        conn = db.sets
-
         # Get card name
-        cursor = conn.execute("SELECT name FROM setcarddb WHERE uuid = ?", [uuid])
-        row = cursor.fetchone()
+        row = self.repo.execute_single_query("sets", "SELECT name FROM setcarddb WHERE uuid = ?", [uuid])
         if not row:
             return []
         card_name = row["name"]
 
         # Get other printings
-        cursor = conn.execute(
+        rows = self.repo.execute_query(
+            "sets",
             """
             SELECT uuid, set_code, rarity
             FROM setcarddb
             WHERE name = ? AND uuid != ?
             ORDER BY set_code
-        """,
+            """,
             [card_name, uuid],
         )
 
         printings = []
-        for row in cursor.fetchall():
-            set_cursor = conn.execute("SELECT name FROM setdb WHERE code = ?", [row["set_code"]])
-            set_row = set_cursor.fetchone()
+        for row in rows:
+            set_row = self.repo.execute_single_query("sets", "SELECT name FROM setdb WHERE code = ?", [row["set_code"]])
             set_name = set_row["name"] if set_row else None
 
             printings.append(

@@ -1,5 +1,6 @@
 """FastAPI application for MTG Webapp REST API."""
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from mtgsim.api.routers import (
     sets_router,
     stats_router,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -151,14 +154,22 @@ web_dir = Path("web")
 resources_dir = Path("resources")
 webapp_dir = Path("webapp")
 
-if web_dir.exists():
-    app.mount("/web", StaticFiles(directory=str(web_dir)), name="web")
+# Mount static directories with proper error handling
+static_mounts = [
+    ("/web", web_dir, "web"),
+    ("/resources", resources_dir, "resources"),
+    ("/webapp", webapp_dir, "webapp"),
+]
 
-if resources_dir.exists():
-    app.mount("/resources", StaticFiles(directory=str(resources_dir)), name="resources")
-
-if webapp_dir.exists():
-    app.mount("/webapp", StaticFiles(directory=str(webapp_dir)), name="webapp")
+for mount_path, directory, name in static_mounts:
+    if directory.exists():
+        try:
+            app.mount(mount_path, StaticFiles(directory=str(directory)), name=name)
+            logger.info(f"Mounted static directory: {mount_path} -> {directory}")
+        except Exception as e:
+            logger.warning(f"Failed to mount static directory {mount_path}: {e}")
+    else:
+        logger.debug(f"Static directory not found, skipping mount: {directory}")
 
 
 @app.get("/app")
@@ -167,4 +178,10 @@ async def serve_webapp():
     index_path = web_dir / "index.html"
     if index_path.exists():
         return FileResponse(str(index_path))
+    
+    # Try webapp directory as fallback
+    webapp_index = webapp_dir / "index.html"
+    if webapp_index.exists():
+        return FileResponse(str(webapp_index))
+    
     return {"error": "Webapp not found"}
