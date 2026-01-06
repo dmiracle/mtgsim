@@ -167,8 +167,7 @@ class StatsService:
         """)
 
         return [
-            RecentSet(code=row["code"], name=row["name"], release_date=row["release_date"])
-            for row in cursor.fetchall()
+            RecentSet(code=row["code"], name=row["name"], release_date=row["release_date"]) for row in cursor.fetchall()
         ]
 
     def _get_most_expensive_cards(self) -> list[ExpensiveCard]:
@@ -205,9 +204,7 @@ class StatsService:
         for row in price_rows:
             card = card_map.get(row["uuid"])
             if card:
-                results.append(
-                    ExpensiveCard(name=card["name"], price=row["price"], set_code=card["set_code"])
-                )
+                results.append(ExpensiveCard(name=card["name"], price=row["price"], set_code=card["set_code"]))
             if len(results) >= 10:
                 break
 
@@ -246,6 +243,7 @@ class StatsService:
             colors = row["color_identity"]
             if colors:
                 import json
+
                 try:
                     color_list = json.loads(colors) if isinstance(colors, str) else colors
                     if deck_uuid not in deck_colors:

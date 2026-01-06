@@ -5,6 +5,8 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from ..domain.card import CardType, Supertype
 
+# Import new domain models for unified access
+
 
 class Format(str, Enum):
     STANDARD = "standard"
