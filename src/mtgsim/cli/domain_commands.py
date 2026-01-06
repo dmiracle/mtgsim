@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from sqlmodel import text, select
+from sqlmodel import select, text
 
 from mtgsim.config import DOMAIN_DB_PATH, MERGED_DB_PATH
 from mtgsim.db.domain_session import (
@@ -117,6 +117,7 @@ def domain_status():
 
             # Show recent migrations
             from mtgsim.db.migration_models import MigrationLog
+
             recent_migrations = session.exec(
                 select(MigrationLog).order_by(MigrationLog.started_at.desc()).limit(5)
             ).all()
@@ -258,32 +259,32 @@ def log_migration_complete(session, migration_log: MigrationLog, rows_affected: 
 
 def validate_source_database_schema(source_db_path: Path, required_tables: list[str]) -> bool:
     """Validate that the source database contains all required tables.
-    
+
     Args:
         source_db_path: Path to source database
         required_tables: List of table names that must exist
-        
+
     Returns:
         True if all required tables exist, False otherwise
     """
     try:
         conn = sqlite3.connect(source_db_path)
         cursor = conn.cursor()
-        
+
         # Get list of existing tables
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         existing_tables = {row[0] for row in cursor.fetchall()}
-        
+
         conn.close()
-        
+
         # Check if all required tables exist
         missing_tables = set(required_tables) - existing_tables
         if missing_tables:
             console.print(f"❌ Missing tables in source database: {', '.join(missing_tables)}", style="red")
             return False
-            
+
         return True
-        
+
     except Exception as e:
         console.print(f"❌ Error validating source database schema: {e}", style="red")
         return False
@@ -291,29 +292,29 @@ def validate_source_database_schema(source_db_path: Path, required_tables: list[
 
 def verify_sync_integrity(source_db_path: Path, target_db_path: Path, table_mappings: list[tuple[str, str]]) -> bool:
     """Verify that sync operation completed successfully by comparing row counts.
-    
+
     Args:
         source_db_path: Path to source database
         target_db_path: Path to target database
         table_mappings: List of (source_table, target_table) pairs
-        
+
     Returns:
         True if all table row counts match, False otherwise
     """
     try:
         source_conn = sqlite3.connect(source_db_path)
         target_conn = sqlite3.connect(target_db_path)
-        
+
         source_cursor = source_conn.cursor()
         target_cursor = target_conn.cursor()
-        
+
         integrity_passed = True
-        
+
         for source_table, target_table in table_mappings:
             # Get source table count
             source_cursor.execute(f"SELECT COUNT(*) FROM {source_table}")
             source_count = source_cursor.fetchone()[0]
-            
+
             # Get target table count
             try:
                 target_cursor.execute(f"SELECT COUNT(*) FROM {target_table}")
@@ -322,26 +323,23 @@ def verify_sync_integrity(source_db_path: Path, target_db_path: Path, table_mapp
                 console.print(f"❌ Target table {target_table} does not exist", style="red")
                 integrity_passed = False
                 continue
-            
+
             # Compare counts
             if source_count != target_count:
                 console.print(
                     f"❌ Row count mismatch for {source_table} -> {target_table}: "
-                    f"source={source_count}, target={target_count}", 
-                    style="red"
+                    f"source={source_count}, target={target_count}",
+                    style="red",
                 )
                 integrity_passed = False
             else:
-                console.print(
-                    f"✅ {source_table} -> {target_table}: {source_count} rows", 
-                    style="green"
-                )
-        
+                console.print(f"✅ {source_table} -> {target_table}: {source_count} rows", style="green")
+
         source_conn.close()
         target_conn.close()
-        
+
         return integrity_passed
-        
+
     except Exception as e:
         console.print(f"❌ Error verifying sync integrity: {e}", style="red")
         return False
@@ -350,14 +348,14 @@ def verify_sync_integrity(source_db_path: Path, target_db_path: Path, table_mapp
 def log_integrity_check(session, check_name: str, table_name: str, passed: bool, error_details: list = None):
     """Log the results of an integrity check."""
     from mtgsim.db.migration_models import DataIntegrityCheck
-    
+
     integrity_check = DataIntegrityCheck(
         check_name=check_name,
         table_name=table_name,
         check_type="sync_verification",
         passed=passed,
         error_count=0 if passed else len(error_details or []),
-        error_details=error_details or []
+        error_details=error_details or [],
     )
     session.add(integrity_check)
     session.commit()
@@ -394,13 +392,13 @@ def sync_reference():
         ("deckcard", "Deck Cards"),
         ("cardPrices", "Prices"),
     ]
-    
+
     # Validate source database schema before starting
     required_tables = [table_name for table_name, _ in tables_to_sync]
     if not validate_source_database_schema(MERGED_DB_PATH, required_tables):
         console.print("❌ Source database schema validation failed", style="red")
         raise typer.Exit(1)
-    
+
     console.print("✅ Source database schema validation passed", style="green")
 
     with get_domain_session() as session:
@@ -415,7 +413,6 @@ def sync_reference():
                 TextColumn("[progress.description]{task.description}"),
                 console=console,
             ) as progress:
-
                 for table_name, display_name in tables_to_sync:
                     task = progress.add_task(f"Syncing {display_name}...", total=None)
 
@@ -423,7 +420,7 @@ def sync_reference():
                         rows_copied = copy_table_with_prefix(MERGED_DB_PATH, DOMAIN_DB_PATH, table_name, "mtgjson_")
                         total_rows += rows_copied
                         progress.update(task, description=f"✅ {display_name}: {rows_copied:,} rows")
-                        
+
                         # Track table mappings for integrity verification
                         table_mappings.append((table_name, f"mtgjson_{table_name}"))
 
@@ -434,14 +431,14 @@ def sync_reference():
             # Verify sync integrity
             console.print("\n🔍 Verifying sync integrity...")
             integrity_passed = verify_sync_integrity(MERGED_DB_PATH, DOMAIN_DB_PATH, table_mappings)
-            
+
             if not integrity_passed:
                 log_migration_error(session, migration_log, "Sync integrity verification failed")
                 console.print("❌ Sync integrity verification failed", style="red")
                 raise typer.Exit(1)
-            
+
             # Log successful integrity checks
-            for source_table, target_table in table_mappings:
+            for _source_table, target_table in table_mappings:
                 log_integrity_check(session, "sync_verification", target_table, True)
 
             log_migration_complete(session, migration_log, total_rows)
