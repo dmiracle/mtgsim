@@ -34,8 +34,9 @@ class DeckService:
         order: str = "asc",
         page: int = 1,
         limit: int = 50,
+        scope: str = "user",  # "user", "reference", "combined"
     ) -> DeckListResponse:
-        """List and filter decks with pagination."""
+        """List and filter decks with pagination and scope control."""
         decks, total = decks_data.list_decks(
             q=q,
             format_filter=format,
@@ -50,10 +51,12 @@ class DeckService:
             order=order,
             page=page,
             limit=limit,
+            scope=scope,
         )
 
-        data = [
-            DeckSummary(
+        data = []
+        for d in decks:
+            data.append(DeckSummary(
                 file=d["file"],
                 name=d["name"],
                 code=d["code"],
@@ -62,9 +65,8 @@ class DeckService:
                 price=d.get("price"),
                 release_date=d["release_date"],
                 legality=DeckLegality(),
-            )
-            for d in decks
-        ]
+                in_collection=d.get("in_collection", scope == "user"),
+            ))
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 
@@ -73,20 +75,20 @@ class DeckService:
             pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
             filters=DeckFilters(
                 formats=decks_data.get_available_formats(),
-                sets=decks_data.get_available_sets(),
+                sets=decks_data.get_available_sets(scope=scope),
                 color_combinations=[],
             ),
         )
 
-    async def get_deck(self, file: str) -> DeckDetail | None:
-        """Get full deck details including cards and statistics."""
-        deck = decks_data.get_deck(file)
+    async def get_deck(self, file: str, scope: str = "user") -> DeckDetail | None:
+        """Get full deck details including cards and statistics with scope control."""
+        deck = decks_data.get_deck(file, scope=scope)
         if not deck:
             return None
 
         meta = deck["meta"]
         stats = deck["stats"]
-        legality = deck["legality"]
+        legality = deck.get("legality", {})
 
         return DeckDetail(
             meta=DeckMeta(
@@ -94,6 +96,7 @@ class DeckService:
                 name=meta["name"],
                 code=meta["code"],
                 release_date=meta["release_date"],
+                in_collection=deck.get("in_collection", scope == "user"),
             ),
             legality=DeckLegality(
                 standard=legality.get("standard", False),
@@ -120,6 +123,7 @@ class DeckService:
                     text=c.get("text"),
                     price=c.get("price"),
                     image_url=c.get("image_url"),
+                    in_collection=c.get("in_collection", scope == "user"),
                 )
                 for c in deck["commander"]
             ],
@@ -135,6 +139,7 @@ class DeckService:
                     text=c.get("text"),
                     price=c.get("price"),
                     image_url=c.get("image_url"),
+                    in_collection=c.get("in_collection", scope == "user"),
                 )
                 for c in deck["main_board"]
             ],
@@ -150,6 +155,7 @@ class DeckService:
                     text=c.get("text"),
                     price=c.get("price"),
                     image_url=c.get("image_url"),
+                    in_collection=c.get("in_collection", scope == "user"),
                 )
                 for c in deck["side_board"]
             ],
@@ -169,16 +175,16 @@ class DeckService:
             ),
         )
 
-    async def get_deck_raw(self, file: str) -> dict | None:
-        """Get raw deck data."""
-        deck = decks_data.get_deck(file)
+    async def get_deck_raw(self, file: str, scope: str = "user") -> dict | None:
+        """Get raw deck data with scope control."""
+        deck = decks_data.get_deck(file, scope=scope)
         if not deck:
             return None
         return deck
 
-    async def get_available_sets(self) -> list[str]:
-        """Get list of set codes that have decks."""
-        return decks_data.get_available_sets()
+    async def get_available_sets(self, scope: str = "user") -> list[str]:
+        """Get list of set codes that have decks with scope control."""
+        return decks_data.get_available_sets(scope=scope)
 
 
 # Singleton instance

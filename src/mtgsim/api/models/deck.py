@@ -34,6 +34,7 @@ class DeckSummary(BaseModel):
     price: float | None = None
     release_date: str | None = None
     legality: DeckLegality
+    in_collection: bool = False
 
 
 class DeckFilters(BaseModel):
@@ -65,6 +66,7 @@ class DeckCard(BaseModel):
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
+    in_collection: bool = False
 
 
 class PriceBySource(BaseModel):
@@ -118,6 +120,7 @@ class DeckMeta(BaseModel):
     name: str
     code: str
     release_date: str | None = None
+    in_collection: bool = False
 
 
 class DeckDetail(BaseModel):
