@@ -35,22 +35,22 @@ This implementation plan converts the domain-API consolidation design into discr
     - **Property 4: Sync Operation Idempotence**
     - **Validates: Requirements 2.3**
 
-- [ ] 3. Build domain entity management system
-  - [ ] 3.1 Implement CLI commands for adding entities to domain tables
+- [x] 3. Build domain entity management system
+  - [x] 3.1 Implement CLI commands for adding entities to domain tables
     - Create `add_card`, `add_set`, and `add_deck` CLI commands
     - Build transformation logic from reference to enhanced domain models
     - _Requirements: 1.1, 2.2, 5.2_
 
-  - [ ] 3.2 Write property test for domain entity addition correctness
+  - [x] 3.2 Write property test for domain entity addition correctness
     - **Property 3: Domain Entity Addition Correctness**
     - **Validates: Requirements 1.1, 2.2**
 
-  - [ ] 3.3 Add user collection management capabilities
+  - [x] 3.3 Add user collection management capabilities
     - Implement logic to track user-selected cards, sets, and decks
     - Add metadata fields for tracking addition timestamps and sources
     - _Requirements: 1.3, 6.1_
 
-  - [ ]* 3.4 Write property test for selective entity addition
+  - [x] 3.4 Write property test for selective entity addition
     - **Property 9: Selective Entity Addition**
     - **Validates: Requirements 5.2**
 
@@ -63,7 +63,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - Implement scope-based querying (user vs reference vs combined)
     - _Requirements: 4.1, 4.2_
 
-  - [ ]* 5.2 Write property test for reference table query compatibility
+  - [ ] 5.2 Write property test for reference table query compatibility
     - **Property 7: Reference Table Query Compatibility**
     - **Validates: Requirements 3.2, 4.1**
 
@@ -72,7 +72,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - Add utilities to convert between MTGJsonCard and Card models
     - _Requirements: 4.3, 4.4_
 
-  - [ ]* 5.4 Write property test for domain to API model conversion
+  - [ ] 5.4 Write property test for domain to API model conversion
     - **Property 6: Domain to API Model Conversion**
     - **Validates: Requirements 3.4, 4.3**
 

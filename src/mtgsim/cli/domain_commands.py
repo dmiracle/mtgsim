@@ -456,3 +456,739 @@ def sync_mtgjson():
     """Sync MTGJSON tables from mtgjson-merged.sqlite to domain database."""
     # This is an alias for sync-reference for backward compatibility
     sync_reference()
+
+
+def transform_reference_card_to_domain(ref_card, session):
+    """Transform a reference card to enhanced domain model."""
+    from mtgsim.db.domain_models import (
+        DomainCard,
+        DomainCardColorLink,
+        DomainCardSubtypeLink,
+        DomainCardSupertypeLink,
+        DomainCardTypeLink,
+    )
+
+    # Create the domain card with enhanced fields
+    domain_card = DomainCard(
+        uuid=ref_card.uuid,
+        name=ref_card.name,
+        mana_cost=ref_card.mana_cost,
+        mana_value=ref_card.mana_value,
+        type_line=ref_card.type,
+        oracle_text=ref_card.oracle_text or ref_card.text or "",
+        flavor_text=ref_card.flavor_text or "",
+        power=ref_card.power,
+        toughness=ref_card.toughness,
+        loyalty=ref_card.loyalty,
+        defense=ref_card.defense,
+        set_code=ref_card.set_code,
+        collector_number=ref_card.number,
+        rarity=ref_card.rarity or "common",
+        layout=ref_card.layout,
+        border_color=ref_card.border_color,
+        frame_version=ref_card.frame_version,
+        artist=ref_card.artist,
+        legalities=ref_card.legalities or {},
+        scryfall_id=ref_card.scryfall_id,
+        mtgo_id=ref_card.mtgo_id,
+        arena_id=ref_card.arena_id,
+        tcgplayer_id=ref_card.tcgplayer_id,
+        cardmarket_id=ref_card.cardmarket_id,
+        has_foil=ref_card.has_foil,
+        has_non_foil=ref_card.has_non_foil,
+        is_reprint=ref_card.is_reprint,
+        is_foil_only=ref_card.is_foil_only,
+        is_online_only=ref_card.is_online_only,
+        added_at=datetime.utcnow(),
+        source="mtgjson",
+    )
+
+    # Parse mana cost components if available
+    if ref_card.mana_cost:
+        # Simple parsing - count occurrences of each mana symbol
+        mana_cost = ref_card.mana_cost
+        domain_card.mana_cost_white = mana_cost.count("{W}")
+        domain_card.mana_cost_blue = mana_cost.count("{U}")
+        domain_card.mana_cost_black = mana_cost.count("{B}")
+        domain_card.mana_cost_red = mana_cost.count("{R}")
+        domain_card.mana_cost_green = mana_cost.count("{G}")
+        domain_card.mana_cost_colorless = mana_cost.count("{C}")
+
+        # Count generic mana (numbers in braces)
+        import re
+
+        generic_matches = re.findall(r"\{(\d+)\}", mana_cost)
+        domain_card.mana_cost_generic = sum(int(match) for match in generic_matches)
+
+    # Add the card to session first to get an ID
+    session.add(domain_card)
+    session.flush()  # This assigns the ID without committing
+
+    # Handle color identity relationships
+    if ref_card.color_identity:
+        for color in ref_card.color_identity:
+            color_link = DomainCardColorLink(card_id=domain_card.id, color=color)
+            session.add(color_link)
+
+    # Handle type relationships
+    if ref_card.types:
+        for card_type in ref_card.types:
+            type_link = DomainCardTypeLink(card_id=domain_card.id, card_type=card_type)
+            session.add(type_link)
+
+    # Handle supertype relationships
+    if ref_card.supertypes:
+        for supertype in ref_card.supertypes:
+            supertype_link = DomainCardSupertypeLink(card_id=domain_card.id, supertype=supertype)
+            session.add(supertype_link)
+
+    # Handle subtype relationships
+    if ref_card.subtypes:
+        for subtype in ref_card.subtypes:
+            subtype_link = DomainCardSubtypeLink(card_id=domain_card.id, subtype=subtype)
+            session.add(subtype_link)
+
+    return domain_card
+
+
+def transform_reference_set_to_domain(ref_set, session):
+    """Transform a reference set to enhanced domain model."""
+    from mtgsim.db.domain_models import DomainSet
+
+    domain_set = DomainSet(
+        code=ref_set.code,
+        name=ref_set.name,
+        type=ref_set.type,
+        release_date=ref_set.release_date,
+        base_set_size=ref_set.base_set_size,
+        total_set_size=ref_set.total_set_size,
+        block=ref_set.block,
+        parent_code=ref_set.parent_code,
+        keyrune_code=ref_set.keyrune_code,
+        is_foil_only=ref_set.is_foil_only,
+        is_online_only=ref_set.is_online_only,
+        is_partial_preview=ref_set.is_partial_preview,
+        mtgo_code=ref_set.mtgo_code,
+        tcgplayer_group_id=ref_set.tcgplayer_group_id,
+        cardmarket_id=ref_set.cardmarket_id,
+        cardsphere_set_id=ref_set.cardsphere_set_id,
+        languages=ref_set.languages or [],
+        translations=ref_set.translations or {},
+        token_set_code=ref_set.token_set_code,
+        added_at=datetime.utcnow(),
+        source="mtgjson",
+    )
+
+    return domain_set
+
+
+def transform_reference_deck_to_domain(ref_deck, session):
+    """Transform a reference deck to enhanced domain model."""
+    from mtgsim.db.domain_models import DomainDeck
+
+    domain_deck = DomainDeck(
+        uuid=ref_deck.uuid,
+        file_name=ref_deck.file_name,
+        code=ref_deck.code,
+        name=ref_deck.name,
+        type=ref_deck.type,
+        release_date=ref_deck.release_date,
+        main_board_count=ref_deck.main_board_count,
+        side_board_count=ref_deck.side_board_count,
+        commander_count=ref_deck.commander_count,
+        commander=ref_deck.commander or [],
+        meta=ref_deck.meta or {},
+        added_at=datetime.utcnow(),
+        source="mtgjson",
+    )
+
+    return domain_deck
+
+
+@domain_app.command("add-card")
+def add_card(uuid: str = typer.Argument(..., help="UUID of the card to add to domain tables")):
+    """Add a specific card to user's domain tables."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            # Check if card already exists in domain tables
+            from mtgsim.db.domain_models import DomainCard
+
+            existing_card = session.exec(select(DomainCard).where(DomainCard.uuid == uuid)).first()
+
+            if existing_card:
+                console.print(f"✅ Card {uuid} already exists in domain tables", style="yellow")
+                console.print(f"   Name: {existing_card.name}")
+                console.print(f"   Set: {existing_card.set_code}")
+                return
+
+            # Find card in reference tables
+            from mtgsim.db.reference_models import MTGJsonCard
+
+            ref_card = session.exec(select(MTGJsonCard).where(MTGJsonCard.uuid == uuid)).first()
+
+            if not ref_card:
+                console.print(f"❌ Card {uuid} not found in reference tables", style="red")
+                console.print("Run 'domain sync-reference' to populate reference tables first.", style="yellow")
+                raise typer.Exit(1)
+
+            # Log migration start
+            migration_log = log_migration_start(session, "add_card", "mtgjson")
+
+            try:
+                # Transform and add to domain tables
+                domain_card = transform_reference_card_to_domain(ref_card, session)
+
+                # Also ensure the set exists in domain tables
+                if ref_card.set_code:
+                    from mtgsim.db.domain_models import DomainSet
+                    from mtgsim.db.reference_models import MTGJsonSet
+
+                    existing_set = session.exec(select(DomainSet).where(DomainSet.code == ref_card.set_code)).first()
+                    if not existing_set:
+                        ref_set = session.exec(select(MTGJsonSet).where(MTGJsonSet.code == ref_card.set_code)).first()
+                        if ref_set:
+                            domain_set = transform_reference_set_to_domain(ref_set, session)
+                            session.add(domain_set)
+
+                session.commit()
+
+                log_migration_complete(session, migration_log, 1)
+                console.print("✅ Card added to domain tables successfully", style="green")
+                console.print(f"   UUID: {domain_card.uuid}")
+                console.print(f"   Name: {domain_card.name}")
+                console.print(f"   Set: {domain_card.set_code}")
+                console.print(f"   Rarity: {domain_card.rarity}")
+
+            except Exception as e:
+                log_migration_error(session, migration_log, str(e))
+                raise
+
+    except Exception as e:
+        console.print(f"❌ Failed to add card: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("add-set")
+def add_set(code: str = typer.Argument(..., help="Set code to add all cards from")):
+    """Add all cards from a set to user's domain tables."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            # Find set in reference tables
+            from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
+
+            ref_set = session.exec(select(MTGJsonSet).where(MTGJsonSet.code == code)).first()
+
+            if not ref_set:
+                console.print(f"❌ Set {code} not found in reference tables", style="red")
+                console.print("Run 'domain sync-reference' to populate reference tables first.", style="yellow")
+                raise typer.Exit(1)
+
+            # Check if set already exists in domain tables
+            from mtgsim.db.domain_models import DomainCard, DomainSet
+
+            existing_set = session.exec(select(DomainSet).where(DomainSet.code == code)).first()
+
+            if existing_set:
+                console.print(f"✅ Set {code} already exists in domain tables", style="yellow")
+                console.print(f"   Name: {existing_set.name}")
+            else:
+                # Add the set first
+                domain_set = transform_reference_set_to_domain(ref_set, session)
+                session.add(domain_set)
+                session.flush()
+
+            # Get all cards from this set in reference tables
+            ref_cards = session.exec(select(MTGJsonCard).where(MTGJsonCard.set_code == code)).all()
+
+            if not ref_cards:
+                console.print(f"❌ No cards found for set {code} in reference tables", style="red")
+                raise typer.Exit(1)
+
+            # Log migration start
+            migration_log = log_migration_start(session, "add_set", "mtgjson")
+
+            try:
+                cards_added = 0
+                cards_skipped = 0
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console,
+                ) as progress:
+                    task = progress.add_task(f"Adding cards from set {code}...", total=len(ref_cards))
+
+                    for ref_card in ref_cards:
+                        # Check if card already exists
+                        existing_card = session.exec(select(DomainCard).where(DomainCard.uuid == ref_card.uuid)).first()
+
+                        if existing_card:
+                            cards_skipped += 1
+                        else:
+                            # Transform and add card
+                            transform_reference_card_to_domain(ref_card, session)
+                            cards_added += 1
+
+                        progress.advance(task)
+
+                session.commit()
+
+                log_migration_complete(session, migration_log, cards_added)
+                console.print(f"✅ Set {code} processing completed", style="green")
+                console.print(f"   Set Name: {ref_set.name}")
+                console.print(f"   Cards Added: {cards_added}")
+                console.print(f"   Cards Skipped (already exist): {cards_skipped}")
+                console.print(f"   Total Cards: {len(ref_cards)}")
+
+            except Exception as e:
+                log_migration_error(session, migration_log, str(e))
+                raise
+
+    except Exception as e:
+        console.print(f"❌ Failed to add set: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("add-deck")
+def add_deck(uuid: str = typer.Argument(..., help="UUID of the deck to add to domain tables")):
+    """Add a deck and its cards to user's domain tables."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            # Check if deck already exists in domain tables
+            from mtgsim.db.domain_models import DomainDeck
+
+            existing_deck = session.exec(select(DomainDeck).where(DomainDeck.uuid == uuid)).first()
+
+            if existing_deck:
+                console.print(f"✅ Deck {uuid} already exists in domain tables", style="yellow")
+                console.print(f"   Name: {existing_deck.name}")
+                console.print(f"   Code: {existing_deck.code}")
+                return
+
+            # Find deck in reference tables
+            from mtgsim.db.reference_models import MTGJsonDeck, MTGJsonDeckCard
+
+            ref_deck = session.exec(select(MTGJsonDeck).where(MTGJsonDeck.uuid == uuid)).first()
+
+            if not ref_deck:
+                console.print(f"❌ Deck {uuid} not found in reference tables", style="red")
+                console.print("Run 'domain sync-reference' to populate reference tables first.", style="yellow")
+                raise typer.Exit(1)
+
+            # Log migration start
+            migration_log = log_migration_start(session, "add_deck", "mtgjson")
+
+            try:
+                # Transform and add deck
+                domain_deck = transform_reference_deck_to_domain(ref_deck, session)
+                session.add(domain_deck)
+                session.flush()
+
+                # Get all deck cards from reference tables
+                ref_deck_cards = session.exec(select(MTGJsonDeckCard).where(MTGJsonDeckCard.deck_uuid == uuid)).all()
+
+                cards_added = 0
+                unique_cards_added = 0
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console,
+                ) as progress:
+                    task = progress.add_task("Adding deck cards...", total=len(ref_deck_cards))
+
+                    for ref_deck_card in ref_deck_cards:
+                        # Transform deck card to domain model
+                        from mtgsim.db.domain_models import DomainDeckCard
+
+                        domain_deck_card = DomainDeckCard(
+                            deck_uuid=ref_deck_card.deck_uuid,
+                            card_uuid=ref_deck_card.card_uuid,
+                            name=ref_deck_card.name,
+                            board=ref_deck_card.board,
+                            count=ref_deck_card.count,
+                            mana_cost=ref_deck_card.mana_cost,
+                            mana_value=ref_deck_card.mana_value,
+                            color_identity=ref_deck_card.color_identity or [],
+                            colors=ref_deck_card.colors or [],
+                            types=ref_deck_card.types or [],
+                            subtypes=ref_deck_card.subtypes or [],
+                            supertypes=ref_deck_card.supertypes or [],
+                            printings=ref_deck_card.printings or [],
+                            is_foil=ref_deck_card.is_foil,
+                            is_etched=ref_deck_card.is_etched,
+                            is_starter=ref_deck_card.is_starter,
+                            is_reprint=ref_deck_card.is_reprint,
+                            has_foil=ref_deck_card.has_foil,
+                            has_non_foil=ref_deck_card.has_non_foil,
+                        )
+                        session.add(domain_deck_card)
+                        cards_added += 1
+
+                        # Also add the individual card to domain tables if it doesn't exist
+                        if ref_deck_card.card_uuid:
+                            from mtgsim.db.domain_models import DomainCard
+                            from mtgsim.db.reference_models import MTGJsonCard
+
+                            existing_card = session.exec(
+                                select(DomainCard).where(DomainCard.uuid == ref_deck_card.card_uuid)
+                            ).first()
+                            if not existing_card:
+                                ref_card = session.exec(
+                                    select(MTGJsonCard).where(MTGJsonCard.uuid == ref_deck_card.card_uuid)
+                                ).first()
+                                if ref_card:
+                                    transform_reference_card_to_domain(ref_card, session)
+                                    unique_cards_added += 1
+
+                        progress.advance(task)
+
+                session.commit()
+
+                log_migration_complete(session, migration_log, cards_added + unique_cards_added)
+                console.print("✅ Deck added to domain tables successfully", style="green")
+                console.print(f"   UUID: {domain_deck.uuid}")
+                console.print(f"   Name: {domain_deck.name}")
+                console.print(f"   Code: {domain_deck.code}")
+                console.print(f"   Deck Cards Added: {cards_added}")
+                console.print(f"   Unique Cards Added: {unique_cards_added}")
+
+            except Exception as e:
+                log_migration_error(session, migration_log, str(e))
+                raise
+
+    except Exception as e:
+        console.print(f"❌ Failed to add deck: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("collect-card")
+def collect_card(
+    uuid: str = typer.Argument(..., help="UUID of the card to add to collection"),
+    quantity: int = typer.Option(1, help="Quantity to add to collection"),
+    foil: bool = typer.Option(False, help="Mark as foil card"),
+    wanted: bool = typer.Option(False, help="Mark as wanted (not owned)"),
+):
+    """Add a card to user's collection with ownership tracking."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            from mtgsim.db.domain_models import DomainCard
+
+            # Check if card already exists in domain tables
+            existing_card = session.exec(select(DomainCard).where(DomainCard.uuid == uuid)).first()
+
+            if existing_card:
+                # Update existing card collection status
+                if wanted:
+                    existing_card.is_wanted = True
+                    console.print("✅ Card marked as wanted", style="green")
+                else:
+                    existing_card.is_owned = True
+                    existing_card.quantity_owned += quantity
+                    existing_card.is_foil = foil or existing_card.is_foil
+                    console.print(f"✅ Added {quantity} copies to collection", style="green")
+
+                existing_card.updated_at = datetime.utcnow()
+                session.add(existing_card)
+                session.commit()
+
+                console.print(f"   Name: {existing_card.name}")
+                console.print(f"   Set: {existing_card.set_code}")
+                console.print(f"   Owned: {existing_card.quantity_owned}")
+                console.print(f"   Wanted: {existing_card.is_wanted}")
+                console.print(f"   Foil: {existing_card.is_foil}")
+                return
+
+            # Card doesn't exist in domain tables, need to add it first
+            from mtgsim.db.reference_models import MTGJsonCard
+
+            ref_card = session.exec(select(MTGJsonCard).where(MTGJsonCard.uuid == uuid)).first()
+
+            if not ref_card:
+                console.print(f"❌ Card {uuid} not found in reference tables", style="red")
+                console.print("Run 'domain sync-reference' to populate reference tables first.", style="yellow")
+                raise typer.Exit(1)
+
+            # Log migration start
+            migration_log = log_migration_start(session, "collect_card", "user_collection")
+
+            try:
+                # Transform and add to domain tables with collection info
+                domain_card = transform_reference_card_to_domain(ref_card, session)
+
+                # Set collection properties
+                if wanted:
+                    domain_card.is_wanted = True
+                    domain_card.is_owned = False
+                    domain_card.quantity_owned = 0
+                else:
+                    domain_card.is_owned = True
+                    domain_card.quantity_owned = quantity
+                    domain_card.is_wanted = False
+
+                domain_card.is_foil = foil
+                domain_card.source = "user_collection"
+
+                session.commit()
+
+                log_migration_complete(session, migration_log, 1)
+                console.print("✅ Card added to collection successfully", style="green")
+                console.print(f"   UUID: {domain_card.uuid}")
+                console.print(f"   Name: {domain_card.name}")
+                console.print(f"   Set: {domain_card.set_code}")
+                console.print(f"   Owned: {domain_card.quantity_owned}")
+                console.print(f"   Wanted: {domain_card.is_wanted}")
+                console.print(f"   Foil: {domain_card.is_foil}")
+
+            except Exception as e:
+                log_migration_error(session, migration_log, str(e))
+                raise
+
+    except Exception as e:
+        console.print(f"❌ Failed to add card to collection: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("remove-card")
+def remove_card(
+    uuid: str = typer.Argument(..., help="UUID of the card to remove from collection"),
+    quantity: int = typer.Option(1, help="Quantity to remove from collection"),
+    remove_all: bool = typer.Option(False, help="Remove all copies from collection"),
+):
+    """Remove a card from user's collection."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            from mtgsim.db.domain_models import DomainCard
+
+            # Find card in domain tables
+            existing_card = session.exec(select(DomainCard).where(DomainCard.uuid == uuid)).first()
+
+            if not existing_card:
+                console.print(f"❌ Card {uuid} not found in collection", style="red")
+                raise typer.Exit(1)
+
+            # Log migration start
+            migration_log = log_migration_start(session, "remove_card", "user_collection")
+
+            try:
+                if remove_all:
+                    # Remove completely from domain tables
+                    session.delete(existing_card)
+                    console.print("✅ Card removed completely from collection", style="green")
+                else:
+                    # Reduce quantity or mark as not owned
+                    if existing_card.quantity_owned <= quantity:
+                        existing_card.is_owned = False
+                        existing_card.quantity_owned = 0
+                        existing_card.is_foil = False
+                        console.print("✅ Card marked as not owned", style="green")
+                    else:
+                        existing_card.quantity_owned -= quantity
+                        console.print(f"✅ Removed {quantity} copies from collection", style="green")
+
+                    existing_card.updated_at = datetime.utcnow()
+                    session.add(existing_card)
+
+                session.commit()
+
+                log_migration_complete(session, migration_log, 1)
+                console.print(f"   Name: {existing_card.name}")
+                console.print(f"   Set: {existing_card.set_code}")
+                if not remove_all:
+                    console.print(f"   Owned: {existing_card.quantity_owned}")
+                    console.print(f"   Wanted: {existing_card.is_wanted}")
+
+            except Exception as e:
+                log_migration_error(session, migration_log, str(e))
+                raise
+
+    except Exception as e:
+        console.print(f"❌ Failed to remove card from collection: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("collection-stats")
+def collection_stats():
+    """Show user collection statistics."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            from mtgsim.db.domain_models import DomainCard, DomainDeck, DomainSet
+
+            # Get collection statistics
+            owned_cards = session.exec(select(DomainCard).where(DomainCard.is_owned)).all()
+            wanted_cards = session.exec(select(DomainCard).where(DomainCard.is_wanted)).all()
+            total_cards = session.exec(select(DomainCard)).all()
+
+            sets_with_cards = session.exec(select(DomainSet)).all()
+            decks = session.exec(select(DomainDeck)).all()
+
+            # Calculate statistics
+            total_owned_quantity = sum(card.quantity_owned for card in owned_cards)
+            foil_cards = len([card for card in owned_cards if card.is_foil])
+
+            # Group by rarity
+            rarity_stats = {}
+            for card in owned_cards:
+                rarity = card.rarity or "unknown"
+                if rarity not in rarity_stats:
+                    rarity_stats[rarity] = {"count": 0, "quantity": 0}
+                rarity_stats[rarity]["count"] += 1
+                rarity_stats[rarity]["quantity"] += card.quantity_owned
+
+            # Group by set
+            set_stats = {}
+            for card in owned_cards:
+                set_code = card.set_code or "unknown"
+                if set_code not in set_stats:
+                    set_stats[set_code] = {"count": 0, "quantity": 0}
+                set_stats[set_code]["count"] += 1
+                set_stats[set_code]["quantity"] += card.quantity_owned
+
+            # Display statistics
+            console.print("\n[bold]Collection Statistics[/bold]")
+
+            # Overview table
+            overview_table = Table(title="Overview")
+            overview_table.add_column("Metric", style="cyan")
+            overview_table.add_column("Value", justify="right", style="green")
+
+            overview_table.add_row("Unique Cards Owned", str(len(owned_cards)))
+            overview_table.add_row("Total Card Quantity", str(total_owned_quantity))
+            overview_table.add_row("Foil Cards", str(foil_cards))
+            overview_table.add_row("Cards Wanted", str(len(wanted_cards)))
+            overview_table.add_row("Total Cards in Database", str(len(total_cards)))
+            overview_table.add_row("Sets with Cards", str(len(sets_with_cards)))
+            overview_table.add_row("Decks", str(len(decks)))
+
+            console.print(overview_table)
+
+            # Rarity breakdown
+            if rarity_stats:
+                console.print("\n[bold]By Rarity[/bold]")
+                rarity_table = Table()
+                rarity_table.add_column("Rarity", style="cyan")
+                rarity_table.add_column("Unique Cards", justify="right", style="green")
+                rarity_table.add_column("Total Quantity", justify="right", style="green")
+
+                for rarity, stats in sorted(rarity_stats.items()):
+                    rarity_table.add_row(rarity.title(), str(stats["count"]), str(stats["quantity"]))
+
+                console.print(rarity_table)
+
+            # Top sets
+            if set_stats:
+                console.print("\n[bold]Top Sets (by card count)[/bold]")
+                set_table = Table()
+                set_table.add_column("Set Code", style="cyan")
+                set_table.add_column("Unique Cards", justify="right", style="green")
+                set_table.add_column("Total Quantity", justify="right", style="green")
+
+                # Show top 10 sets by card count
+                top_sets = sorted(set_stats.items(), key=lambda x: x[1]["count"], reverse=True)[:10]
+                for set_code, stats in top_sets:
+                    set_table.add_row(set_code, str(stats["count"]), str(stats["quantity"]))
+
+                console.print(set_table)
+
+    except Exception as e:
+        console.print(f"❌ Failed to get collection statistics: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("list-collection")
+def list_collection(
+    owned_only: bool = typer.Option(True, help="Show only owned cards"),
+    wanted_only: bool = typer.Option(False, help="Show only wanted cards"),
+    set_code: str = typer.Option(None, help="Filter by set code"),
+    rarity: str = typer.Option(None, help="Filter by rarity"),
+    limit: int = typer.Option(20, help="Maximum number of cards to show"),
+):
+    """List cards in user's collection."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            from mtgsim.db.domain_models import DomainCard
+
+            # Build query
+            query = select(DomainCard)
+
+            if owned_only and not wanted_only:
+                query = query.where(DomainCard.is_owned)
+            elif wanted_only and not owned_only:
+                query = query.where(DomainCard.is_wanted)
+            elif wanted_only and owned_only:
+                query = query.where(DomainCard.is_owned | DomainCard.is_wanted)
+
+            if set_code:
+                query = query.where(DomainCard.set_code == set_code.upper())
+
+            if rarity:
+                query = query.where(DomainCard.rarity == rarity.lower())
+
+            # Order by name and limit
+            query = query.order_by(DomainCard.name).limit(limit)
+
+            cards = session.exec(query).all()
+
+            if not cards:
+                console.print("No cards found matching the criteria.", style="yellow")
+                return
+
+            # Display cards
+            table = Table(title=f"Collection ({len(cards)} cards)")
+            table.add_column("Name", style="cyan")
+            table.add_column("Set", style="magenta")
+            table.add_column("Rarity", style="yellow")
+            table.add_column("Owned", justify="right", style="green")
+            table.add_column("Wanted", justify="center", style="blue")
+            table.add_column("Foil", justify="center", style="gold1")
+
+            for card in cards:
+                owned_qty = str(card.quantity_owned) if card.is_owned else "0"
+                wanted_mark = "✓" if card.is_wanted else ""
+                foil_mark = "✓" if card.is_foil else ""
+
+                table.add_row(
+                    card.name,
+                    card.set_code or "N/A",
+                    (card.rarity or "unknown").title(),
+                    owned_qty,
+                    wanted_mark,
+                    foil_mark,
+                )
+
+            console.print(table)
+
+            if len(cards) == limit:
+                console.print(f"\n[yellow]Showing first {limit} results. Use --limit to see more.[/yellow]")
+
+    except Exception as e:
+        console.print(f"❌ Failed to list collection: {e}", style="red")
+        raise typer.Exit(1)
