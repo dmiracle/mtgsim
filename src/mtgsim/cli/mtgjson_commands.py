@@ -1,4 +1,8 @@
+import sqlite3
+
 import typer
+
+from mtgsim.config import MERGED_DB_PATH, MTGJSON_DIR
 
 mtgjson_app = typer.Typer(help="MTGJSON data operations")
 
@@ -6,15 +10,11 @@ mtgjson_app = typer.Typer(help="MTGJSON data operations")
 @mtgjson_app.command("info")
 def mtgjson_info():
     """Show MTGJSON reference data info."""
-    from pathlib import Path
-
-    ref_dir = Path.home() / ".mtgsim" / "reference" / "mtgjson"
-
-    if not ref_dir.exists():
+    if not MTGJSON_DIR.exists():
         typer.echo("No reference data found. Run 'mtgsim db sync' first.")
         return
 
-    files = list(ref_dir.glob("*.sqlite")) + list(ref_dir.glob("*.json"))
+    files = list(MTGJSON_DIR.glob("*.sqlite")) + list(MTGJSON_DIR.glob("*.json"))
     if not files:
         typer.echo("No reference databases found.")
         return
@@ -27,18 +27,12 @@ def mtgjson_info():
 
 @mtgjson_app.command("stats")
 def mtgjson_stats():
-    """Show statistics from reference databases."""
-    import sqlite3
-    from pathlib import Path
-
-    ref_dir = Path.home() / ".mtgsim" / "reference" / "mtgjson"
-    all_printings = ref_dir / "AllPrintings.sqlite"
-
-    if not all_printings.exists():
-        typer.echo("AllPrintings.sqlite not found. Run 'mtgsim db sync' first.")
+    """Show statistics from reference database."""
+    if not MERGED_DB_PATH.exists():
+        typer.echo("Reference database not found. Run 'mtgsim db sync' first.")
         raise typer.Exit(1)
 
-    conn = sqlite3.connect(all_printings)
+    conn = sqlite3.connect(MERGED_DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM cards")

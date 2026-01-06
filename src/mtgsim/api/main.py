@@ -1,7 +1,6 @@
 """FastAPI application for MTG Webapp REST API."""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +17,7 @@ from mtgsim.api.routers import (
     sets_router,
     stats_router,
 )
+from mtgsim.config import get_resources_dir, get_web_dir, get_webapp_dir
 
 
 @asynccontextmanager
@@ -147,9 +147,9 @@ async def health():
 
 
 # Mount static files for the webapp
-web_dir = Path("web")
-resources_dir = Path("resources")
-webapp_dir = Path("webapp")
+web_dir = get_web_dir()
+resources_dir = get_resources_dir()
+webapp_dir = get_webapp_dir()
 
 if web_dir.exists():
     app.mount("/web", StaticFiles(directory=str(web_dir)), name="web")

@@ -8,8 +8,6 @@ from ..extract.pipelines import get_pipeline
 from ..render.ascii import render_card
 from ..repository.card_repository import CardRepository
 
-card_app = typer.Typer(help="Card-related operations")
-
 
 def parse_card_types(types: str) -> list[CardType]:
     return [CardType(t.strip()) for t in types.split(",")]
@@ -58,7 +56,6 @@ def parse_mana_cost(mana_str: str) -> ManaCost:
     )
 
 
-@typer.Typer().command()
 def card(
     name: str = typer.Argument(..., help="Card name"),
     types: str = typer.Option(
@@ -114,7 +111,6 @@ def card(
     typer.echo(render_card(c))
 
 
-@typer.Typer().command()
 def extract(
     image_path: Path = typer.Argument(..., help="Path to card image file"),
     pipeline: str = typer.Option("mock", "--pipeline", "-p", help="Extraction pipeline to use"),

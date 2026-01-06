@@ -1,6 +1,6 @@
 """Keywords/Glossary API endpoints."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from mtgsim.api.data import keywords_data
@@ -13,12 +13,35 @@ class KeywordDefinition(BaseModel):
     definition: str
 
 
+class KeywordMatch(BaseModel):
+    """Keyword search result."""
+
+    keyword: str
+    type: str
+
+
 class KeywordsResponse(BaseModel):
     """Response containing all keyword categories."""
 
     ability_words: list[KeywordDefinition]
     keyword_abilities: list[KeywordDefinition]
     keyword_actions: list[KeywordDefinition]
+
+
+class KeywordSearchResponse(BaseModel):
+    """Response for keyword search."""
+
+    results: list[KeywordMatch]
+    total: int
+
+
+class KeywordStatsResponse(BaseModel):
+    """Response for keyword statistics."""
+
+    ability_words: int
+    keyword_abilities: int
+    keyword_actions: int
+    total: int
 
 
 class FormatsResponse(BaseModel):
@@ -46,6 +69,38 @@ async def get_keywords() -> KeywordsResponse:
         ability_words=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["ability_words"]],
         keyword_abilities=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["keyword_abilities"]],
         keyword_actions=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["keyword_actions"]],
+    )
+
+
+@router.get("/search", response_model=KeywordSearchResponse)
+async def search_keywords(
+    q: str = Query(..., min_length=1, description="Search query"),
+) -> KeywordSearchResponse:
+    """
+    Search keywords by partial match.
+
+    Returns keywords matching the search query.
+    """
+    results = keywords_data.search_keywords(q)
+    return KeywordSearchResponse(
+        results=[KeywordMatch(keyword=r["keyword"], type=r["type"]) for r in results],
+        total=len(results),
+    )
+
+
+@router.get("/stats", response_model=KeywordStatsResponse)
+async def get_keyword_stats() -> KeywordStatsResponse:
+    """
+    Get keyword statistics.
+
+    Returns count of keywords by category.
+    """
+    counts = keywords_data.get_keyword_count()
+    return KeywordStatsResponse(
+        ability_words=counts.get("abilityWords", 0),
+        keyword_abilities=counts.get("keywordAbilities", 0),
+        keyword_actions=counts.get("keywordActions", 0),
+        total=sum(counts.values()),
     )
 
 

@@ -1,22 +1,8 @@
 """Cards data access layer."""
 
-import json
+from mtgsim.reference.db import get_scryfall_image_url, parse_json, parse_json_dict
 
 from .database import db
-
-
-def get_scryfall_image_url(identifiers_json: str | None, size: str = "normal") -> str | None:
-    """Build Scryfall image URL from identifiers JSON."""
-    if not identifiers_json:
-        return None
-    try:
-        identifiers = json.loads(identifiers_json)
-        scryfall_id = identifiers.get("scryfallId")
-        if scryfall_id:
-            return f"https://cards.scryfall.io/{size}/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
-    except (json.JSONDecodeError, KeyError, IndexError):
-        pass
-    return None
 
 
 class CardsData:
@@ -129,8 +115,8 @@ class CardsData:
                     "type": row["type"],
                     "rarity": row["rarity"],
                     "set_code": row["set_code"],
-                    "color_identity": json.loads(row["color_identity"]) if row["color_identity"] else [],
-                    "colors": json.loads(row["colors"]) if row["colors"] else [],
+                    "color_identity": parse_json(row["color_identity"]),
+                    "colors": parse_json(row["colors"]),
                     "power": row["power"],
                     "toughness": row["toughness"],
                     "number": row["number"],
@@ -167,31 +153,28 @@ class CardsData:
         set_row = set_cursor.fetchone()
         set_name = set_row["name"] if set_row else None
 
-        # Parse legalities
-        legalities = json.loads(row["legalities"]) if row["legalities"] else {}
-
         return {
             "uuid": row["uuid"],
             "name": row["name"],
             "mana_cost": row["mana_cost"],
             "mana_value": row["mana_value"],
             "type": row["type"],
-            "types": json.loads(row["types"]) if row["types"] else [],
-            "subtypes": json.loads(row["subtypes"]) if row["subtypes"] else [],
-            "supertypes": json.loads(row["supertypes"]) if row["supertypes"] else [],
+            "types": parse_json(row["types"]),
+            "subtypes": parse_json(row["subtypes"]),
+            "supertypes": parse_json(row["supertypes"]),
             "rarity": row["rarity"],
             "set_code": row["set_code"],
             "set_name": set_name,
-            "color_identity": json.loads(row["color_identity"]) if row["color_identity"] else [],
-            "colors": json.loads(row["colors"]) if row["colors"] else [],
+            "color_identity": parse_json(row["color_identity"]),
+            "colors": parse_json(row["colors"]),
             "power": row["power"],
             "toughness": row["toughness"],
             "text": row["text"],
             "flavor_text": row["flavor_text"],
             "number": row["number"],
             "artist": row["artist"],
-            "keywords": json.loads(row["keywords"]) if row["keywords"] else [],
-            "legalities": legalities,
+            "keywords": parse_json(row["keywords"]),
+            "legalities": parse_json_dict(row["legalities"]),
             "image_url": get_scryfall_image_url(row["identifiers"], "large"),
         }
 
