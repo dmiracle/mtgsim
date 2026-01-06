@@ -7,8 +7,12 @@ MTGSIM_HOME = Path.home() / ".mtgsim"
 REFERENCE_DIR = MTGSIM_HOME / "reference"
 MTGJSON_DIR = REFERENCE_DIR / "mtgjson"
 
-# User database
+# User database (legacy)
 USER_DB_PATH = MTGSIM_HOME / "mtgsim.db"
+
+# Domain database (new unified database)
+DOMAIN_DIR = MTGSIM_HOME / "domain"
+DOMAIN_DB_PATH = DOMAIN_DIR / "mtgsim.sqlite"
 
 # Merged reference database (all tables in one file)
 MERGED_DB_PATH = MTGJSON_DIR / "mtgjson-merged.sqlite"
@@ -30,10 +34,12 @@ DECK_LIST_URL = f"{MTGJSON_BASE_URL}/DeckList.json.xz"
 ALL_DECK_FILES_URL = f"{MTGJSON_BASE_URL}/AllDeckFiles.tar.xz"
 KEYWORDS_URL = f"{MTGJSON_BASE_URL}/Keywords.json.xz"
 
+
 # Project paths (relative to package location)
 def get_project_root() -> Path:
     """Get project root directory."""
     import mtgsim
+
     return Path(mtgsim.__file__).parent.parent.parent
 
 
@@ -57,3 +63,4 @@ def ensure_dirs() -> None:
     MTGSIM_HOME.mkdir(parents=True, exist_ok=True)
     REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
     MTGJSON_DIR.mkdir(parents=True, exist_ok=True)
+    DOMAIN_DIR.mkdir(parents=True, exist_ok=True)

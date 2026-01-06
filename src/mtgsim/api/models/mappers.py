@@ -77,8 +77,7 @@ def map_card_detail(
             pauper=legalities.get("pauper", "Not Legal"),
         ),
         appears_in_decks=[
-            CardAppearance(file=a["file"], name=a["name"], count=a["count"])
-            for a in (appearances or [])
+            CardAppearance(file=a["file"], name=a["name"], count=a["count"]) for a in (appearances or [])
         ],
         other_printings=[
             CardPrinting(set_code=p["set_code"], set_name=p["set_name"] or "", uuid=p["uuid"])

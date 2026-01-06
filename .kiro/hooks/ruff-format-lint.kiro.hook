@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Ruff Format & Lint",
+  "description": "Runs ruff formatter and linter with auto-fix after Python file edits to maintain code quality",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run `uv run ruff format . && uv run ruff check . --fix` to format and lint the code with auto-fixes"
+  }
+}

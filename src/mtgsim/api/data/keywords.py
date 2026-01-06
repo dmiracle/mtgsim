@@ -53,9 +53,7 @@ class KeywordsData:
         if not ref_db.is_initialized():
             return {}
 
-        cursor = ref_db.conn.execute(
-            "SELECT type, COUNT(*) as count FROM keyword GROUP BY type"
-        )
+        cursor = ref_db.conn.execute("SELECT type, COUNT(*) as count FROM keyword GROUP BY type")
         return {row["type"]: row["count"] for row in cursor.fetchall()}
 
 

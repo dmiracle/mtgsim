@@ -152,9 +152,7 @@ def _copy_tables_from_source(source_db: Path, tables: list[str]):
             logger.info(f"Copied data to {table}")
 
         # Copy indexes
-        cursor = conn.execute(
-            "SELECT sql FROM source_db.sqlite_master WHERE type='index' AND sql IS NOT NULL"
-        )
+        cursor = conn.execute("SELECT sql FROM source_db.sqlite_master WHERE type='index' AND sql IS NOT NULL")
         for row in cursor.fetchall():
             if row[0]:
                 try:
@@ -184,8 +182,16 @@ def update_references(force: bool = False):
         # AllPrintings contains: cards, sets, tokens, cardIdentifiers, etc.
         _copy_tables_from_source(
             printings_temp,
-            ["cards", "sets", "tokens", "cardIdentifiers", "cardLegalities",
-             "cardPurchaseUrls", "setTranslations", "meta"],
+            [
+                "cards",
+                "sets",
+                "tokens",
+                "cardIdentifiers",
+                "cardLegalities",
+                "cardPurchaseUrls",
+                "setTranslations",
+                "meta",
+            ],
         )
         printings_temp.unlink(missing_ok=True)
 
@@ -202,6 +208,7 @@ def update_references(force: bool = False):
 def _get_merged_engine():
     """Get SQLModel engine for merged database."""
     from sqlmodel import create_engine
+
     _init_merged_db()
     return create_engine(f"sqlite:///{MERGED_DB_PATH}")
 
@@ -209,6 +216,7 @@ def _get_merged_engine():
 def _init_keywords_table(engine):
     """Initialize keywords table in merged database."""
     from sqlmodel import SQLModel
+
     SQLModel.metadata.create_all(engine, tables=[Keyword.__table__])
 
 
