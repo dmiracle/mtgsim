@@ -16,22 +16,22 @@ This implementation plan converts the domain-API consolidation design into discr
   - **Property 1: Domain Model Completeness**
   - **Validates: Requirements 1.1**
 
-- [ ] 2. Implement reference table sync system
-  - [ ] 2.1 Create CLI commands for reference table synchronization
+- [x] 2. Implement reference table sync system
+  - [x] 2.1 Create CLI commands for reference table synchronization
     - Implement `sync_reference` and `sync_mtgjson` CLI commands
     - Add table copying utilities with prefix support (mtgjson_*)
     - _Requirements: 2.1, 5.1_
 
-  - [ ]* 2.2 Write property test for reference table sync integrity
+  - [x] 2.2 Write property test for reference table sync integrity
     - **Property 2: Reference Table Sync Integrity**
     - **Validates: Requirements 2.1, 2.2**
 
-  - [ ] 2.3 Add validation and integrity checking for reference data
+  - [x] 2.3 Add validation and integrity checking for reference data
     - Implement schema validation before sync operations
     - Add data integrity verification after sync completion
     - _Requirements: 2.4, 5.3_
 
-  - [ ]* 2.4 Write property test for sync operation idempotence
+  - [x] 2.4 Write property test for sync operation idempotence
     - **Property 4: Sync Operation Idempotence**
     - **Validates: Requirements 2.3**
 
@@ -41,7 +41,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - Build transformation logic from reference to enhanced domain models
     - _Requirements: 1.1, 2.2, 5.2_
 
-  - [ ]* 3.2 Write property test for domain entity addition correctness
+  - [ ] 3.2 Write property test for domain entity addition correctness
     - **Property 3: Domain Entity Addition Correctness**
     - **Validates: Requirements 1.1, 2.2**
 

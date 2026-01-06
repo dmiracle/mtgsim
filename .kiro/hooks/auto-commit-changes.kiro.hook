@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "Auto Commit Changes",
+  "description": "Automatically creates git commits with descriptive messages when logical single or groups of changes are made to the codebase",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.py",
+      "*.md",
+      "*.toml",
+      "*.json",
+      "*.html",
+      "*.js",
+      "*.css"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the recent changes made to the files and determine if they represent a logical unit of work that should be committed. If so, create a git commit with a descriptive message following the project's commit guidelines (imperative mood, concise but clear). Consider the scope of changes and group related modifications together. Use conventional commit prefixes like 'feat:', 'fix:', 'docs:', 'refactor:' when appropriate."
+  }
+}
