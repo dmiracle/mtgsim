@@ -22,6 +22,7 @@ class SetSummary(BaseModel):
     total_set_size: int
     block: str | None = None
     keyrune_code: str
+    in_collection: bool = False
 
 
 class SetFilters(BaseModel):
@@ -50,6 +51,7 @@ class SetCard(BaseModel):
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
+    in_collection: bool = False
 
 
 class SetCardsResponse(BaseModel):
@@ -98,6 +100,7 @@ class SetMeta(BaseModel):
     total_set_size: int
     block: str | None = None
     keyrune_code: str
+    in_collection: bool = False
 
 
 class SetDetail(BaseModel):

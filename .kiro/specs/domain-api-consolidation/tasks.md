@@ -81,22 +81,22 @@ This implementation plan converts the domain-API consolidation design into discr
     - Handle missing data gracefully with appropriate fallbacks
     - _Requirements: 4.5_
 
-- [ ] 6. Update API service layer for new architecture
-  - [ ] 6.1 Modify service classes to handle both domain and reference cards
+- [x] 6. Update API service layer for new architecture
+  - [x] 6.1 Modify service classes to handle both domain and reference cards
     - Update CardService, SetService, DeckService for new data flow
     - Add logic to distinguish between user collection and reference data
     - _Requirements: 3.4, 4.3_
 
-  - [ ] 6.2 Write property test for API response compatibility
+  - [x] 6.2 Write property test for API response compatibility
     - **Property 5: API Response Compatibility**
     - **Validates: Requirements 3.1, 3.2**
 
-  - [ ] 6.3 Add collection management endpoints
+  - [x] 6.3 Add collection management endpoints
     - Implement API endpoints for adding/removing cards from user collection
     - Add endpoints to query user collection vs all available cards
     - _Requirements: 3.1, 3.2_
 
-  - [ ]* 6.4 Write property test for collection management consistency
+  - [x] 6.4 Write property test for collection management consistency
     - **Property 10: Collection Management Consistency**
     - **Validates: Requirements 4.1, 4.3**
 
@@ -106,7 +106,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - Add backup creation before major sync operations
     - _Requirements: 5.4_
 
-  - [ ]* 7.2 Write property test for migration rollback consistency
+  - [ ] 7.2 Write property test for migration rollback consistency
     - **Property 11: Migration Rollback Consistency**
     - **Validates: Requirements 5.4**
 

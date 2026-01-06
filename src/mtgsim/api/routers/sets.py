@@ -17,15 +17,17 @@ async def list_sets(
     order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
+    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> SetListResponse:
     """
-    List and filter sets with pagination.
+    List and filter sets with pagination and scope control.
 
     - **q**: Search set names and codes
     - **type**: Filter by set type (core, expansion, masters, commander, etc.)
     - **block**: Filter by block name
     - **sort**: Sort by name, release_date, size
     - **order**: Sort order (asc, desc)
+    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     return await set_service.list_sets(
         q=q,
@@ -35,6 +37,7 @@ async def list_sets(
         order=order,
         page=page,
         limit=limit,
+        scope=scope,
     )
 
 
@@ -46,14 +49,17 @@ async def get_set(
     type: str | None = Query(None, description="Filter cards by type"),
     card_page: int = Query(1, ge=1, description="Card page number"),
     card_limit: int = Query(50, ge=1, le=100, description="Cards per page"),
+    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> SetDetail:
     """
-    Get full set details including cards and statistics.
+    Get full set details including cards and statistics with scope control.
 
     Returns complete set information with:
     - Set metadata (name, code, type, release date, sizes)
     - Statistics (rarity breakdown, prices, keywords, word frequencies)
     - Paginated card list (filterable by rarity, color, type)
+    
+    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     set_data = await set_service.get_set(
         code=code,
@@ -62,6 +68,7 @@ async def get_set(
         card_type=type,
         card_page=card_page,
         card_limit=card_limit,
+        scope=scope,
     )
     if set_data is None:
         raise HTTPException(status_code=404, detail=f"Set not found: {code}")
@@ -69,13 +76,18 @@ async def get_set(
 
 
 @router.get("/{code}/raw")
-async def get_set_raw(code: str) -> dict:
+async def get_set_raw(
+    code: str,
+    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+) -> dict:
     """
-    Get raw set JSON for developer inspection.
+    Get raw set JSON for developer inspection with scope control.
 
     Returns the original MTGJSON set file format.
+    
+    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
-    data = await set_service.get_set_raw(code)
+    data = await set_service.get_set_raw(code, scope=scope)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Set not found: {code}")
     return data

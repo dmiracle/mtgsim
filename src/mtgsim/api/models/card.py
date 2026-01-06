@@ -20,6 +20,7 @@ class CardSummary(BaseModel):
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
+    in_collection: bool = False
 
 
 class CardListResponse(BaseModel):
@@ -57,6 +58,7 @@ class CardPrinting(BaseModel):
     set_code: str
     set_name: str
     uuid: str
+    in_collection: bool = False
 
 
 class CardDetail(BaseModel):
@@ -83,3 +85,4 @@ class CardDetail(BaseModel):
     legalities: CardLegalities
     appears_in_decks: list[CardAppearance] = []
     other_printings: list[CardPrinting] = []
+    in_collection: bool = False

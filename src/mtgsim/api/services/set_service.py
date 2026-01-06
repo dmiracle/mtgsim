@@ -29,8 +29,9 @@ class SetService:
         order: str = "desc",
         page: int = 1,
         limit: int = 50,
+        scope: str = "user",  # "user", "reference", "combined"
     ) -> SetListResponse:
-        """List and filter sets with pagination."""
+        """List and filter sets with pagination and scope control."""
         sets, total = sets_data.list_sets(
             q=q,
             set_type=set_type,
@@ -39,10 +40,12 @@ class SetService:
             order=order,
             page=page,
             limit=limit,
+            scope=scope,
         )
 
-        data = [
-            SetSummary(
+        data = []
+        for s in sets:
+            data.append(SetSummary(
                 code=s["code"],
                 name=s["name"],
                 type=s["type"],
@@ -51,9 +54,8 @@ class SetService:
                 total_set_size=s["total_set_size"],
                 block=s["block"],
                 keyrune_code=s["keyrune_code"],
-            )
-            for s in sets
-        ]
+                in_collection=s.get("in_collection", scope == "user"),
+            ))
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 
@@ -61,8 +63,8 @@ class SetService:
             data=data,
             pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
             filters=SetFilters(
-                types=sets_data.get_available_types(),
-                blocks=sets_data.get_available_blocks(),
+                types=sets_data.get_available_types(scope=scope),
+                blocks=sets_data.get_available_blocks(scope=scope),
             ),
         )
 
@@ -74,9 +76,10 @@ class SetService:
         card_type: str | None = None,
         card_page: int = 1,
         card_limit: int = 50,
+        scope: str = "user",  # "user", "reference", "combined"
     ) -> SetDetail | None:
-        """Get full set details including cards and statistics."""
-        set_meta = sets_data.get_set(code)
+        """Get full set details including cards and statistics with scope control."""
+        set_meta = sets_data.get_set(code, scope=scope)
         if not set_meta:
             return None
 
@@ -88,10 +91,11 @@ class SetService:
             card_type=card_type,
             page=card_page,
             limit=card_limit,
+            scope=scope,
         )
 
         # Get stats
-        stats_data = sets_data.get_set_stats(code)
+        stats_data = sets_data.get_set_stats(code, scope=scope)
 
         card_pages = (card_total + card_limit - 1) // card_limit if card_limit > 0 else 1
 
@@ -105,6 +109,7 @@ class SetService:
                 total_set_size=set_meta["total_set_size"],
                 block=set_meta["block"],
                 keyrune_code=set_meta["keyrune_code"],
+                in_collection=set_meta.get("in_collection", scope == "user"),
             ),
             stats=SetStats(
                 rarity_count=stats_data["rarity_count"],
@@ -138,6 +143,7 @@ class SetService:
                         text=c.get("text"),
                         price=c.get("price"),
                         image_url=c.get("image_url"),
+                        in_collection=c.get("in_collection", scope == "user"),
                     )
                     for c in cards
                 ],
@@ -145,20 +151,20 @@ class SetService:
             ),
         )
 
-    async def get_set_raw(self, code: str) -> dict | None:
-        """Get raw set data."""
-        set_data = sets_data.get_set(code)
+    async def get_set_raw(self, code: str, scope: str = "user") -> dict | None:
+        """Get raw set data with scope control."""
+        set_data = sets_data.get_set(code, scope=scope)
         if not set_data:
             return None
         return set_data
 
-    async def get_available_types(self) -> list[str]:
-        """Get list of available set types."""
-        return sets_data.get_available_types()
+    async def get_available_types(self, scope: str = "user") -> list[str]:
+        """Get list of available set types with scope control."""
+        return sets_data.get_available_types(scope=scope)
 
-    async def get_available_blocks(self) -> list[str]:
-        """Get list of available blocks."""
-        return sets_data.get_available_blocks()
+    async def get_available_blocks(self, scope: str = "user") -> list[str]:
+        """Get list of available blocks with scope control."""
+        return sets_data.get_available_blocks(scope=scope)
 
 
 # Singleton instance
