@@ -4,7 +4,6 @@ Feature: domain-api-consolidation, Property 1: Domain Model Completeness
 Validates: Requirements 1.1
 """
 
-
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
