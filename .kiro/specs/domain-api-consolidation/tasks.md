@@ -87,7 +87,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - Add logic to distinguish between user collection and reference data
     - _Requirements: 3.4, 4.3_
 
-  - [ ]* 6.2 Write property test for API response compatibility
+  - [ ] 6.2 Write property test for API response compatibility
     - **Property 5: API Response Compatibility**
     - **Validates: Requirements 3.1, 3.2**
 
