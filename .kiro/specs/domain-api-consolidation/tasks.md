@@ -54,29 +54,29 @@ This implementation plan converts the domain-API consolidation design into discr
     - **Property 9: Selective Entity Addition**
     - **Validates: Requirements 5.2**
 
-- [ ] 4. Checkpoint - Ensure domain database functionality works
+- [x] 4. Checkpoint - Ensure domain database functionality works
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Refactor data access layer for domain database
-  - [ ] 5.1 Update data access classes to query domain database tables
+- [x] 5. Refactor data access layer for domain database
+  - [x] 5.1 Update data access classes to query domain database tables
     - Modify CardsData, SetsData, DecksData to use domain database
     - Implement scope-based querying (user vs reference vs combined)
     - _Requirements: 4.1, 4.2_
 
-  - [ ] 5.2 Write property test for reference table query compatibility
+  - [x] 5.2 Write property test for reference table query compatibility
     - **Property 7: Reference Table Query Compatibility**
     - **Validates: Requirements 3.2, 4.1**
 
-  - [ ] 5.3 Add conversion utilities between reference and domain models
+  - [x] 5.3 Add conversion utilities between reference and domain models
     - Implement transformation functions for read-only reference data
     - Add utilities to convert between MTGJsonCard and Card models
     - _Requirements: 4.3, 4.4_
 
-  - [ ] 5.4 Write property test for domain to API model conversion
+  - [x] 5.4 Write property test for domain to API model conversion
     - **Property 6: Domain to API Model Conversion**
     - **Validates: Requirements 3.4, 4.3**
 
-  - [ ] 5.5 Maintain existing error handling and edge case behavior
+  - [x] 5.5 Maintain existing error handling and edge case behavior
     - Ensure error responses remain identical to current system
     - Handle missing data gracefully with appropriate fallbacks
     - _Requirements: 4.5_
@@ -87,7 +87,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - Add logic to distinguish between user collection and reference data
     - _Requirements: 3.4, 4.3_
 
-  - [ ]* 6.2 Write property test for API response compatibility
+  - [ ] 6.2 Write property test for API response compatibility
     - **Property 5: API Response Compatibility**
     - **Validates: Requirements 3.1, 3.2**
 

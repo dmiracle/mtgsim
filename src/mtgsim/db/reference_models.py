@@ -116,7 +116,6 @@ class MTGJsonDeck(SQLModel, table=True):
 
     # JSON fields for complex data
     commander: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
-    meta: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class MTGJsonDeckCard(SQLModel, table=True):
