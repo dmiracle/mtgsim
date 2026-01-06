@@ -2,11 +2,12 @@ from pathlib import Path
 
 import typer
 
-from ..db.session import DATABASE_PATH, get_session, init_db
-from ..db.set_models import ALL_SETS_DB_PATH
+from mtgsim.config import MERGED_DB_PATH, USER_DB_PATH
+
+from ..db.session import get_session, init_db
 from ..domain.card import Card, Rarity
 from ..repository.card_repository import CardRepository, db_to_card
-from ..sync.mtgjson import update_decks, update_references, update_sets
+from ..sync.mtgjson import update_decks, update_keywords, update_references, update_sets
 
 db_app = typer.Typer(help="Database operations")
 
@@ -15,7 +16,7 @@ db_app = typer.Typer(help="Database operations")
 def db_init():
     """Initialize the database."""
     init_db()
-    typer.echo(f"Database initialized at {DATABASE_PATH}")
+    typer.echo(f"Database initialized at {USER_DB_PATH}")
 
 
 @db_app.command("sync-decks")
@@ -44,7 +45,7 @@ def db_sync_sets(
     """
     try:
         update_sets(set_files_dir)
-        typer.echo(f"Sets database created at {ALL_SETS_DB_PATH}")
+        typer.echo(f"Sets synced to {MERGED_DB_PATH}")
     except Exception as e:
         typer.echo(f"Error during set sync: {e}")
         raise typer.Exit(1)
@@ -60,6 +61,19 @@ def db_sync(
         typer.echo("Sync complete.")
     except Exception as e:
         typer.echo(f"Error during sync: {e}")
+        raise typer.Exit(1)
+
+
+@db_app.command("sync-keywords")
+def db_sync_keywords(
+    force: bool = typer.Option(False, "--force", "-f", help="Force sync even if up to date"),
+):
+    """Sync keywords data from MTGJSON."""
+    try:
+        update_keywords(force=force)
+        typer.echo(f"Keywords synced to {MERGED_DB_PATH}")
+    except Exception as e:
+        typer.echo(f"Error during keywords sync: {e}")
         raise typer.Exit(1)
 
 

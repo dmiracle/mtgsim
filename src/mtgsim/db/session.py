@@ -2,14 +2,14 @@ from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine
 
-from .deck_models import Deck, DeckCard, DeckList
+from mtgsim.config import USER_DB_PATH
 
-DATABASE_PATH = Path.home() / ".mtgsim" / "mtgsim.db"
+from .deck_models import Deck, DeckCard, DeckList
 
 
 def get_engine(db_path: Path | None = None):
     if db_path is None:
-        db_path = DATABASE_PATH
+        db_path = USER_DB_PATH
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return create_engine(f"sqlite:///{db_path}")
 

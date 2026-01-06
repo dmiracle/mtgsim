@@ -1,7 +1,7 @@
-from pathlib import Path
-
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel, create_engine
+
+from mtgsim.config import MERGED_DB_PATH, MTGJSON_DIR
 
 
 class DeckList(SQLModel, table=True):
@@ -94,10 +94,6 @@ class DeckCard(SQLModel, table=True):
     deck: Deck = Relationship(back_populates="cards")
 
 
-REFERENCE_DB_DIR = Path.home() / ".mtgsim" / "reference" / "mtgjson"
-ALL_DECKS_DB_PATH = REFERENCE_DB_DIR / "AllDecks.sqlite"
-
-
 def get_deck_engine():
-    REFERENCE_DB_DIR.mkdir(parents=True, exist_ok=True)
-    return create_engine(f"sqlite:///{ALL_DECKS_DB_PATH}")
+    MTGJSON_DIR.mkdir(parents=True, exist_ok=True)
+    return create_engine(f"sqlite:///{MERGED_DB_PATH}")

@@ -1,9 +1,9 @@
 """SQLModel models for AllSetFiles reference database."""
 
-from pathlib import Path
-
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel, create_engine
+
+from mtgsim.config import MERGED_DB_PATH, MTGJSON_DIR
 
 
 class SetDB(SQLModel, table=True):
@@ -79,14 +79,10 @@ class SetCardDB(SQLModel, table=True):
     set_ref: SetDB = Relationship(back_populates="cards")
 
 
-REFERENCE_DB_DIR = Path.home() / ".mtgsim" / "reference" / "mtgjson"
-ALL_SETS_DB_PATH = REFERENCE_DB_DIR / "AllSets.sqlite"
-
-
 def get_sets_engine():
     """Get SQLite engine for sets database."""
-    REFERENCE_DB_DIR.mkdir(parents=True, exist_ok=True)
-    return create_engine(f"sqlite:///{ALL_SETS_DB_PATH}")
+    MTGJSON_DIR.mkdir(parents=True, exist_ok=True)
+    return create_engine(f"sqlite:///{MERGED_DB_PATH}")
 
 
 def init_sets_db():

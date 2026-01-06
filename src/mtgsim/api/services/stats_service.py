@@ -1,8 +1,9 @@
-"""Stats service - handles aggregate statistics."""
+"""Stats service - handles aggregate statistics using real reference data."""
 
 from pydantic import BaseModel
 
 from mtgsim.api.models.common import HistogramBucket
+from mtgsim.reference import ref_db
 
 
 class RecentSet(BaseModel):
@@ -49,80 +50,250 @@ class StatsService:
     """Service for aggregate statistics."""
 
     async def get_home_stats(self) -> HomeStats:
-        """
-        Get aggregate statistics for home screen.
+        """Get aggregate statistics for home screen from real data."""
+        total_decks = self._get_total_decks()
+        total_sets = self._get_total_sets()
+        total_cards = self._get_total_cards()
+        total_cards_with_prices = self._get_cards_with_prices()
+        format_distribution = self._get_format_distribution()
+        price_histogram = self._get_price_histogram()
+        recent_sets = self._get_recent_sets()
+        most_expensive_cards = self._get_most_expensive_cards()
 
-        TODO: Implement actual aggregation:
-        1. Count total decks from deck index
-        2. Count total sets from set index
-        3. Count total cards from card index
-        4. Count cards with prices from price data
-        5. Calculate format distribution from deck legalities
-        6. Build price histogram from deck prices
-        7. Get recent sets sorted by release date
-        8. Get most expensive cards from price data
-        """
         return HomeStats(
-            total_decks=2648,
-            total_sets=844,
-            total_cards=105230,
-            total_cards_with_prices=95000,
-            format_distribution={
-                "standard": 150,
-                "pioneer": 300,
-                "modern": 800,
-                "legacy": 500,
-                "vintage": 400,
-                "commander": 898,
-            },
-            price_histogram=[
-                HistogramBucket(range="0-50", count=500),
-                HistogramBucket(range="50-100", count=400),
-                HistogramBucket(range="100-500", count=800),
-                HistogramBucket(range="500+", count=948),
-            ],
-            recent_sets=[
-                RecentSet(code="MKM", name="Murders at Karlov Manor", release_date="2024-02-09"),
-                RecentSet(code="LCI", name="Lost Caverns of Ixalan", release_date="2023-11-17"),
-            ],
-            most_expensive_cards=[
-                ExpensiveCard(name="Black Lotus", price=50000.00, set_code="LEA"),
-                ExpensiveCard(name="Ancestral Recall", price=15000.00, set_code="LEA"),
-                ExpensiveCard(name="Time Walk", price=12000.00, set_code="LEA"),
-            ],
+            total_decks=total_decks,
+            total_sets=total_sets,
+            total_cards=total_cards,
+            total_cards_with_prices=total_cards_with_prices,
+            format_distribution=format_distribution,
+            price_histogram=price_histogram,
+            recent_sets=recent_sets,
+            most_expensive_cards=most_expensive_cards,
         )
 
     async def get_deck_stats(self) -> DeckAggregateStats:
-        """
-        Get aggregate deck statistics.
+        """Get aggregate deck statistics from real data."""
+        by_format = self._get_format_distribution()
+        by_set = self._get_decks_by_set()
+        by_color = self._get_decks_by_color()
+        price_dist = self._get_deck_price_distribution()
+        avg_price, avg_size = self._get_deck_averages()
 
-        TODO: Implement actual aggregation:
-        1. Group decks by format legality
-        2. Group decks by set code
-        3. Group decks by color combination
-        4. Build deck price distribution histogram
-        5. Calculate average deck price
-        6. Calculate average deck size
-        """
         return DeckAggregateStats(
-            by_format={
-                "standard": 150,
-                "pioneer": 300,
-                "modern": 800,
-                "legacy": 500,
-                "commander": 898,
-            },
-            by_set={"TST": 50, "XYZ": 30},
-            by_color_combination={"W": 200, "U": 180, "WU": 150, "WUB": 100},
-            price_distribution=[
-                HistogramBucket(range="0-50", count=500),
-                HistogramBucket(range="50-100", count=400),
-                HistogramBucket(range="100-500", count=800),
-                HistogramBucket(range="500+", count=948),
-            ],
-            average_deck_price=125.50,
-            average_deck_size=68.5,
+            by_format=by_format,
+            by_set=by_set,
+            by_color_combination=by_color,
+            price_distribution=price_dist,
+            average_deck_price=avg_price,
+            average_deck_size=avg_size,
         )
+
+    def _get_total_decks(self) -> int:
+        """Count total decks in database."""
+        return ref_db.count_decks()
+
+    def _get_total_sets(self) -> int:
+        """Count total sets in database."""
+        if not ref_db.has_sets():
+            return 0
+        return ref_db.count_sets()
+
+    def _get_total_cards(self) -> int:
+        """Count total unique cards in database."""
+        if not ref_db.has_sets():
+            return 0
+        return ref_db.count_cards()
+
+    def _get_cards_with_prices(self) -> int:
+        """Count cards that have price data."""
+        if not ref_db.has_prices():
+            return 0
+        cursor = ref_db.prices.execute("SELECT COUNT(DISTINCT uuid) FROM cardPrices")
+        row = cursor.fetchone()
+        return row[0] if row else 0
+
+    def _get_format_distribution(self) -> dict[str, int]:
+        """Get distribution of decks by format type."""
+        if not ref_db.has_decks():
+            return {}
+        cursor = ref_db.decks.execute("""
+            SELECT type, COUNT(*) as count
+            FROM deck
+            WHERE type IS NOT NULL
+            GROUP BY type
+            ORDER BY count DESC
+            LIMIT 10
+        """)
+        return {row["type"]: row["count"] for row in cursor.fetchall()}
+
+    def _get_price_histogram(self) -> list[HistogramBucket]:
+        """Build price histogram for cards."""
+        if not ref_db.has_prices():
+            return []
+
+        cursor = ref_db.prices.execute("""
+            SELECT
+                CASE
+                    WHEN price < 1 THEN '$0-1'
+                    WHEN price < 5 THEN '$1-5'
+                    WHEN price < 20 THEN '$5-20'
+                    WHEN price < 50 THEN '$20-50'
+                    WHEN price < 100 THEN '$50-100'
+                    ELSE '$100+'
+                END as price_range,
+                COUNT(DISTINCT uuid) as count
+            FROM cardPrices
+            WHERE priceProvider = 'tcgplayer'
+              AND providerListing = 'retail'
+              AND cardFinish = 'normal'
+              AND currency = 'USD'
+            GROUP BY price_range
+            ORDER BY MIN(price)
+        """)
+
+        return [HistogramBucket(range=row["price_range"], count=row["count"]) for row in cursor.fetchall()]
+
+    def _get_recent_sets(self) -> list[RecentSet]:
+        """Get most recently released sets."""
+        if not ref_db.has_sets():
+            return []
+
+        cursor = ref_db.sets.execute("""
+            SELECT code, name, release_date
+            FROM setdb
+            WHERE release_date IS NOT NULL
+            ORDER BY release_date DESC
+            LIMIT 10
+        """)
+
+        return [
+            RecentSet(code=row["code"], name=row["name"], release_date=row["release_date"])
+            for row in cursor.fetchall()
+        ]
+
+    def _get_most_expensive_cards(self) -> list[ExpensiveCard]:
+        """Get most expensive cards by TCGPlayer price."""
+        if not ref_db.has_prices() or not ref_db.has_sets():
+            return []
+
+        # Get top prices
+        cursor = ref_db.prices.execute("""
+            SELECT uuid, price
+            FROM cardPrices
+            WHERE priceProvider = 'tcgplayer'
+              AND providerListing = 'retail'
+              AND cardFinish = 'normal'
+              AND currency = 'USD'
+            ORDER BY price DESC
+            LIMIT 20
+        """)
+        price_rows = cursor.fetchall()
+
+        if not price_rows:
+            return []
+
+        # Get card names for these UUIDs
+        uuids = [row["uuid"] for row in price_rows]
+        placeholders = ",".join(["?"] * len(uuids))
+        cursor = ref_db.sets.execute(
+            f"SELECT uuid, name, set_code FROM setcarddb WHERE uuid IN ({placeholders})",
+            uuids,
+        )
+        card_map = {row["uuid"]: row for row in cursor.fetchall()}
+
+        results = []
+        for row in price_rows:
+            card = card_map.get(row["uuid"])
+            if card:
+                results.append(
+                    ExpensiveCard(name=card["name"], price=row["price"], set_code=card["set_code"])
+                )
+            if len(results) >= 10:
+                break
+
+        return results
+
+    def _get_decks_by_set(self) -> dict[str, int]:
+        """Get distribution of decks by set code."""
+        if not ref_db.has_decks():
+            return {}
+        cursor = ref_db.decks.execute("""
+            SELECT code, COUNT(*) as count
+            FROM deck
+            WHERE code IS NOT NULL AND code != ''
+            GROUP BY code
+            ORDER BY count DESC
+            LIMIT 20
+        """)
+        return {row["code"]: row["count"] for row in cursor.fetchall()}
+
+    def _get_decks_by_color(self) -> dict[str, int]:
+        """Get distribution of decks by color combination."""
+        if not ref_db.has_decks():
+            return {}
+
+        # Query deck cards and aggregate color identities
+        cursor = ref_db.decks.execute("""
+            SELECT d.uuid, dc.color_identity
+            FROM deck d
+            JOIN deckcard dc ON d.uuid = dc.deck_uuid
+            WHERE dc.board = 'mainBoard'
+        """)
+
+        deck_colors = {}
+        for row in cursor.fetchall():
+            deck_uuid = row["uuid"]
+            colors = row["color_identity"]
+            if colors:
+                import json
+                try:
+                    color_list = json.loads(colors) if isinstance(colors, str) else colors
+                    if deck_uuid not in deck_colors:
+                        deck_colors[deck_uuid] = set()
+                    deck_colors[deck_uuid].update(color_list)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        # Count by color combination
+        color_counts = {}
+        for colors in deck_colors.values():
+            key = "".join(sorted(colors)) or "C"
+            color_counts[key] = color_counts.get(key, 0) + 1
+
+        # Sort by count and return top 20
+        sorted_colors = sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+        return dict(sorted_colors)
+
+    def _get_deck_price_distribution(self) -> list[HistogramBucket]:
+        """Build price histogram for decks."""
+        # Would need to calculate deck prices which is expensive
+        # Return placeholder for now
+        return [
+            HistogramBucket(range="$0-50", count=0),
+            HistogramBucket(range="$50-100", count=0),
+            HistogramBucket(range="$100-500", count=0),
+            HistogramBucket(range="$500+", count=0),
+        ]
+
+    def _get_deck_averages(self) -> tuple[float, float]:
+        """Get average deck price and size."""
+        if not ref_db.has_decks():
+            return 0.0, 0.0
+
+        cursor = ref_db.decks.execute("""
+            SELECT AVG(card_count) as avg_size
+            FROM (
+                SELECT deck_uuid, SUM(count) as card_count
+                FROM deckcard
+                WHERE board IN ('mainBoard', 'sideBoard')
+                GROUP BY deck_uuid
+            )
+        """)
+        row = cursor.fetchone()
+        avg_size = row["avg_size"] if row and row["avg_size"] else 0.0
+
+        # Average price would require joining with prices - skip for now
+        return 0.0, avg_size
 
 
 # Singleton instance
