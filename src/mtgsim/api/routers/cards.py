@@ -11,6 +11,7 @@ router = APIRouter(prefix="/cards", tags=["cards"])
 
 class CollectionResponse(BaseModel):
     """Response for collection management operations."""
+
     success: bool
     message: str
     card: dict | None = None
@@ -76,7 +77,7 @@ async def get_card(
     - Format legalities
     - Deck appearances
     - Other printings
-    
+
     - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     card = await card_service.get_card(uuid, scope=scope)
@@ -89,19 +90,19 @@ async def get_card(
 async def add_card_to_collection(uuid: str) -> CollectionResponse:
     """
     Add a card from reference tables to user's collection.
-    
+
     This endpoint allows users to add cards from the complete MTGJSON reference
     database to their personal collection in the domain database.
-    
+
     - **uuid**: The UUID of the card to add to collection
-    
+
     Returns success/failure status and details about the operation.
     """
     result = await card_service.add_card_to_collection(uuid)
-    
+
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
-    
+
     return CollectionResponse(**result)
 
 
@@ -109,17 +110,17 @@ async def add_card_to_collection(uuid: str) -> CollectionResponse:
 async def remove_card_from_collection(uuid: str) -> CollectionResponse:
     """
     Remove a card from user's collection.
-    
+
     This endpoint removes a card from the user's personal collection in the
     domain database. The card will still be available in reference tables.
-    
+
     - **uuid**: The UUID of the card to remove from collection
-    
+
     Returns success/failure status and details about the operation.
     """
     result = await card_service.remove_card_from_collection(uuid)
-    
+
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
-    
+
     return CollectionResponse(**result)

@@ -45,17 +45,19 @@ class SetService:
 
         data = []
         for s in sets:
-            data.append(SetSummary(
-                code=s["code"],
-                name=s["name"],
-                type=s["type"],
-                release_date=s["release_date"],
-                base_set_size=s["base_set_size"],
-                total_set_size=s["total_set_size"],
-                block=s["block"],
-                keyrune_code=s["keyrune_code"],
-                in_collection=s.get("in_collection", scope == "user"),
-            ))
+            data.append(
+                SetSummary(
+                    code=s["code"],
+                    name=s["name"],
+                    type=s["type"],
+                    release_date=s["release_date"],
+                    base_set_size=s["base_set_size"],
+                    total_set_size=s["total_set_size"],
+                    block=s["block"],
+                    keyrune_code=s["keyrune_code"],
+                    in_collection=s.get("in_collection", scope == "user"),
+                )
+            )
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 

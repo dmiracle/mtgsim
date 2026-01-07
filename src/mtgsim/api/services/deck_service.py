@@ -56,17 +56,19 @@ class DeckService:
 
         data = []
         for d in decks:
-            data.append(DeckSummary(
-                file=d["file"],
-                name=d["name"],
-                code=d["code"],
-                card_count=d["card_count"],
-                colors=d["colors"],
-                price=d.get("price"),
-                release_date=d["release_date"],
-                legality=DeckLegality(),
-                in_collection=d.get("in_collection", scope == "user"),
-            ))
+            data.append(
+                DeckSummary(
+                    file=d["file"],
+                    name=d["name"],
+                    code=d["code"],
+                    card_count=d["card_count"],
+                    colors=d["colors"],
+                    price=d.get("price"),
+                    release_date=d["release_date"],
+                    legality=DeckLegality(),
+                    in_collection=d.get("in_collection", scope == "user"),
+                )
+            )
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 

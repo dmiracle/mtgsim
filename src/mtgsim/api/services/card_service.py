@@ -48,20 +48,22 @@ class CardService:
         data = []
         for c in cards:
             # Handle both domain and reference card formats
-            data.append(CardSummary(
-                uuid=c["uuid"],
-                name=c["name"],
-                type=c["type"],
-                mana_cost=c["mana_cost"],
-                mana_value=c["mana_value"],
-                rarity=c["rarity"],
-                set_code=c["set_code"],
-                color_identity=c["color_identity"],
-                text=c.get("text"),
-                price=c.get("price"),
-                image_url=c.get("image_url"),
-                in_collection=c.get("in_collection", scope == "user"),
-            ))
+            data.append(
+                CardSummary(
+                    uuid=c["uuid"],
+                    name=c["name"],
+                    type=c["type"],
+                    mana_cost=c["mana_cost"],
+                    mana_value=c["mana_value"],
+                    rarity=c["rarity"],
+                    set_code=c["set_code"],
+                    color_identity=c["color_identity"],
+                    text=c.get("text"),
+                    price=c.get("price"),
+                    image_url=c.get("image_url"),
+                    in_collection=c.get("in_collection", scope == "user"),
+                )
+            )
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
 
@@ -163,47 +165,28 @@ class CardService:
     async def add_card_to_collection(self, card_uuid: str) -> dict:
         """Add a card from reference tables to user's domain tables."""
         from mtgsim.cli.domain_commands import add_card_to_domain
-        
+
         try:
             result = add_card_to_domain(card_uuid)
-            return {
-                "success": True,
-                "message": f"Card {card_uuid} added to collection",
-                "card": result
-            }
+            return {"success": True, "message": f"Card {card_uuid} added to collection", "card": result}
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Failed to add card: {str(e)}",
-                "card": None
-            }
+            return {"success": False, "message": f"Failed to add card: {str(e)}", "card": None}
 
     async def remove_card_from_collection(self, card_uuid: str) -> dict:
         """Remove a card from user's domain tables."""
-        from mtgsim.db.domain_session import get_domain_session
-        from mtgsim.db.domain_models import DomainCard
-        from sqlmodel import select
-        
         try:
-            with get_domain_session() as session:
-                # Find the card in domain tables
-                query = select(DomainCard).where(DomainCard.uuid == card_uuid)
-                card = session.exec(query).first()
-                
-                if not card:
-                    return {
-                        "success": False,
-                        "message": f"Card {card_uuid} not found in collection",
-                    }
-                
-                # Remove the card
-                session.delete(card)
-                session.commit()
-                
+            success = cards_data.remove_card_from_collection(card_uuid)
+
+            if not success:
                 return {
-                    "success": True,
-                    "message": f"Card {card_uuid} removed from collection",
+                    "success": False,
+                    "message": f"Card {card_uuid} not found in collection",
                 }
+
+            return {
+                "success": True,
+                "message": f"Card {card_uuid} removed from collection",
+            }
         except Exception as e:
             return {
                 "success": False,

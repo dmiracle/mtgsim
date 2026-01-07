@@ -116,7 +116,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - _Requirements: 2.5, 5.5_
 
 - [-] 8. Ensure architectural boundaries and compatibility
-  - [ ] 8.1 Validate layer separation and dependencies
+  - [x] 8.1 Validate layer separation and dependencies
     - Ensure domain models don't contain API-specific logic
     - Verify clear boundaries between domain, data access, and API layers
     - _Requirements: 6.1, 6.2, 6.3, 6.5_
@@ -125,7 +125,7 @@ This implementation plan converts the domain-API consolidation design into discr
     - **Property 13: Layer Boundary Enforcement**
     - **Validates: Requirements 6.3, 6.5**
 
-  - [ ] 8.3 Verify API backward compatibility
+  - [x] 8.3 Verify API backward compatibility
     - Ensure all existing API endpoints return identical response structures
     - Test that existing query parameters and filtering options work unchanged
     - _Requirements: 3.1, 3.2, 3.3_

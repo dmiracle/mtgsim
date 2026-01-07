@@ -1,17 +1,12 @@
 """Cards data access layer."""
 
-from sqlmodel import Session, select, func
-from mtgsim.reference.db import get_scryfall_image_url, parse_json, parse_json_dict
-from mtgsim.db.domain_session import get_domain_session
-from mtgsim.db.domain_models import DomainCard, DomainSet
-from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet, MTGJsonPrice
-from .converters import (
-    domain_card_to_api_dict, 
-    reference_card_to_api_dict,
-    create_readonly_domain_card
-)
+from sqlmodel import Session, func, select
 
-from .database import db
+from mtgsim.db.domain_models import DomainCard, DomainSet
+from mtgsim.db.domain_session import get_domain_session
+from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
+
+from .converters import create_readonly_domain_card, domain_card_to_api_dict, reference_card_to_api_dict
 
 
 class CardsData:
@@ -34,7 +29,7 @@ class CardsData:
         Search cards with filtering and pagination using domain database.
 
         Args:
-            scope: "user" (domain tables only), "reference" (mtgjson tables only), 
+            scope: "user" (domain tables only), "reference" (mtgjson tables only),
                    "combined" (both domain and reference)
 
         Returns: (list of cards, total count)
@@ -42,11 +37,17 @@ class CardsData:
         try:
             with get_domain_session() as session:
                 if scope == "reference":
-                    return self._search_reference_cards(session, q, set_code, rarity, card_type, colors, sort, order, page, limit)
+                    return self._search_reference_cards(
+                        session, q, set_code, rarity, card_type, colors, sort, order, page, limit
+                    )
                 elif scope == "combined":
-                    return self._search_combined_cards(session, q, set_code, rarity, card_type, colors, sort, order, page, limit)
+                    return self._search_combined_cards(
+                        session, q, set_code, rarity, card_type, colors, sort, order, page, limit
+                    )
                 else:  # scope == "user" (default)
-                    return self._search_domain_cards(session, q, set_code, rarity, card_type, colors, sort, order, page, limit)
+                    return self._search_domain_cards(
+                        session, q, set_code, rarity, card_type, colors, sort, order, page, limit
+                    )
         except Exception as e:
             # Maintain backward compatibility - if domain database fails, return empty results
             # This matches the behavior of the original implementation when databases were unavailable
@@ -57,7 +58,7 @@ class CardsData:
                 raise
 
     def _search_domain_cards(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         set_code: str | None = None,
@@ -74,10 +75,7 @@ class CardsData:
 
         # Apply filters
         if q:
-            query = query.where(
-                (DomainCard.name.contains(q)) | 
-                (DomainCard.type_line.contains(q))
-            )
+            query = query.where((DomainCard.name.contains(q)) | (DomainCard.type_line.contains(q)))
 
         if set_code:
             query = query.where(DomainCard.set_code == set_code)
@@ -89,9 +87,14 @@ class CardsData:
             query = query.where(DomainCard.type_line.contains(card_type))
 
         if colors:
+            # Filter by colors using the relationship table
+            # For multiple colors, we need to ensure the card has ALL specified colors
+            from mtgsim.db.domain_models import DomainCardColorLink
+
+            # Use EXISTS subquery for each color to avoid ambiguous joins
             for color in colors:
-                # Use JSON_EXTRACT for SQLite JSON queries
-                query = query.where(func.json_extract(DomainCard.color_identity, '$').contains(f'"{color}"'))
+                color_subquery = select(DomainCardColorLink.card_id).where(DomainCardColorLink.color == color)
+                query = query.where(DomainCard.id.in_(color_subquery))
 
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
@@ -105,7 +108,7 @@ class CardsData:
             "set_code": DomainCard.set_code,
         }
         sort_field = sort_map.get(sort, DomainCard.name)
-        
+
         if order == "desc":
             query = query.order_by(sort_field.desc())
         else:
@@ -126,7 +129,7 @@ class CardsData:
         return cards, total
 
     def _search_reference_cards(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         set_code: str | None = None,
@@ -143,10 +146,7 @@ class CardsData:
 
         # Apply filters
         if q:
-            query = query.where(
-                (MTGJsonCard.name.contains(q)) | 
-                (MTGJsonCard.type.contains(q))
-            )
+            query = query.where((MTGJsonCard.name.contains(q)) | (MTGJsonCard.type.contains(q)))
 
         if set_code:
             query = query.where(MTGJsonCard.set_code == set_code)
@@ -160,7 +160,7 @@ class CardsData:
         if colors:
             for color in colors:
                 # Use JSON_EXTRACT for SQLite JSON queries
-                query = query.where(func.json_extract(MTGJsonCard.color_identity, '$').contains(f'"{color}"'))
+                query = query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
 
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
@@ -174,7 +174,7 @@ class CardsData:
             "set_code": MTGJsonCard.set_code,
         }
         sort_field = sort_map.get(sort, MTGJsonCard.name)
-        
+
         if order == "desc":
             query = query.order_by(sort_field.desc())
         else:
@@ -195,7 +195,7 @@ class CardsData:
         return cards, total
 
     def _search_combined_cards(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         set_code: str | None = None,
@@ -212,20 +212,17 @@ class CardsData:
         domain_cards, domain_total = self._search_domain_cards(
             session, q, set_code, rarity, card_type, colors, sort, order, 1, 1000
         )
-        
+
         # Get reference cards, excluding those already in domain
         domain_uuids = {card["uuid"] for card in domain_cards}
-        
+
         ref_query = select(MTGJsonCard)
         if domain_uuids:
             ref_query = ref_query.where(MTGJsonCard.uuid.not_in(domain_uuids))
 
         # Apply same filters to reference query
         if q:
-            ref_query = ref_query.where(
-                (MTGJsonCard.name.contains(q)) | 
-                (MTGJsonCard.type.contains(q))
-            )
+            ref_query = ref_query.where((MTGJsonCard.name.contains(q)) | (MTGJsonCard.type.contains(q)))
 
         if set_code:
             ref_query = ref_query.where(MTGJsonCard.set_code == set_code)
@@ -238,10 +235,10 @@ class CardsData:
 
         if colors:
             for color in colors:
-                ref_query = ref_query.where(func.json_extract(MTGJsonCard.color_identity, '$').contains(f'"{color}"'))
+                ref_query = ref_query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
 
         ref_results = session.exec(ref_query).all()
-        
+
         # Convert reference cards to dict format
         ref_cards = []
         for card in ref_results:
@@ -249,7 +246,7 @@ class CardsData:
 
         # Combine and sort all cards
         all_cards = domain_cards + ref_cards
-        
+
         # Apply sorting to combined results
         sort_key_map = {
             "name": lambda x: x["name"],
@@ -258,13 +255,13 @@ class CardsData:
             "set_code": lambda x: x["set_code"],
         }
         sort_key = sort_key_map.get(sort, sort_key_map["name"])
-        
+
         all_cards.sort(key=sort_key, reverse=(order == "desc"))
-        
+
         # Apply pagination to combined results
         total = len(all_cards)
         offset = (page - 1) * limit
-        paginated_cards = all_cards[offset:offset + limit]
+        paginated_cards = all_cards[offset : offset + limit]
 
         return paginated_cards, total
 
@@ -301,16 +298,15 @@ class CardsData:
         """Get domain card details by UUID."""
         query = select(DomainCard).where(DomainCard.uuid == uuid)
         card = session.exec(query).first()
-        
+
         if not card:
             return None
 
-        # Get set name if available
-        set_name = None
-        if card.set_code:
-            set_query = select(DomainSet).where(DomainSet.code == card.set_code)
-            set_obj = session.exec(set_query).first()
-            set_name = set_obj.name if set_obj else card.set_name
+        # TODO: Get set name if available for future enrichment
+        # if card.set_code:
+        #     set_query = select(DomainSet).where(DomainSet.code == card.set_code)
+        #     set_obj = session.exec(set_query).first()
+        #     set_name = set_obj.name if set_obj else card.set_name
 
         return domain_card_to_api_dict(card)
 
@@ -318,7 +314,7 @@ class CardsData:
         """Get reference card details by UUID."""
         query = select(MTGJsonCard).where(MTGJsonCard.uuid == uuid)
         card = session.exec(query).first()
-        
+
         if not card:
             return None
 
@@ -341,7 +337,7 @@ class CardsData:
                 if scope == "reference":
                     query = select(MTGJsonCard).where(MTGJsonCard.name == name).order_by(MTGJsonCard.set_code)
                     cards = session.exec(query).all()
-                    
+
                     result = []
                     for card in cards:
                         # Get set name
@@ -349,69 +345,76 @@ class CardsData:
                         set_obj = session.exec(set_query).first()
                         set_name = set_obj.name if set_obj else None
 
-                        result.append({
-                            "uuid": card.uuid,
-                            "name": card.name,
-                            "set_code": card.set_code,
-                            "set_name": set_name,
-                            "rarity": card.rarity,
-                            "number": card.number,
-                            "in_collection": False,
-                        })
+                        result.append(
+                            {
+                                "uuid": card.uuid,
+                                "name": card.name,
+                                "set_code": card.set_code,
+                                "set_name": set_name,
+                                "rarity": card.rarity,
+                                "number": card.number,
+                                "in_collection": False,
+                            }
+                        )
                     return result
-                
+
                 elif scope == "combined":
                     # Get both domain and reference cards
                     domain_query = select(DomainCard).where(DomainCard.name == name).order_by(DomainCard.set_code)
                     domain_cards = session.exec(domain_query).all()
-                    
+
                     domain_uuids = {card.uuid for card in domain_cards}
-                    ref_query = select(MTGJsonCard).where(
-                        (MTGJsonCard.name == name) & 
-                        (MTGJsonCard.uuid.not_in(domain_uuids))
-                    ).order_by(MTGJsonCard.set_code)
+                    ref_query = (
+                        select(MTGJsonCard)
+                        .where((MTGJsonCard.name == name) & (MTGJsonCard.uuid.not_in(domain_uuids)))
+                        .order_by(MTGJsonCard.set_code)
+                    )
                     ref_cards = session.exec(ref_query).all()
-                    
+
                     result = []
-                    
+
                     # Add domain cards
                     for card in domain_cards:
                         set_query = select(DomainSet).where(DomainSet.code == card.set_code)
                         set_obj = session.exec(set_query).first()
                         set_name = set_obj.name if set_obj else card.set_name
 
-                        result.append({
-                            "uuid": card.uuid,
-                            "name": card.name,
-                            "set_code": card.set_code,
-                            "set_name": set_name,
-                            "rarity": card.rarity,
-                            "number": card.collector_number,
-                            "in_collection": True,
-                        })
-                    
+                        result.append(
+                            {
+                                "uuid": card.uuid,
+                                "name": card.name,
+                                "set_code": card.set_code,
+                                "set_name": set_name,
+                                "rarity": card.rarity,
+                                "number": card.collector_number,
+                                "in_collection": True,
+                            }
+                        )
+
                     # Add reference cards
                     for card in ref_cards:
                         set_query = select(MTGJsonSet).where(MTGJsonSet.code == card.set_code)
                         set_obj = session.exec(set_query).first()
                         set_name = set_obj.name if set_obj else None
 
-                        result.append({
-                            "uuid": card.uuid,
-                            "name": card.name,
-                            "set_code": card.set_code,
-                            "set_name": set_name,
-                            "rarity": card.rarity,
-                            "number": card.number,
-                            "in_collection": False,
-                        })
-                    
+                        result.append(
+                            {
+                                "uuid": card.uuid,
+                                "name": card.name,
+                                "set_code": card.set_code,
+                                "set_name": set_name,
+                                "rarity": card.rarity,
+                                "number": card.number,
+                                "in_collection": False,
+                            }
+                        )
+
                     return result
-                
+
                 else:  # scope == "user" (default)
                     query = select(DomainCard).where(DomainCard.name == name).order_by(DomainCard.set_code)
                     cards = session.exec(query).all()
-                    
+
                     result = []
                     for card in cards:
                         # Get set name
@@ -419,15 +422,17 @@ class CardsData:
                         set_obj = session.exec(set_query).first()
                         set_name = set_obj.name if set_obj else card.set_name
 
-                        result.append({
-                            "uuid": card.uuid,
-                            "name": card.name,
-                            "set_code": card.set_code,
-                            "set_name": set_name,
-                            "rarity": card.rarity,
-                            "number": card.collector_number,
-                            "in_collection": True,
-                        })
+                        result.append(
+                            {
+                                "uuid": card.uuid,
+                                "name": card.name,
+                                "set_code": card.set_code,
+                                "set_name": set_name,
+                                "rarity": card.rarity,
+                                "number": card.collector_number,
+                                "in_collection": True,
+                            }
+                        )
                     return result
         except Exception as e:
             # Maintain backward compatibility - if domain database fails, return empty list
@@ -443,7 +448,7 @@ class CardsData:
             with get_domain_session() as session:
                 # First get the card name from domain or reference
                 card_name = None
-                
+
                 # Try domain first
                 domain_query = select(DomainCard.name).where(DomainCard.uuid == uuid)
                 domain_result = session.exec(domain_query).first()
@@ -461,7 +466,7 @@ class CardsData:
 
                 # Find decks containing this card (from domain decks)
                 from mtgsim.db.domain_models import DomainDeck, DomainDeckCard
-                
+
                 deck_query = (
                     select(DomainDeck.file_name, DomainDeck.name, DomainDeckCard.count)
                     .join(DomainDeckCard, DomainDeck.uuid == DomainDeckCard.deck_uuid)
@@ -469,16 +474,18 @@ class CardsData:
                     .order_by(DomainDeck.name)
                     .limit(20)
                 )
-                
+
                 results = session.exec(deck_query).all()
-                
+
                 appearances = []
                 for file_name, deck_name, count in results:
-                    appearances.append({
-                        "file": file_name + ".json",
-                        "name": deck_name,
-                        "count": count,
-                    })
+                    appearances.append(
+                        {
+                            "file": file_name + ".json",
+                            "name": deck_name,
+                            "count": count,
+                        }
+                    )
 
                 return appearances
         except Exception as e:
@@ -496,7 +503,7 @@ class CardsData:
             with get_domain_session() as session:
                 # First get the card name
                 card_name = None
-                
+
                 # Try domain first
                 domain_query = select(DomainCard.name).where(DomainCard.uuid == uuid)
                 domain_result = session.exec(domain_query).first()
@@ -513,7 +520,7 @@ class CardsData:
                     return []
 
                 printings = []
-                
+
                 if scope in ["user", "combined"]:
                     # Get domain printings
                     domain_query = (
@@ -522,45 +529,49 @@ class CardsData:
                         .order_by(DomainCard.set_code)
                     )
                     domain_cards = session.exec(domain_query).all()
-                    
+
                     for card_uuid, set_code, rarity in domain_cards:
                         set_query = select(DomainSet.name).where(DomainSet.code == set_code)
                         set_name = session.exec(set_query).first()
-                        
-                        printings.append({
-                            "uuid": card_uuid,
-                            "set_code": set_code,
-                            "set_name": set_name,
-                            "rarity": rarity,
-                            "in_collection": True,
-                        })
-                
+
+                        printings.append(
+                            {
+                                "uuid": card_uuid,
+                                "set_code": set_code,
+                                "set_name": set_name,
+                                "rarity": rarity,
+                                "in_collection": True,
+                            }
+                        )
+
                 if scope in ["reference", "combined"]:
                     # Get reference printings (excluding those already in domain)
                     domain_uuids = {p["uuid"] for p in printings}
-                    
+
                     ref_query = (
                         select(MTGJsonCard.uuid, MTGJsonCard.set_code, MTGJsonCard.rarity)
                         .where(
-                            (MTGJsonCard.name == card_name) & 
-                            (MTGJsonCard.uuid != uuid) &
-                            (MTGJsonCard.uuid.not_in(domain_uuids) if domain_uuids else True)
+                            (MTGJsonCard.name == card_name)
+                            & (MTGJsonCard.uuid != uuid)
+                            & (MTGJsonCard.uuid.not_in(domain_uuids) if domain_uuids else True)
                         )
                         .order_by(MTGJsonCard.set_code)
                     )
                     ref_cards = session.exec(ref_query).all()
-                    
+
                     for card_uuid, set_code, rarity in ref_cards:
                         set_query = select(MTGJsonSet.name).where(MTGJsonSet.code == set_code)
                         set_name = session.exec(set_query).first()
-                        
-                        printings.append({
-                            "uuid": card_uuid,
-                            "set_code": set_code,
-                            "set_name": set_name,
-                            "rarity": rarity,
-                            "in_collection": False,
-                        })
+
+                        printings.append(
+                            {
+                                "uuid": card_uuid,
+                                "set_code": set_code,
+                                "set_name": set_name,
+                                "rarity": rarity,
+                                "in_collection": False,
+                            }
+                        )
 
                 return printings
         except Exception as e:
@@ -570,6 +581,25 @@ class CardsData:
             else:
                 # Re-raise unexpected errors
                 raise
+
+    def remove_card_from_collection(self, card_uuid: str) -> bool:
+        """Remove a card from user's domain tables."""
+        try:
+            with get_domain_session() as session:
+                # Find the card in domain tables
+                query = select(DomainCard).where(DomainCard.uuid == card_uuid)
+                card = session.exec(query).first()
+
+                if not card:
+                    return False
+
+                # Remove the card
+                session.delete(card)
+                session.commit()
+
+                return True
+        except Exception:
+            return False
 
 
 # Singleton instance

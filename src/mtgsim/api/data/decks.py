@@ -1,12 +1,9 @@
 """Decks data access layer."""
 
-import json
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
-from .cards import get_scryfall_image_url
-from .database import db
-from mtgsim.db.domain_session import get_domain_session
 from mtgsim.db.domain_models import DomainDeck, DomainDeckCard
+from mtgsim.db.domain_session import get_domain_session
 from mtgsim.db.reference_models import MTGJsonDeck, MTGJsonDeckCard
 
 
@@ -17,15 +14,13 @@ def _get_deck_price(deck_uuid: str, scope: str = "user") -> float | None:
             if scope == "reference":
                 # Get card UUIDs and counts from reference deck
                 deck_cards_query = select(MTGJsonDeckCard.card_uuid, MTGJsonDeckCard.count).where(
-                    (MTGJsonDeckCard.deck_uuid == deck_uuid) & 
-                    (MTGJsonDeckCard.board.in_(["mainBoard", "sideBoard"]))
+                    (MTGJsonDeckCard.deck_uuid == deck_uuid) & (MTGJsonDeckCard.board.in_(["mainBoard", "sideBoard"]))
                 )
                 cards = session.exec(deck_cards_query).all()
             else:
                 # Get card UUIDs and counts from domain deck
                 deck_cards_query = select(DomainDeckCard.card_uuid, DomainDeckCard.count).where(
-                    (DomainDeckCard.deck_uuid == deck_uuid) & 
-                    (DomainDeckCard.board.in_(["mainBoard", "sideBoard"]))
+                    (DomainDeckCard.deck_uuid == deck_uuid) & (DomainDeckCard.board.in_(["mainBoard", "sideBoard"]))
                 )
                 cards = session.exec(deck_cards_query).all()
 
@@ -34,14 +29,12 @@ def _get_deck_price(deck_uuid: str, scope: str = "user") -> float | None:
 
             # Get prices from domain cards (only domain cards have pricing)
             from mtgsim.db.domain_models import DomainCard
-            
+
             uuids = [card_uuid for card_uuid, count in cards if card_uuid]
             if not uuids:
                 return None
 
-            price_query = select(DomainCard.uuid, DomainCard.tcgplayer_price_usd).where(
-                DomainCard.uuid.in_(uuids)
-            )
+            price_query = select(DomainCard.uuid, DomainCard.tcgplayer_price_usd).where(DomainCard.uuid.in_(uuids))
             price_results = session.exec(price_query).all()
             price_map = {uuid: price for uuid, price in price_results if price}
 
@@ -90,11 +83,56 @@ class DecksData:
         try:
             with get_domain_session() as session:
                 if scope == "reference":
-                    return self._list_reference_decks(session, q, format_filter, set_code, deck_type, colors, card_count_min, card_count_max, price_min, price_max, sort, order, page, limit)
+                    return self._list_reference_decks(
+                        session,
+                        q,
+                        format_filter,
+                        set_code,
+                        deck_type,
+                        colors,
+                        card_count_min,
+                        card_count_max,
+                        price_min,
+                        price_max,
+                        sort,
+                        order,
+                        page,
+                        limit,
+                    )
                 elif scope == "combined":
-                    return self._list_combined_decks(session, q, format_filter, set_code, deck_type, colors, card_count_min, card_count_max, price_min, price_max, sort, order, page, limit)
+                    return self._list_combined_decks(
+                        session,
+                        q,
+                        format_filter,
+                        set_code,
+                        deck_type,
+                        colors,
+                        card_count_min,
+                        card_count_max,
+                        price_min,
+                        price_max,
+                        sort,
+                        order,
+                        page,
+                        limit,
+                    )
                 else:  # scope == "user" (default)
-                    return self._list_domain_decks(session, q, format_filter, set_code, deck_type, colors, card_count_min, card_count_max, price_min, price_max, sort, order, page, limit)
+                    return self._list_domain_decks(
+                        session,
+                        q,
+                        format_filter,
+                        set_code,
+                        deck_type,
+                        colors,
+                        card_count_min,
+                        card_count_max,
+                        price_min,
+                        price_max,
+                        sort,
+                        order,
+                        page,
+                        limit,
+                    )
         except Exception as e:
             # Maintain backward compatibility - if domain database fails, return empty results
             if "no such table" in str(e).lower() or "database" in str(e).lower():
@@ -104,7 +142,7 @@ class DecksData:
                 raise
 
     def _list_domain_decks(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         format_filter: str | None = None,
@@ -125,10 +163,7 @@ class DecksData:
 
         # Apply filters
         if q:
-            query = query.where(
-                (DomainDeck.name.contains(q)) | 
-                (DomainDeck.file_name.contains(q))
-            )
+            query = query.where((DomainDeck.name.contains(q)) | (DomainDeck.file_name.contains(q)))
 
         if set_code:
             query = query.where(DomainDeck.code == set_code)
@@ -160,7 +195,7 @@ class DecksData:
             "card_count": (DomainDeck.main_board_count + DomainDeck.side_board_count),
         }
         sort_field = sort_map.get(sort, DomainDeck.name)
-        
+
         if order == "desc":
             query = query.order_by(sort_field.desc())
         else:
@@ -176,22 +211,24 @@ class DecksData:
         # Convert to dict format for API compatibility
         decks = []
         for deck in results:
-            decks.append({
-                "file": deck.file_name + ".json",
-                "name": deck.name,
-                "code": deck.code,
-                "type": deck.type,
-                "release_date": deck.release_date,
-                "card_count": deck.main_board_count + deck.side_board_count,
-                "colors": deck.color_identity,
-                "price": deck.total_price_usd,
-                "in_collection": True,
-            })
+            decks.append(
+                {
+                    "file": deck.file_name + ".json",
+                    "name": deck.name,
+                    "code": deck.code,
+                    "type": deck.type,
+                    "release_date": deck.release_date,
+                    "card_count": deck.main_board_count + deck.side_board_count,
+                    "colors": deck.color_identity,
+                    "price": deck.total_price_usd,
+                    "in_collection": True,
+                }
+            )
 
         return decks, total
 
     def _list_reference_decks(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         format_filter: str | None = None,
@@ -212,10 +249,7 @@ class DecksData:
 
         # Apply filters
         if q:
-            query = query.where(
-                (MTGJsonDeck.name.contains(q)) | 
-                (MTGJsonDeck.file_name.contains(q))
-            )
+            query = query.where((MTGJsonDeck.name.contains(q)) | (MTGJsonDeck.file_name.contains(q)))
 
         if set_code:
             query = query.where(MTGJsonDeck.code == set_code)
@@ -241,7 +275,7 @@ class DecksData:
             "card_count": (MTGJsonDeck.main_board_count + MTGJsonDeck.side_board_count),
         }
         sort_field = sort_map.get(sort, MTGJsonDeck.name)
-        
+
         if order == "desc":
             query = query.order_by(sort_field.desc())
         else:
@@ -259,23 +293,25 @@ class DecksData:
         for deck in results:
             # Get color identity for deck
             colors = self._get_deck_colors(session, deck.uuid, "reference")
-            
-            decks.append({
-                "file": deck.file_name + ".json",
-                "name": deck.name,
-                "code": deck.code,
-                "type": deck.type,
-                "release_date": deck.release_date,
-                "card_count": deck.main_board_count + deck.side_board_count,
-                "colors": colors,
-                "price": None,  # No pricing for reference decks
-                "in_collection": False,
-            })
+
+            decks.append(
+                {
+                    "file": deck.file_name + ".json",
+                    "name": deck.name,
+                    "code": deck.code,
+                    "type": deck.type,
+                    "release_date": deck.release_date,
+                    "card_count": deck.main_board_count + deck.side_board_count,
+                    "colors": colors,
+                    "price": None,  # No pricing for reference decks
+                    "in_collection": False,
+                }
+            )
 
         return decks, total
 
     def _list_combined_decks(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         format_filter: str | None = None,
@@ -294,22 +330,32 @@ class DecksData:
         """List both domain and reference decks."""
         # Get domain decks first
         domain_decks, _ = self._list_domain_decks(
-            session, q, format_filter, set_code, deck_type, colors, card_count_min, card_count_max, price_min, price_max, sort, order, 1, 1000
+            session,
+            q,
+            format_filter,
+            set_code,
+            deck_type,
+            colors,
+            card_count_min,
+            card_count_max,
+            price_min,
+            price_max,
+            sort,
+            order,
+            1,
+            1000,
         )
-        
+
         # Get reference decks, excluding those already in domain
         domain_uuids = {deck["file"].replace(".json", "") for deck in domain_decks}
-        
+
         ref_query = select(MTGJsonDeck)
         if domain_uuids:
             ref_query = ref_query.where(MTGJsonDeck.file_name.not_in(domain_uuids))
 
         # Apply same filters to reference query
         if q:
-            ref_query = ref_query.where(
-                (MTGJsonDeck.name.contains(q)) | 
-                (MTGJsonDeck.file_name.contains(q))
-            )
+            ref_query = ref_query.where((MTGJsonDeck.name.contains(q)) | (MTGJsonDeck.file_name.contains(q)))
 
         if set_code:
             ref_query = ref_query.where(MTGJsonDeck.code == set_code)
@@ -324,27 +370,29 @@ class DecksData:
             ref_query = ref_query.where((MTGJsonDeck.main_board_count + MTGJsonDeck.side_board_count) <= card_count_max)
 
         ref_results = session.exec(ref_query).all()
-        
+
         # Convert reference decks to dict format
         ref_decks = []
         for deck in ref_results:
             colors = self._get_deck_colors(session, deck.uuid, "reference")
-            
-            ref_decks.append({
-                "file": deck.file_name + ".json",
-                "name": deck.name,
-                "code": deck.code,
-                "type": deck.type,
-                "release_date": deck.release_date,
-                "card_count": deck.main_board_count + deck.side_board_count,
-                "colors": colors,
-                "price": None,
-                "in_collection": False,
-            })
+
+            ref_decks.append(
+                {
+                    "file": deck.file_name + ".json",
+                    "name": deck.name,
+                    "code": deck.code,
+                    "type": deck.type,
+                    "release_date": deck.release_date,
+                    "card_count": deck.main_board_count + deck.side_board_count,
+                    "colors": colors,
+                    "price": None,
+                    "in_collection": False,
+                }
+            )
 
         # Combine and sort all decks
         all_decks = domain_decks + ref_decks
-        
+
         # Apply sorting to combined results
         sort_key_map = {
             "name": lambda x: x["name"] or "",
@@ -353,13 +401,13 @@ class DecksData:
             "card_count": lambda x: x["card_count"] or 0,
         }
         sort_key = sort_key_map.get(sort, sort_key_map["name"])
-        
+
         all_decks.sort(key=sort_key, reverse=(order == "desc"))
-        
+
         # Apply pagination to combined results
         total = len(all_decks)
         offset = (page - 1) * limit
-        paginated_decks = all_decks[offset:offset + limit]
+        paginated_decks = all_decks[offset : offset + limit]
 
         return paginated_decks, total
 
@@ -369,7 +417,7 @@ class DecksData:
             query = select(MTGJsonDeckCard.color_identity).where(MTGJsonDeckCard.deck_uuid == deck_uuid).distinct()
         else:
             query = select(DomainDeckCard.color_identity).where(DomainDeckCard.deck_uuid == deck_uuid).distinct()
-        
+
         results = session.exec(query).all()
 
         colors = set()
@@ -411,7 +459,7 @@ class DecksData:
 
         query = select(DomainDeck).where(DomainDeck.file_name == file_name)
         deck = session.exec(query).first()
-        
+
         if not deck:
             return None
 
@@ -455,7 +503,7 @@ class DecksData:
 
         query = select(MTGJsonDeck).where(MTGJsonDeck.file_name == file_name)
         deck = session.exec(query).first()
-        
+
         if not deck:
             return None
 
@@ -515,31 +563,31 @@ class DecksData:
         price_map = {}
         if scope == "user":
             from mtgsim.db.domain_models import DomainCard
-            
+
             uuids = [card.card_uuid for card in deck_cards if card.card_uuid]
             if uuids:
-                price_query = select(DomainCard.uuid, DomainCard.tcgplayer_price_usd).where(
-                    DomainCard.uuid.in_(uuids)
-                )
+                price_query = select(DomainCard.uuid, DomainCard.tcgplayer_price_usd).where(DomainCard.uuid.in_(uuids))
                 price_results = session.exec(price_query).all()
                 price_map = {uuid: price for uuid, price in price_results if price}
 
         cards = []
         for card in deck_cards:
-            cards.append({
-                "uuid": card.card_uuid,
-                "name": card.name,
-                "count": card.count,
-                "mana_cost": card.mana_cost,
-                "mana_value": card.mana_value,
-                "type": ", ".join(card.types) if card.types else card.type_line,
-                "rarity": card.rarity,
-                "color_identity": card.color_identity,
-                "text": getattr(card, 'text', None),  # May not be available in all models
-                "image_url": self._build_image_url_from_name(card.name),  # Fallback image URL
-                "price": price_map.get(card.card_uuid) if scope == "user" else None,
-                "in_collection": scope == "user",
-            })
+            cards.append(
+                {
+                    "uuid": card.card_uuid,
+                    "name": card.name,
+                    "count": card.count,
+                    "mana_cost": card.mana_cost,
+                    "mana_value": card.mana_value,
+                    "type": ", ".join(card.types) if card.types else card.type_line,
+                    "rarity": card.rarity,
+                    "color_identity": card.color_identity,
+                    "text": getattr(card, "text", None),  # May not be available in all models
+                    "image_url": self._build_image_url_from_name(card.name),  # Fallback image URL
+                    "price": price_map.get(card.card_uuid) if scope == "user" else None,
+                    "in_collection": scope == "user",
+                }
+            )
 
         return cards
 
@@ -554,15 +602,13 @@ class DecksData:
         if scope == "reference":
             # Get cards from reference deck
             cards_query = select(MTGJsonDeckCard).where(
-                (MTGJsonDeckCard.deck_uuid == deck_uuid) & 
-                (MTGJsonDeckCard.board.in_(["mainBoard", "sideBoard"]))
+                (MTGJsonDeckCard.deck_uuid == deck_uuid) & (MTGJsonDeckCard.board.in_(["mainBoard", "sideBoard"]))
             )
             cards = session.exec(cards_query).all()
         else:
             # Get cards from domain deck
             cards_query = select(DomainDeckCard).where(
-                (DomainDeckCard.deck_uuid == deck_uuid) & 
-                (DomainDeckCard.board.in_(["mainBoard", "sideBoard"]))
+                (DomainDeckCard.deck_uuid == deck_uuid) & (DomainDeckCard.board.in_(["mainBoard", "sideBoard"]))
             )
             cards = session.exec(cards_query).all()
 
@@ -638,15 +684,15 @@ class DecksData:
                     # Get both domain and reference set codes
                     domain_query = select(DomainDeck.code).distinct()
                     ref_query = select(MTGJsonDeck.code).distinct()
-                    
+
                     domain_codes = set(session.exec(domain_query).all())
                     ref_codes = set(session.exec(ref_query).all())
-                    
+
                     all_codes = sorted(domain_codes.union(ref_codes))
                     return [c for c in all_codes if c]
                 else:  # scope == "user" (default)
                     query = select(DomainDeck.code).distinct().order_by(DomainDeck.code)
-                
+
                 results = session.exec(query).all()
                 return [c for c in results if c]
         except Exception as e:
