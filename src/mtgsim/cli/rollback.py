@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -53,7 +53,7 @@ class RollbackManager:
         console.print(f"✅ Backup created: {backup_path}", style="green")
         return backup_path
 
-    def store_rollback_data(self, migration_log: MigrationLog, rollback_data: Dict[str, Any]) -> None:
+    def store_rollback_data(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> None:
         """Store rollback data in the migration log.
         
         Args:
@@ -61,11 +61,13 @@ class RollbackManager:
             rollback_data: Data needed for rollback operation
         """
         migration_log.rollback_data = rollback_data
-        migration_log.can_rollback = True
+        # Only set can_rollback to True if it's not already explicitly set to False
+        if migration_log.can_rollback is None:
+            migration_log.can_rollback = True
         self.session.add(migration_log)
         self.session.commit()
 
-    def capture_table_state(self, table_name: str) -> Dict[str, Any]:
+    def capture_table_state(self, table_name: str) -> dict[str, Any]:
         """Capture the current state of a table for rollback purposes.
         
         Args:
@@ -81,8 +83,7 @@ class RollbackManager:
 
             # Get table schema
             schema_result = self.session.exec(
-                text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table_name"),
-                {"table_name": table_name}
+                text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table_name").params(table_name=table_name)
             ).first()
 
             return {
@@ -172,19 +173,17 @@ class RollbackManager:
             return False
 
         try:
+            # Mark migration as rolled back before restore
+            migration_log.status = MigrationStatus.ROLLED_BACK
+            migration_log.completed_at = datetime.utcnow()
+            self.session.add(migration_log)
+            self.session.commit()
+
             # Close current session to release database lock
             self.session.close()
 
             # Replace current database with backup
             shutil.copy2(backup_file, DOMAIN_DB_PATH)
-
-            # Reopen session
-            with get_domain_session() as new_session:
-                # Mark migration as rolled back
-                migration_log.status = MigrationStatus.ROLLED_BACK
-                migration_log.completed_at = datetime.utcnow()
-                new_session.add(migration_log)
-                new_session.commit()
 
             console.print(f"✅ Database restored from backup: {backup_path}", style="green")
             return True
@@ -193,7 +192,7 @@ class RollbackManager:
             console.print(f"❌ Failed to restore from backup: {e}", style="red")
             return False
 
-    def _rollback_sync_reference(self, migration_log: MigrationLog, rollback_data: Dict[str, Any]) -> bool:
+    def _rollback_sync_reference(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback reference table sync operation.
         
         Args:
@@ -248,7 +247,7 @@ class RollbackManager:
             console.print(f"❌ Reference sync rollback failed: {e}", style="red")
             return False
 
-    def _rollback_add_card(self, migration_log: MigrationLog, rollback_data: Dict[str, Any]) -> bool:
+    def _rollback_add_card(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback card addition operation.
         
         Args:
@@ -309,7 +308,7 @@ class RollbackManager:
             console.print(f"❌ Card rollback failed: {e}", style="red")
             return False
 
-    def _rollback_add_set(self, migration_log: MigrationLog, rollback_data: Dict[str, Any]) -> bool:
+    def _rollback_add_set(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback set addition operation.
         
         Args:
@@ -378,7 +377,7 @@ class RollbackManager:
             console.print(f"❌ Set rollback failed: {e}", style="red")
             return False
 
-    def _rollback_add_deck(self, migration_log: MigrationLog, rollback_data: Dict[str, Any]) -> bool:
+    def _rollback_add_deck(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback deck addition operation.
         
         Args:
@@ -453,7 +452,7 @@ class RollbackManager:
             console.print(f"❌ Deck rollback failed: {e}", style="red")
             return False
 
-    def list_rollbackable_migrations(self) -> List[MigrationLog]:
+    def list_rollbackable_migrations(self) -> list[MigrationLog]:
         """Get list of migrations that can be rolled back.
         
         Returns:
@@ -461,7 +460,7 @@ class RollbackManager:
         """
         return self.session.exec(
             select(MigrationLog)
-            .where(MigrationLog.can_rollback == True)
+            .where(MigrationLog.can_rollback)
             .where(MigrationLog.status.in_([MigrationStatus.COMPLETED, MigrationStatus.FAILED]))
             .order_by(MigrationLog.started_at.desc())
         ).all()
