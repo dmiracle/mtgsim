@@ -5,20 +5,20 @@ and domain models (Domain*), as well as converting both to API response formats.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet, MTGJsonDeck, MTGJsonDeckCard
-from mtgsim.db.domain_models import DomainCard, DomainSet, DomainDeck, DomainDeckCard
+from mtgsim.db.domain_models import DomainCard, DomainDeck, DomainDeckCard, DomainSet
+from mtgsim.db.reference_models import MTGJsonCard, MTGJsonDeck, MTGJsonDeckCard, MTGJsonSet
 
 
 def reference_card_to_domain(ref_card: MTGJsonCard, **overrides) -> DomainCard:
     """
     Convert a reference MTGJsonCard to a DomainCard.
-    
+
     Args:
         ref_card: The reference card to convert
         **overrides: Additional fields to override in the domain card
-        
+
     Returns:
         DomainCard instance with data from reference card
     """
@@ -28,7 +28,7 @@ def reference_card_to_domain(ref_card: MTGJsonCard, **overrides) -> DomainCard:
     arena_id = None
     tcgplayer_id = None
     cardmarket_id = None
-    
+
     if ref_card.identifiers:
         scryfall_id = ref_card.identifiers.get("scryfallId")
         mtgo_id = ref_card.identifiers.get("mtgoId")
@@ -70,20 +70,20 @@ def reference_card_to_domain(ref_card: MTGJsonCard, **overrides) -> DomainCard:
         added_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
         source="mtgjson",
-        **overrides
+        **overrides,
     )
-    
+
     return domain_card
 
 
 def reference_set_to_domain(ref_set: MTGJsonSet, **overrides) -> DomainSet:
     """
     Convert a reference MTGJsonSet to a DomainSet.
-    
+
     Args:
         ref_set: The reference set to convert
         **overrides: Additional fields to override in the domain set
-        
+
     Returns:
         DomainSet instance with data from reference set
     """
@@ -110,20 +110,20 @@ def reference_set_to_domain(ref_set: MTGJsonSet, **overrides) -> DomainSet:
         added_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
         source="mtgjson",
-        **overrides
+        **overrides,
     )
-    
+
     return domain_set
 
 
 def reference_deck_to_domain(ref_deck: MTGJsonDeck, **overrides) -> DomainDeck:
     """
     Convert a reference MTGJsonDeck to a DomainDeck.
-    
+
     Args:
         ref_deck: The reference deck to convert
         **overrides: Additional fields to override in the domain deck
-        
+
     Returns:
         DomainDeck instance with data from reference deck
     """
@@ -141,20 +141,20 @@ def reference_deck_to_domain(ref_deck: MTGJsonDeck, **overrides) -> DomainDeck:
         added_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
         source="mtgjson",
-        **overrides
+        **overrides,
     )
-    
+
     return domain_deck
 
 
 def reference_deck_card_to_domain(ref_deck_card: MTGJsonDeckCard, **overrides) -> DomainDeckCard:
     """
     Convert a reference MTGJsonDeckCard to a DomainDeckCard.
-    
+
     Args:
         ref_deck_card: The reference deck card to convert
         **overrides: Additional fields to override in the domain deck card
-        
+
     Returns:
         DomainDeckCard instance with data from reference deck card
     """
@@ -178,19 +178,19 @@ def reference_deck_card_to_domain(ref_deck_card: MTGJsonDeckCard, **overrides) -
         is_reprint=ref_deck_card.is_reprint,
         has_foil=ref_deck_card.has_foil,
         has_non_foil=ref_deck_card.has_non_foil,
-        **overrides
+        **overrides,
     )
-    
+
     return domain_deck_card
 
 
-def domain_card_to_api_dict(domain_card: DomainCard) -> Dict[str, Any]:
+def domain_card_to_api_dict(domain_card: DomainCard) -> dict[str, Any]:
     """
     Convert a DomainCard to API response dictionary format.
-    
+
     Args:
         domain_card: The domain card to convert
-        
+
     Returns:
         Dictionary suitable for API responses
     """
@@ -229,13 +229,13 @@ def domain_card_to_api_dict(domain_card: DomainCard) -> Dict[str, Any]:
     }
 
 
-def reference_card_to_api_dict(ref_card: MTGJsonCard) -> Dict[str, Any]:
+def reference_card_to_api_dict(ref_card: MTGJsonCard) -> dict[str, Any]:
     """
     Convert a reference MTGJsonCard to API response dictionary format.
-    
+
     Args:
         ref_card: The reference card to convert
-        
+
     Returns:
         Dictionary suitable for API responses
     """
@@ -272,13 +272,13 @@ def reference_card_to_api_dict(ref_card: MTGJsonCard) -> Dict[str, Any]:
     }
 
 
-def domain_set_to_api_dict(domain_set: DomainSet) -> Dict[str, Any]:
+def domain_set_to_api_dict(domain_set: DomainSet) -> dict[str, Any]:
     """
     Convert a DomainSet to API response dictionary format.
-    
+
     Args:
         domain_set: The domain set to convert
-        
+
     Returns:
         Dictionary suitable for API responses
     """
@@ -308,13 +308,13 @@ def domain_set_to_api_dict(domain_set: DomainSet) -> Dict[str, Any]:
     }
 
 
-def reference_set_to_api_dict(ref_set: MTGJsonSet) -> Dict[str, Any]:
+def reference_set_to_api_dict(ref_set: MTGJsonSet) -> dict[str, Any]:
     """
     Convert a reference MTGJsonSet to API response dictionary format.
-    
+
     Args:
         ref_set: The reference set to convert
-        
+
     Returns:
         Dictionary suitable for API responses
     """
@@ -343,13 +343,13 @@ def reference_set_to_api_dict(ref_set: MTGJsonSet) -> Dict[str, Any]:
     }
 
 
-def domain_deck_to_api_dict(domain_deck: DomainDeck) -> Dict[str, Any]:
+def domain_deck_to_api_dict(domain_deck: DomainDeck) -> dict[str, Any]:
     """
     Convert a DomainDeck to API response dictionary format.
-    
+
     Args:
         domain_deck: The domain deck to convert
-        
+
     Returns:
         Dictionary suitable for API responses
     """
@@ -371,13 +371,13 @@ def domain_deck_to_api_dict(domain_deck: DomainDeck) -> Dict[str, Any]:
     }
 
 
-def reference_deck_to_api_dict(ref_deck: MTGJsonDeck) -> Dict[str, Any]:
+def reference_deck_to_api_dict(ref_deck: MTGJsonDeck) -> dict[str, Any]:
     """
     Convert a reference MTGJsonDeck to API response dictionary format.
-    
+
     Args:
         ref_deck: The reference deck to convert
-        
+
     Returns:
         Dictionary suitable for API responses
     """
@@ -398,13 +398,13 @@ def reference_deck_to_api_dict(ref_deck: MTGJsonDeck) -> Dict[str, Any]:
     }
 
 
-def _build_image_url(scryfall_id: Optional[str]) -> Optional[str]:
+def _build_image_url(scryfall_id: str | None) -> str | None:
     """
     Build Scryfall image URL from scryfall_id.
-    
+
     Args:
         scryfall_id: The Scryfall UUID for the card
-        
+
     Returns:
         Image URL or None if no scryfall_id provided
     """
@@ -413,67 +413,73 @@ def _build_image_url(scryfall_id: Optional[str]) -> Optional[str]:
     return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
 
 
-def create_readonly_domain_card(ref_card: MTGJsonCard) -> Dict[str, Any]:
+def create_readonly_domain_card(ref_card: MTGJsonCard) -> dict[str, Any]:
     """
     Create a read-only domain card representation from a reference card.
-    
+
     This is used when displaying reference cards in a domain-like format
     without actually adding them to the domain database.
-    
+
     Args:
         ref_card: The reference card to convert
-        
+
     Returns:
         Dictionary with domain-like structure but marked as read-only
     """
     api_dict = reference_card_to_api_dict(ref_card)
-    
+
     # Add domain-like fields with default values
-    api_dict.update({
-        "is_owned": False,
-        "quantity_owned": 0,
-        "is_wanted": False,
-        "added_at": None,
-    })
-    
+    api_dict.update(
+        {
+            "is_owned": False,
+            "quantity_owned": 0,
+            "is_wanted": False,
+            "added_at": None,
+        }
+    )
+
     return api_dict
 
 
-def create_readonly_domain_set(ref_set: MTGJsonSet) -> Dict[str, Any]:
+def create_readonly_domain_set(ref_set: MTGJsonSet) -> dict[str, Any]:
     """
     Create a read-only domain set representation from a reference set.
-    
+
     Args:
         ref_set: The reference set to convert
-        
+
     Returns:
         Dictionary with domain-like structure but marked as read-only
     """
     api_dict = reference_set_to_api_dict(ref_set)
-    
+
     # Add domain-like fields with default values
-    api_dict.update({
-        "added_at": None,
-    })
-    
+    api_dict.update(
+        {
+            "added_at": None,
+        }
+    )
+
     return api_dict
 
 
-def create_readonly_domain_deck(ref_deck: MTGJsonDeck) -> Dict[str, Any]:
+def create_readonly_domain_deck(ref_deck: MTGJsonDeck) -> dict[str, Any]:
     """
     Create a read-only domain deck representation from a reference deck.
-    
+
     Args:
         ref_deck: The reference deck to convert
-        
+
     Returns:
         Dictionary with domain-like structure but marked as read-only
     """
     api_dict = reference_deck_to_api_dict(ref_deck)
-    
+
     # Add domain-like fields with default values
-    api_dict.update({
-        "added_at": None,
-    })
-    
+    api_dict.update(
+        {
+            "added_at": None,
+        }
+    )
+
     return api_dict

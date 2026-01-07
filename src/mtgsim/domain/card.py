@@ -38,6 +38,8 @@ class Rarity(str, Enum):
 
 
 class ManaCost(BaseModel):
+    """Domain model for mana cost - focuses on business logic and validation."""
+
     white: int = 0
     blue: int = 0
     black: int = 0
@@ -48,10 +50,13 @@ class ManaCost(BaseModel):
 
     @property
     def cmc(self) -> int:
+        """Converted mana cost - total mana required."""
         return self.white + self.blue + self.black + self.red + self.green + self.colorless + self.generic
 
 
 class Card(BaseModel):
+    """Domain model for cards - focuses on business logic and validation."""
+
     name: str
     mana_cost: ManaCost | None = None
     card_types: list[CardType] = []

@@ -74,7 +74,7 @@ async def get_deck(
     - Price breakdown by source (if in collection)
     - All cards (commander, main board, sideboard)
     - Statistics (mana curve, type distribution, keywords, price histogram)
-    
+
     - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     deck = await deck_service.get_deck(file, scope=scope)
@@ -92,7 +92,7 @@ async def get_deck_raw(
     Get raw deck JSON for developer inspection with scope control.
 
     Returns the original MTGJSON deck file format.
-    
+
     - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     data = await deck_service.get_deck_raw(file, scope=scope)

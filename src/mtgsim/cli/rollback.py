@@ -1,8 +1,6 @@
 """Rollback functionality for domain database operations."""
 
-import json
 import shutil
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -28,10 +26,10 @@ class RollbackManager:
 
     def create_backup(self, operation_name: str) -> Path:
         """Create a backup of the domain database before an operation.
-        
+
         Args:
             operation_name: Name of the operation for backup naming
-            
+
         Returns:
             Path to the created backup file
         """
@@ -49,13 +47,13 @@ class RollbackManager:
 
         # Copy database file
         shutil.copy2(DOMAIN_DB_PATH, backup_path)
-        
+
         console.print(f"✅ Backup created: {backup_path}", style="green")
         return backup_path
 
     def store_rollback_data(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> None:
         """Store rollback data in the migration log.
-        
+
         Args:
             migration_log: Migration log entry to update
             rollback_data: Data needed for rollback operation
@@ -69,10 +67,10 @@ class RollbackManager:
 
     def capture_table_state(self, table_name: str) -> dict[str, Any]:
         """Capture the current state of a table for rollback purposes.
-        
+
         Args:
             table_name: Name of the table to capture
-            
+
         Returns:
             Dictionary containing table state information
         """
@@ -83,38 +81,32 @@ class RollbackManager:
 
             # Get table schema
             schema_result = self.session.exec(
-                text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table_name").params(table_name=table_name)
+                text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table_name").params(
+                    table_name=table_name
+                )
             ).first()
 
             return {
                 "table_name": table_name,
                 "row_count_before": row_count,
                 "schema": schema_result,
-                "exists": schema_result is not None
+                "exists": schema_result is not None,
             }
         except Exception as e:
             console.print(f"⚠️  Warning: Could not capture state for table {table_name}: {e}", style="yellow")
-            return {
-                "table_name": table_name,
-                "row_count_before": 0,
-                "schema": None,
-                "exists": False,
-                "error": str(e)
-            }
+            return {"table_name": table_name, "row_count_before": 0, "schema": None, "exists": False, "error": str(e)}
 
     def rollback_migration(self, migration_id: int) -> bool:
         """Rollback a specific migration operation.
-        
+
         Args:
             migration_id: ID of the migration to rollback
-            
+
         Returns:
             True if rollback was successful, False otherwise
         """
         # Get migration log entry
-        migration_log = self.session.exec(
-            select(MigrationLog).where(MigrationLog.id == migration_id)
-        ).first()
+        migration_log = self.session.exec(select(MigrationLog).where(MigrationLog.id == migration_id)).first()
 
         if not migration_log:
             console.print(f"❌ Migration {migration_id} not found", style="red")
@@ -132,11 +124,11 @@ class RollbackManager:
 
         try:
             rollback_data = migration_log.rollback_data or {}
-            
+
             # Restore from backup if available
             if "backup_path" in rollback_data:
                 return self._restore_from_backup(migration_log, rollback_data["backup_path"])
-            
+
             # Perform operation-specific rollback
             if migration_log.operation_name == "sync_reference":
                 return self._rollback_sync_reference(migration_log, rollback_data)
@@ -159,11 +151,11 @@ class RollbackManager:
 
     def _restore_from_backup(self, migration_log: MigrationLog, backup_path: str) -> bool:
         """Restore database from backup file.
-        
+
         Args:
             migration_log: Migration log entry
             backup_path: Path to backup file
-            
+
         Returns:
             True if restore was successful
         """
@@ -194,16 +186,16 @@ class RollbackManager:
 
     def _rollback_sync_reference(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback reference table sync operation.
-        
+
         Args:
             migration_log: Migration log entry
             rollback_data: Rollback data containing table information
-            
+
         Returns:
             True if rollback was successful
         """
         tables_to_rollback = rollback_data.get("tables", [])
-        
+
         if not tables_to_rollback:
             console.print("❌ No table information found for rollback", style="red")
             return False
@@ -221,13 +213,15 @@ class RollbackManager:
                     if table_info.get("exists", False):
                         # Table existed before, restore to previous state
                         row_count_before = table_info.get("row_count_before", 0)
-                        
+
                         # If table was empty before, truncate it
                         if row_count_before == 0:
                             self.session.exec(text(f"DELETE FROM {table_name}"))
                         else:
                             # More complex rollback would require row-level tracking
-                            console.print(f"⚠️  Cannot fully rollback {table_name} - table had existing data", style="yellow")
+                            console.print(
+                                f"⚠️  Cannot fully rollback {table_name} - table had existing data", style="yellow"
+                            )
                     else:
                         # Table didn't exist before, drop it
                         self.session.exec(text(f"DROP TABLE IF EXISTS {table_name}"))
@@ -249,11 +243,11 @@ class RollbackManager:
 
     def _rollback_add_card(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback card addition operation.
-        
+
         Args:
             migration_log: Migration log entry
             rollback_data: Rollback data containing card information
-            
+
         Returns:
             True if rollback was successful
         """
@@ -276,22 +270,30 @@ class RollbackManager:
             card = self.session.exec(select(DomainCard).where(DomainCard.uuid == card_uuid)).first()
             if card:
                 # Delete relationship links using proper SQLModel syntax
-                color_links = self.session.exec(select(DomainCardColorLink).where(DomainCardColorLink.card_id == card.id)).all()
+                color_links = self.session.exec(
+                    select(DomainCardColorLink).where(DomainCardColorLink.card_id == card.id)
+                ).all()
                 for link in color_links:
                     self.session.delete(link)
-                
-                type_links = self.session.exec(select(DomainCardTypeLink).where(DomainCardTypeLink.card_id == card.id)).all()
+
+                type_links = self.session.exec(
+                    select(DomainCardTypeLink).where(DomainCardTypeLink.card_id == card.id)
+                ).all()
                 for link in type_links:
                     self.session.delete(link)
-                
-                supertype_links = self.session.exec(select(DomainCardSupertypeLink).where(DomainCardSupertypeLink.card_id == card.id)).all()
+
+                supertype_links = self.session.exec(
+                    select(DomainCardSupertypeLink).where(DomainCardSupertypeLink.card_id == card.id)
+                ).all()
                 for link in supertype_links:
                     self.session.delete(link)
-                
-                subtype_links = self.session.exec(select(DomainCardSubtypeLink).where(DomainCardSubtypeLink.card_id == card.id)).all()
+
+                subtype_links = self.session.exec(
+                    select(DomainCardSubtypeLink).where(DomainCardSubtypeLink.card_id == card.id)
+                ).all()
                 for link in subtype_links:
                     self.session.delete(link)
-                
+
                 # Delete the card itself
                 self.session.delete(card)
 
@@ -310,11 +312,11 @@ class RollbackManager:
 
     def _rollback_add_set(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback set addition operation.
-        
+
         Args:
             migration_log: Migration log entry
             rollback_data: Rollback data containing set information
-            
+
         Returns:
             True if rollback was successful
         """
@@ -328,11 +330,11 @@ class RollbackManager:
         try:
             from mtgsim.db.domain_models import (
                 DomainCard,
-                DomainSet,
                 DomainCardColorLink,
                 DomainCardSubtypeLink,
                 DomainCardSupertypeLink,
                 DomainCardTypeLink,
+                DomainSet,
             )
 
             # Remove all cards that were added as part of this set operation
@@ -340,22 +342,30 @@ class RollbackManager:
                 card = self.session.exec(select(DomainCard).where(DomainCard.uuid == card_uuid)).first()
                 if card:
                     # Delete relationship links first using proper SQLModel syntax
-                    color_links = self.session.exec(select(DomainCardColorLink).where(DomainCardColorLink.card_id == card.id)).all()
+                    color_links = self.session.exec(
+                        select(DomainCardColorLink).where(DomainCardColorLink.card_id == card.id)
+                    ).all()
                     for link in color_links:
                         self.session.delete(link)
-                    
-                    type_links = self.session.exec(select(DomainCardTypeLink).where(DomainCardTypeLink.card_id == card.id)).all()
+
+                    type_links = self.session.exec(
+                        select(DomainCardTypeLink).where(DomainCardTypeLink.card_id == card.id)
+                    ).all()
                     for link in type_links:
                         self.session.delete(link)
-                    
-                    supertype_links = self.session.exec(select(DomainCardSupertypeLink).where(DomainCardSupertypeLink.card_id == card.id)).all()
+
+                    supertype_links = self.session.exec(
+                        select(DomainCardSupertypeLink).where(DomainCardSupertypeLink.card_id == card.id)
+                    ).all()
                     for link in supertype_links:
                         self.session.delete(link)
-                    
-                    subtype_links = self.session.exec(select(DomainCardSubtypeLink).where(DomainCardSubtypeLink.card_id == card.id)).all()
+
+                    subtype_links = self.session.exec(
+                        select(DomainCardSubtypeLink).where(DomainCardSubtypeLink.card_id == card.id)
+                    ).all()
                     for link in subtype_links:
                         self.session.delete(link)
-                    
+
                     # Delete the card
                     self.session.delete(card)
 
@@ -379,11 +389,11 @@ class RollbackManager:
 
     def _rollback_add_deck(self, migration_log: MigrationLog, rollback_data: dict[str, Any]) -> bool:
         """Rollback deck addition operation.
-        
+
         Args:
             migration_log: Migration log entry
             rollback_data: Rollback data containing deck information
-            
+
         Returns:
             True if rollback was successful
         """
@@ -397,12 +407,12 @@ class RollbackManager:
         try:
             from mtgsim.db.domain_models import (
                 DomainCard,
-                DomainDeck,
-                DomainDeckCard,
                 DomainCardColorLink,
                 DomainCardSubtypeLink,
                 DomainCardSupertypeLink,
                 DomainCardTypeLink,
+                DomainDeck,
+                DomainDeckCard,
             )
 
             # Remove deck cards
@@ -415,22 +425,30 @@ class RollbackManager:
                 card = self.session.exec(select(DomainCard).where(DomainCard.uuid == card_uuid)).first()
                 if card:
                     # Delete relationship links first using proper SQLModel syntax
-                    color_links = self.session.exec(select(DomainCardColorLink).where(DomainCardColorLink.card_id == card.id)).all()
+                    color_links = self.session.exec(
+                        select(DomainCardColorLink).where(DomainCardColorLink.card_id == card.id)
+                    ).all()
                     for link in color_links:
                         self.session.delete(link)
-                    
-                    type_links = self.session.exec(select(DomainCardTypeLink).where(DomainCardTypeLink.card_id == card.id)).all()
+
+                    type_links = self.session.exec(
+                        select(DomainCardTypeLink).where(DomainCardTypeLink.card_id == card.id)
+                    ).all()
                     for link in type_links:
                         self.session.delete(link)
-                    
-                    supertype_links = self.session.exec(select(DomainCardSupertypeLink).where(DomainCardSupertypeLink.card_id == card.id)).all()
+
+                    supertype_links = self.session.exec(
+                        select(DomainCardSupertypeLink).where(DomainCardSupertypeLink.card_id == card.id)
+                    ).all()
                     for link in supertype_links:
                         self.session.delete(link)
-                    
-                    subtype_links = self.session.exec(select(DomainCardSubtypeLink).where(DomainCardSubtypeLink.card_id == card.id)).all()
+
+                    subtype_links = self.session.exec(
+                        select(DomainCardSubtypeLink).where(DomainCardSubtypeLink.card_id == card.id)
+                    ).all()
                     for link in subtype_links:
                         self.session.delete(link)
-                    
+
                     # Delete the card
                     self.session.delete(card)
 
@@ -454,7 +472,7 @@ class RollbackManager:
 
     def list_rollbackable_migrations(self) -> list[MigrationLog]:
         """Get list of migrations that can be rolled back.
-        
+
         Returns:
             List of migration log entries that can be rolled back
         """
@@ -467,10 +485,10 @@ class RollbackManager:
 
     def cleanup_old_backups(self, keep_days: int = 7) -> int:
         """Clean up old backup files.
-        
+
         Args:
             keep_days: Number of days to keep backups
-            
+
         Returns:
             Number of backup files deleted
         """
@@ -588,9 +606,7 @@ def cleanup_backups(
 ):
     """Clean up old backup files."""
     if not confirm:
-        confirm_cleanup = typer.confirm(
-            f"Are you sure you want to delete backup files older than {keep_days} days?"
-        )
+        confirm_cleanup = typer.confirm(f"Are you sure you want to delete backup files older than {keep_days} days?")
         if not confirm_cleanup:
             console.print("Cleanup cancelled", style="yellow")
             return

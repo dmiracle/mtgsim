@@ -1,13 +1,10 @@
 """Sets data access layer."""
 
-import json
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
-from .cards import get_scryfall_image_url
-from .database import db
+from mtgsim.db.domain_models import DomainCard, DomainSet
 from mtgsim.db.domain_session import get_domain_session
-from mtgsim.db.domain_models import DomainSet, DomainCard
-from mtgsim.db.reference_models import MTGJsonSet, MTGJsonCard
+from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
 
 
 class SetsData:
@@ -46,7 +43,7 @@ class SetsData:
                 raise
 
     def _list_domain_sets(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         set_type: str | None = None,
@@ -61,10 +58,7 @@ class SetsData:
 
         # Apply filters
         if q:
-            query = query.where(
-                (DomainSet.name.contains(q)) | 
-                (DomainSet.code.contains(q))
-            )
+            query = query.where((DomainSet.name.contains(q)) | (DomainSet.code.contains(q)))
 
         if set_type:
             query = query.where(DomainSet.type == set_type)
@@ -84,7 +78,7 @@ class SetsData:
             "size": DomainSet.total_set_size,
         }
         sort_field = sort_map.get(sort, DomainSet.release_date)
-        
+
         if order == "desc":
             query = query.order_by(sort_field.desc())
         else:
@@ -100,22 +94,24 @@ class SetsData:
         # Convert to dict format for API compatibility
         sets = []
         for set_obj in results:
-            sets.append({
-                "code": set_obj.code,
-                "name": set_obj.name,
-                "type": set_obj.type,
-                "release_date": set_obj.release_date,
-                "base_set_size": set_obj.base_set_size,
-                "total_set_size": set_obj.total_set_size,
-                "block": set_obj.block,
-                "keyrune_code": set_obj.keyrune_code,
-                "in_collection": True,
-            })
+            sets.append(
+                {
+                    "code": set_obj.code,
+                    "name": set_obj.name,
+                    "type": set_obj.type,
+                    "release_date": set_obj.release_date,
+                    "base_set_size": set_obj.base_set_size,
+                    "total_set_size": set_obj.total_set_size,
+                    "block": set_obj.block,
+                    "keyrune_code": set_obj.keyrune_code,
+                    "in_collection": True,
+                }
+            )
 
         return sets, total
 
     def _list_reference_sets(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         set_type: str | None = None,
@@ -130,10 +126,7 @@ class SetsData:
 
         # Apply filters
         if q:
-            query = query.where(
-                (MTGJsonSet.name.contains(q)) | 
-                (MTGJsonSet.code.contains(q))
-            )
+            query = query.where((MTGJsonSet.name.contains(q)) | (MTGJsonSet.code.contains(q)))
 
         if set_type:
             query = query.where(MTGJsonSet.type == set_type)
@@ -153,7 +146,7 @@ class SetsData:
             "size": MTGJsonSet.total_set_size,
         }
         sort_field = sort_map.get(sort, MTGJsonSet.release_date)
-        
+
         if order == "desc":
             query = query.order_by(sort_field.desc())
         else:
@@ -169,22 +162,24 @@ class SetsData:
         # Convert to dict format for API compatibility
         sets = []
         for set_obj in results:
-            sets.append({
-                "code": set_obj.code,
-                "name": set_obj.name,
-                "type": set_obj.type,
-                "release_date": set_obj.release_date,
-                "base_set_size": set_obj.base_set_size,
-                "total_set_size": set_obj.total_set_size,
-                "block": set_obj.block,
-                "keyrune_code": set_obj.keyrune_code,
-                "in_collection": False,
-            })
+            sets.append(
+                {
+                    "code": set_obj.code,
+                    "name": set_obj.name,
+                    "type": set_obj.type,
+                    "release_date": set_obj.release_date,
+                    "base_set_size": set_obj.base_set_size,
+                    "total_set_size": set_obj.total_set_size,
+                    "block": set_obj.block,
+                    "keyrune_code": set_obj.keyrune_code,
+                    "in_collection": False,
+                }
+            )
 
         return sets, total
 
     def _list_combined_sets(
-        self, 
+        self,
         session: Session,
         q: str | None = None,
         set_type: str | None = None,
@@ -196,23 +191,18 @@ class SetsData:
     ) -> tuple[list[dict], int]:
         """List both domain and reference sets."""
         # Get domain sets first
-        domain_sets, _ = self._list_domain_sets(
-            session, q, set_type, block, sort, order, 1, 1000
-        )
-        
+        domain_sets, _ = self._list_domain_sets(session, q, set_type, block, sort, order, 1, 1000)
+
         # Get reference sets, excluding those already in domain
         domain_codes = {s["code"] for s in domain_sets}
-        
+
         ref_query = select(MTGJsonSet)
         if domain_codes:
             ref_query = ref_query.where(MTGJsonSet.code.not_in(domain_codes))
 
         # Apply same filters to reference query
         if q:
-            ref_query = ref_query.where(
-                (MTGJsonSet.name.contains(q)) | 
-                (MTGJsonSet.code.contains(q))
-            )
+            ref_query = ref_query.where((MTGJsonSet.name.contains(q)) | (MTGJsonSet.code.contains(q)))
 
         if set_type:
             ref_query = ref_query.where(MTGJsonSet.type == set_type)
@@ -221,25 +211,27 @@ class SetsData:
             ref_query = ref_query.where(MTGJsonSet.block == block)
 
         ref_results = session.exec(ref_query).all()
-        
+
         # Convert reference sets to dict format
         ref_sets = []
         for set_obj in ref_results:
-            ref_sets.append({
-                "code": set_obj.code,
-                "name": set_obj.name,
-                "type": set_obj.type,
-                "release_date": set_obj.release_date,
-                "base_set_size": set_obj.base_set_size,
-                "total_set_size": set_obj.total_set_size,
-                "block": set_obj.block,
-                "keyrune_code": set_obj.keyrune_code,
-                "in_collection": False,
-            })
+            ref_sets.append(
+                {
+                    "code": set_obj.code,
+                    "name": set_obj.name,
+                    "type": set_obj.type,
+                    "release_date": set_obj.release_date,
+                    "base_set_size": set_obj.base_set_size,
+                    "total_set_size": set_obj.total_set_size,
+                    "block": set_obj.block,
+                    "keyrune_code": set_obj.keyrune_code,
+                    "in_collection": False,
+                }
+            )
 
         # Combine and sort all sets
         all_sets = domain_sets + ref_sets
-        
+
         # Apply sorting to combined results
         sort_key_map = {
             "name": lambda x: x["name"] or "",
@@ -248,13 +240,13 @@ class SetsData:
             "size": lambda x: x["total_set_size"] or 0,
         }
         sort_key = sort_key_map.get(sort, sort_key_map["release_date"])
-        
+
         all_sets.sort(key=sort_key, reverse=(order == "desc"))
-        
+
         # Apply pagination to combined results
         total = len(all_sets)
         offset = (page - 1) * limit
-        paginated_sets = all_sets[offset:offset + limit]
+        paginated_sets = all_sets[offset : offset + limit]
 
         return paginated_sets, total
 
@@ -284,7 +276,7 @@ class SetsData:
         """Get domain set metadata by code."""
         query = select(DomainSet).where(DomainSet.code == code)
         set_obj = session.exec(query).first()
-        
+
         if not set_obj:
             return None
 
@@ -311,7 +303,7 @@ class SetsData:
         """Get reference set metadata by code."""
         query = select(MTGJsonSet).where(MTGJsonSet.code == code)
         set_obj = session.exec(query).first()
-        
+
         if not set_obj:
             return None
 
@@ -358,7 +350,7 @@ class SetsData:
                 return self._get_domain_set_cards(session, code, rarity, color, card_type, page, limit)
 
     def _get_domain_set_cards(
-        self, 
+        self,
         session: Session,
         code: str,
         rarity: str | None = None,
@@ -375,7 +367,7 @@ class SetsData:
             query = query.where(DomainCard.rarity == rarity)
 
         if color:
-            query = query.where(func.json_extract(DomainCard.color_identity, '$').contains(f'"{color}"'))
+            query = query.where(func.json_extract(DomainCard.color_identity, "$").contains(f'"{color}"'))
 
         if card_type:
             query = query.where(DomainCard.type_line.contains(card_type))
@@ -397,28 +389,30 @@ class SetsData:
         # Convert to dict format for API compatibility
         cards = []
         for card in results:
-            cards.append({
-                "uuid": card.uuid,
-                "name": card.name,
-                "mana_cost": card.mana_cost,
-                "mana_value": card.mana_value,
-                "type": card.type_line,
-                "rarity": card.rarity,
-                "color_identity": card.color_identity,
-                "colors": card.colors,
-                "power": card.power,
-                "toughness": card.toughness,
-                "number": card.collector_number,
-                "text": card.oracle_text,
-                "image_url": card.image_url or self._build_image_url(card.scryfall_id),
-                "price": card.tcgplayer_price_usd,
-                "in_collection": True,
-            })
+            cards.append(
+                {
+                    "uuid": card.uuid,
+                    "name": card.name,
+                    "mana_cost": card.mana_cost,
+                    "mana_value": card.mana_value,
+                    "type": card.type_line,
+                    "rarity": card.rarity,
+                    "color_identity": card.color_identity,
+                    "colors": card.colors,
+                    "power": card.power,
+                    "toughness": card.toughness,
+                    "number": card.collector_number,
+                    "text": card.oracle_text,
+                    "image_url": card.image_url or self._build_image_url(card.scryfall_id),
+                    "price": card.tcgplayer_price_usd,
+                    "in_collection": True,
+                }
+            )
 
         return cards, total
 
     def _get_reference_set_cards(
-        self, 
+        self,
         session: Session,
         code: str,
         rarity: str | None = None,
@@ -435,7 +429,7 @@ class SetsData:
             query = query.where(MTGJsonCard.rarity == rarity)
 
         if color:
-            query = query.where(func.json_extract(MTGJsonCard.color_identity, '$').contains(f'"{color}"'))
+            query = query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
 
         if card_type:
             query = query.where(MTGJsonCard.type.contains(card_type))
@@ -457,28 +451,30 @@ class SetsData:
         # Convert to dict format for API compatibility
         cards = []
         for card in results:
-            cards.append({
-                "uuid": card.uuid,
-                "name": card.name,
-                "mana_cost": card.mana_cost,
-                "mana_value": card.mana_value,
-                "type": card.type,
-                "rarity": card.rarity,
-                "color_identity": card.color_identity,
-                "colors": card.colors,
-                "power": card.power,
-                "toughness": card.toughness,
-                "number": card.number,
-                "text": card.oracle_text or card.text,
-                "image_url": self._build_image_url(card.scryfall_id),
-                "price": None,  # No pricing for reference cards
-                "in_collection": False,
-            })
+            cards.append(
+                {
+                    "uuid": card.uuid,
+                    "name": card.name,
+                    "mana_cost": card.mana_cost,
+                    "mana_value": card.mana_value,
+                    "type": card.type,
+                    "rarity": card.rarity,
+                    "color_identity": card.color_identity,
+                    "colors": card.colors,
+                    "power": card.power,
+                    "toughness": card.toughness,
+                    "number": card.number,
+                    "text": card.oracle_text or card.text,
+                    "image_url": self._build_image_url(card.scryfall_id),
+                    "price": None,  # No pricing for reference cards
+                    "in_collection": False,
+                }
+            )
 
         return cards, total
 
     def _get_combined_set_cards(
-        self, 
+        self,
         session: Session,
         code: str,
         rarity: str | None = None,
@@ -489,13 +485,11 @@ class SetsData:
     ) -> tuple[list[dict], int]:
         """Get cards from both domain and reference sets."""
         # Get domain cards first
-        domain_cards, _ = self._get_domain_set_cards(
-            session, code, rarity, color, card_type, 1, 1000
-        )
-        
+        domain_cards, _ = self._get_domain_set_cards(session, code, rarity, color, card_type, 1, 1000)
+
         # Get reference cards, excluding those already in domain
         domain_uuids = {card["uuid"] for card in domain_cards}
-        
+
         ref_query = select(MTGJsonCard).where(MTGJsonCard.set_code == code)
         if domain_uuids:
             ref_query = ref_query.where(MTGJsonCard.uuid.not_in(domain_uuids))
@@ -505,42 +499,44 @@ class SetsData:
             ref_query = ref_query.where(MTGJsonCard.rarity == rarity)
 
         if color:
-            ref_query = ref_query.where(func.json_extract(MTGJsonCard.color_identity, '$').contains(f'"{color}"'))
+            ref_query = ref_query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
 
         if card_type:
             ref_query = ref_query.where(MTGJsonCard.type.contains(card_type))
 
         ref_results = session.exec(ref_query).all()
-        
+
         # Convert reference cards to dict format
         ref_cards = []
         for card in ref_results:
-            ref_cards.append({
-                "uuid": card.uuid,
-                "name": card.name,
-                "mana_cost": card.mana_cost,
-                "mana_value": card.mana_value,
-                "type": card.type,
-                "rarity": card.rarity,
-                "color_identity": card.color_identity,
-                "colors": card.colors,
-                "power": card.power,
-                "toughness": card.toughness,
-                "number": card.number,
-                "text": card.oracle_text or card.text,
-                "image_url": self._build_image_url(card.scryfall_id),
-                "price": None,
-                "in_collection": False,
-            })
+            ref_cards.append(
+                {
+                    "uuid": card.uuid,
+                    "name": card.name,
+                    "mana_cost": card.mana_cost,
+                    "mana_value": card.mana_value,
+                    "type": card.type,
+                    "rarity": card.rarity,
+                    "color_identity": card.color_identity,
+                    "colors": card.colors,
+                    "power": card.power,
+                    "toughness": card.toughness,
+                    "number": card.number,
+                    "text": card.oracle_text or card.text,
+                    "image_url": self._build_image_url(card.scryfall_id),
+                    "price": None,
+                    "in_collection": False,
+                }
+            )
 
         # Combine and sort all cards by collector number
         all_cards = domain_cards + ref_cards
         all_cards.sort(key=lambda x: (x["number"] or ""))
-        
+
         # Apply pagination to combined results
         total = len(all_cards)
         offset = (page - 1) * limit
-        paginated_cards = all_cards[offset:offset + limit]
+        paginated_cards = all_cards[offset : offset + limit]
 
         return paginated_cards, total
 
@@ -565,7 +561,7 @@ class SetsData:
         # Check if set has precomputed stats
         set_query = select(DomainSet).where(DomainSet.code == code)
         set_obj = session.exec(set_query).first()
-        
+
         if set_obj and set_obj.card_count_by_rarity:
             return {
                 "rarity_count": set_obj.card_count_by_rarity,
@@ -661,7 +657,7 @@ class SetsData:
         # For combined stats, prioritize domain stats if available
         domain_stats = self._get_domain_set_stats(session, code)
         ref_stats = self._get_reference_set_stats(session, code)
-        
+
         # Merge stats (domain takes precedence)
         combined_stats = {
             "rarity_count": {**ref_stats["rarity_count"], **domain_stats["rarity_count"]},
@@ -670,7 +666,7 @@ class SetsData:
             "keywords": ref_stats["keywords"],  # Use reference keywords
             "total_price": domain_stats["total_price"],  # Use domain pricing
         }
-        
+
         return combined_stats
 
     def get_available_types(self, scope: str = "user") -> list[str]:
@@ -682,15 +678,15 @@ class SetsData:
                 # Get both domain and reference types
                 domain_query = select(DomainSet.type).distinct()
                 ref_query = select(MTGJsonSet.type).distinct()
-                
+
                 domain_types = set(session.exec(domain_query).all())
                 ref_types = set(session.exec(ref_query).all())
-                
+
                 all_types = sorted(domain_types.union(ref_types))
                 return [t for t in all_types if t]
             else:  # scope == "user" (default)
                 query = select(DomainSet.type).distinct().order_by(DomainSet.type)
-            
+
             results = session.exec(query).all()
             return [t for t in results if t]
 
@@ -699,29 +695,21 @@ class SetsData:
         with get_domain_session() as session:
             if scope == "reference":
                 query = (
-                    select(MTGJsonSet.block)
-                    .distinct()
-                    .where(MTGJsonSet.block.is_not(None))
-                    .order_by(MTGJsonSet.block)
+                    select(MTGJsonSet.block).distinct().where(MTGJsonSet.block.is_not(None)).order_by(MTGJsonSet.block)
                 )
             elif scope == "combined":
                 # Get both domain and reference blocks
                 domain_query = select(DomainSet.block).distinct().where(DomainSet.block.is_not(None))
                 ref_query = select(MTGJsonSet.block).distinct().where(MTGJsonSet.block.is_not(None))
-                
+
                 domain_blocks = set(session.exec(domain_query).all())
                 ref_blocks = set(session.exec(ref_query).all())
-                
+
                 all_blocks = sorted(domain_blocks.union(ref_blocks))
                 return [b for b in all_blocks if b]
             else:  # scope == "user" (default)
-                query = (
-                    select(DomainSet.block)
-                    .distinct()
-                    .where(DomainSet.block.is_not(None))
-                    .order_by(DomainSet.block)
-                )
-            
+                query = select(DomainSet.block).distinct().where(DomainSet.block.is_not(None)).order_by(DomainSet.block)
+
             results = session.exec(query).all()
             return [b for b in results if b]
 

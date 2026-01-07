@@ -58,7 +58,7 @@ async def get_set(
     - Set metadata (name, code, type, release date, sizes)
     - Statistics (rarity breakdown, prices, keywords, word frequencies)
     - Paginated card list (filterable by rarity, color, type)
-    
+
     - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     set_data = await set_service.get_set(
@@ -84,7 +84,7 @@ async def get_set_raw(
     Get raw set JSON for developer inspection with scope control.
 
     Returns the original MTGJSON set file format.
-    
+
     - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     data = await set_service.get_set_raw(code, scope=scope)
