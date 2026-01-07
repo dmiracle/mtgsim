@@ -1,6 +1,5 @@
+from dataclasses import dataclass, field
 from enum import Enum
-
-from pydantic import BaseModel
 
 
 class Color(str, Enum):
@@ -37,7 +36,9 @@ class Rarity(str, Enum):
     MYTHIC = "mythic"
 
 
-class ManaCost(BaseModel):
+@dataclass
+class ManaCost:
+    """Domain model for mana cost - pure business logic without API dependencies."""
     white: int = 0
     blue: int = 0
     black: int = 0
@@ -48,15 +49,18 @@ class ManaCost(BaseModel):
 
     @property
     def cmc(self) -> int:
+        """Converted mana cost - total mana required."""
         return self.white + self.blue + self.black + self.red + self.green + self.colorless + self.generic
 
 
-class Card(BaseModel):
+@dataclass
+class Card:
+    """Domain model for cards - pure business logic without API dependencies."""
     name: str
     mana_cost: ManaCost | None = None
-    card_types: list[CardType] = []
-    supertypes: list[Supertype] = []
-    subtypes: list[str] = []
+    card_types: list[CardType] = field(default_factory=list)
+    supertypes: list[Supertype] = field(default_factory=list)
+    subtypes: list[str] = field(default_factory=list)
     oracle_text: str = ""
     flavor_text: str = ""
     text_box: str = ""
@@ -66,5 +70,5 @@ class Card(BaseModel):
     toughness: int | None = None
     loyalty: int | None = None
     defense: int | None = None
-    color_identity: list[Color] = []
+    color_identity: list[Color] = field(default_factory=list)
     rarity: Rarity = Rarity.COMMON
