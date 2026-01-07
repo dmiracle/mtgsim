@@ -19,9 +19,162 @@ from mtgsim.db.domain_session import (
     validate_domain_schema,
 )
 from mtgsim.db.migration_models import MigrationLog, SchemaVersion
+from mtgsim.cli.rollback import RollbackManager, rollback_app
+from mtgsim.cli.logging_manager import create_migration_logger
 
 console = Console()
 domain_app = typer.Typer(help="Domain database operations")
+
+# Add rollback commands as a subcommand
+domain_app.add_typer(rollback_app, name="rollback")
+
+
+@domain_app.command("migration-report")
+def migration_report(
+    days: int = typer.Option(7, help="Number of days to include in report"),
+    format: str = typer.Option("table", help="Output format: 'table' or 'json'")
+):
+    """Generate a comprehensive migration report."""
+    if not DOMAIN_DB_PATH.exists():
+        console.print("❌ Domain database does not exist. Run 'domain init' first.", style="red")
+        raise typer.Exit(1)
+
+    try:
+        with get_domain_session() as session:
+            logger = create_migration_logger(session)
+            report = logger.generate_migration_report(days)
+
+            if format == "json":
+                import json
+                console.print(json.dumps(report, indent=2))
+                return
+
+            # Display table format
+            console.print(f"\n[bold]Migration Report - Last {days} Days[/bold]")
+            
+            # Summary statistics
+            summary_table = Table(title="Summary Statistics")
+            summary_table.add_column("Metric", style="cyan")
+            summary_table.add_column("Value", justify="right", style="green")
+
+            summary_table.add_row("Total Migrations", str(report["total_migrations"]))
+            summary_table.add_row("Successful", str(report["successful_migrations"]))
+            summary_table.add_row("Failed", str(report["failed_migrations"]))
+            summary_table.add_row("Success Rate", f"{report['success_rate']:.1f}%")
+            summary_table.add_row("Total Rows Affected", f"{report['total_rows_affected']:,}")
+            summary_table.add_row("Average Duration", f"{report['average_duration_seconds']:.2f}s")
+
+            console.print(summary_table)
+
+            # Operations breakdown
+            if report["operations_summary"]:
+                console.print("\n[bold]Operations Breakdown[/bold]")
+                ops_table = Table()
+                ops_table.add_column("Operation", style="cyan")
+                ops_table.add_column("Count", justify="right", style="blue")
+                ops_table.add_column("Successful", justify="right", style="green")
+                ops_table.add_column("Failed", justify="right", style="red")
+                ops_table.add_column("Rows Affected", justify="right", style="magenta")
+
+                for op_name, stats in report["operations_summary"].items():
+                    ops_table.add_row(
+                        op_name,
+                        str(stats["count"]),
+                        str(stats["successful"]),
+                        str(stats["failed"]),
+                        f"{stats['total_rows']:,}"
+                    )
+
+                console.print(ops_table)
+
+            # Recent migrations
+            if report["recent_migrations"]:
+                console.print("\n[bold]Recent Migrations[/bold]")
+                recent_table = Table()
+                recent_table.add_column("ID", style="cyan")
+                recent_table.add_column("Operation", style="magenta")
+                recent_table.add_column("Status", style="yellow")
+                recent_table.add_column("Started", style="blue")
+                recent_table.add_column("Duration", justify="right", style="green")
+                recent_table.add_column("Rows", justify="right", style="green")
+
+                for migration in report["recent_migrations"]:
+                    status_color = {
+                        "COMPLETED": "green",
+                        "FAILED": "red",
+                        "IN_PROGRESS": "yellow",
+                        "ROLLED_BACK": "orange1"
+                    }.get(migration["status"], "white")
+
+                    recent_table.add_row(
+                        str(migration["id"]),
+                        migration["operation"],
+                        f"[{status_color}]{migration['status']}[/{status_color}]",
+                        migration["started_at"][:19].replace("T", " "),
+                        f"{migration['duration']:.2f}s" if migration["duration"] else "N/A",
+                        str(migration["rows_affected"] or 0)
+                    )
+
+                console.print(recent_table)
+
+    except Exception as e:
+        console.print(f"❌ Failed to generate migration report: {e}", style="red")
+        raise typer.Exit(1)
+
+
+@domain_app.command("logs")
+def view_logs(
+    lines: int = typer.Option(50, help="Number of log lines to display"),
+    level: str = typer.Option("INFO", help="Minimum log level to display"),
+    follow: bool = typer.Option(False, help="Follow log file (like tail -f)")
+):
+    """View migration logs."""
+    log_dir = DOMAIN_DB_PATH.parent / "logs"
+    
+    if not log_dir.exists():
+        console.print("❌ No log directory found", style="red")
+        raise typer.Exit(1)
+
+    # Find the most recent log file
+    log_files = list(log_dir.glob("migration_*.log"))
+    if not log_files:
+        console.print("❌ No migration log files found", style="red")
+        raise typer.Exit(1)
+
+    latest_log = max(log_files, key=lambda f: f.stat().st_mtime)
+    
+    try:
+        if follow:
+            console.print(f"📄 Following log file: {latest_log}")
+            console.print("Press Ctrl+C to stop")
+            
+            import subprocess
+            subprocess.run(["tail", "-f", str(latest_log)])
+        else:
+            console.print(f"📄 Last {lines} lines from: {latest_log}")
+            
+            with open(latest_log, 'r') as f:
+                all_lines = f.readlines()
+                recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                
+                for line in recent_lines:
+                    line = line.strip()
+                    if level.upper() in line or level == "DEBUG":
+                        # Color code log levels
+                        if "ERROR" in line:
+                            console.print(line, style="red")
+                        elif "WARNING" in line:
+                            console.print(line, style="yellow")
+                        elif "INFO" in line:
+                            console.print(line, style="white")
+                        else:
+                            console.print(line, style="dim")
+
+    except KeyboardInterrupt:
+        console.print("\n👋 Log following stopped", style="yellow")
+    except Exception as e:
+        console.print(f"❌ Failed to view logs: {e}", style="red")
+        raise typer.Exit(1)
 
 
 @domain_app.command("init")
@@ -382,8 +535,6 @@ def sync_reference():
         console.print("Run 'mtgjson sync' to download reference data first.", style="yellow")
         raise typer.Exit(1)
 
-    console.print("🔄 Syncing reference tables to domain database...")
-
     # Define tables to sync
     tables_to_sync = [
         ("cards", "Cards"),
@@ -399,55 +550,146 @@ def sync_reference():
         console.print("❌ Source database schema validation failed", style="red")
         raise typer.Exit(1)
 
-    console.print("✅ Source database schema validation passed", style="green")
-
     with get_domain_session() as session:
-        migration_log = log_migration_start(session, "sync_reference", "mtgjson")
+        # Initialize logging and rollback managers
+        logger = create_migration_logger(session, "INFO")
+        rollback_manager = RollbackManager(session)
+        
+        # Create backup before starting
+        try:
+            backup_path = rollback_manager.create_backup("sync_reference")
+        except Exception as e:
+            console.print(f"❌ Failed to create backup: {e}", style="red")
+            raise typer.Exit(1)
+
+        # Start migration with comprehensive logging
+        migration_log = logger.start_migration(
+            operation_name="sync_reference",
+            source_name="mtgjson",
+            migration_type="REFERENCE_SYNC",
+            parameters={
+                "source_db": str(MERGED_DB_PATH),
+                "target_db": str(DOMAIN_DB_PATH),
+                "tables": [table_name for table_name, _ in tables_to_sync]
+            },
+            total_items=len(tables_to_sync)
+        )
 
         try:
+            # Capture table states for rollback
+            table_states = []
+            for table_name, _ in tables_to_sync:
+                target_table = f"mtgjson_{table_name}"
+                table_state = rollback_manager.capture_table_state(target_table)
+                table_states.append(table_state)
+
+            # Store rollback data
+            rollback_data = {
+                "backup_path": str(backup_path),
+                "tables": table_states,
+                "operation_type": "sync_reference"
+            }
+            rollback_manager.store_rollback_data(migration_log, rollback_data)
+
             total_rows = 0
             table_mappings = []
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=console,
-            ) as progress:
-                for table_name, display_name in tables_to_sync:
-                    task = progress.add_task(f"Syncing {display_name}...", total=None)
+            for table_name, display_name in tables_to_sync:
+                try:
+                    logger.log_item_processed(
+                        item_id=table_name,
+                        item_type="table_sync",
+                        status="starting",
+                        details={"display_name": display_name}
+                    )
 
-                    try:
-                        rows_copied = copy_table_with_prefix(MERGED_DB_PATH, DOMAIN_DB_PATH, table_name, "mtgjson_")
-                        total_rows += rows_copied
-                        progress.update(task, description=f"✅ {display_name}: {rows_copied:,} rows")
+                    rows_copied = copy_table_with_prefix(MERGED_DB_PATH, DOMAIN_DB_PATH, table_name, "mtgjson_")
+                    total_rows += rows_copied
 
-                        # Track table mappings for integrity verification
-                        table_mappings.append((table_name, f"mtgjson_{table_name}"))
+                    # Track table mappings for integrity verification
+                    table_mappings.append((table_name, f"mtgjson_{table_name}"))
 
-                    except Exception as e:
-                        progress.update(task, description=f"❌ {display_name}: {e}")
-                        raise
+                    logger.log_item_processed(
+                        item_id=table_name,
+                        item_type="table_sync",
+                        status="success",
+                        details={
+                            "display_name": display_name,
+                            "rows_copied": rows_copied,
+                            "target_table": f"mtgjson_{table_name}"
+                        }
+                    )
 
-            # Verify sync integrity
+                except Exception as e:
+                    logger.log_item_processed(
+                        item_id=table_name,
+                        item_type="table_sync",
+                        status="failed",
+                        details={
+                            "display_name": display_name,
+                            "error": str(e)
+                        }
+                    )
+                    raise
+
+            # Verify sync integrity with detailed logging
             console.print("\n🔍 Verifying sync integrity...")
-            integrity_passed = verify_sync_integrity(MERGED_DB_PATH, DOMAIN_DB_PATH, table_mappings)
+            
+            for source_table, target_table in table_mappings:
+                try:
+                    # Get source and target counts
+                    source_conn = sqlite3.connect(MERGED_DB_PATH)
+                    target_conn = sqlite3.connect(DOMAIN_DB_PATH)
+                    
+                    source_cursor = source_conn.cursor()
+                    target_cursor = target_conn.cursor()
+                    
+                    source_cursor.execute(f"SELECT COUNT(*) FROM {source_table}")
+                    source_count = source_cursor.fetchone()[0]
+                    
+                    target_cursor.execute(f"SELECT COUNT(*) FROM {target_table}")
+                    target_count = target_cursor.fetchone()[0]
+                    
+                    source_conn.close()
+                    target_conn.close()
+                    
+                    # Log validation check
+                    passed = source_count == target_count
+                    error_details = [] if passed else [f"Row count mismatch: source={source_count}, target={target_count}"]
+                    
+                    logger.log_validation_check(
+                        check_name="row_count_verification",
+                        table_name=target_table,
+                        passed=passed,
+                        error_details=error_details
+                    )
+                    
+                    if not passed:
+                        raise ValueError(f"Integrity check failed for {target_table}")
+                        
+                except Exception as e:
+                    logger.log_validation_check(
+                        check_name="row_count_verification",
+                        table_name=target_table,
+                        passed=False,
+                        error_details=[str(e)]
+                    )
+                    raise
 
-            if not integrity_passed:
-                log_migration_error(session, migration_log, "Sync integrity verification failed")
-                console.print("❌ Sync integrity verification failed", style="red")
-                raise typer.Exit(1)
-
-            # Log successful integrity checks
-            for _source_table, target_table in table_mappings:
-                log_integrity_check(session, "sync_verification", target_table, True)
-
-            log_migration_complete(session, migration_log, total_rows)
-            console.print(f"✅ Reference sync completed successfully. {total_rows:,} total rows synced.", style="green")
-            console.print("✅ All integrity checks passed", style="green")
+            # Complete migration successfully
+            logger.complete_migration({
+                "tables_synced": len(tables_to_sync),
+                "total_rows_copied": total_rows,
+                "backup_created": str(backup_path),
+                "integrity_checks_passed": len(table_mappings)
+            })
 
         except Exception as e:
-            log_migration_error(session, migration_log, str(e))
-            console.print(f"❌ Reference sync failed: {e}", style="red")
+            logger.fail_migration(e, {
+                "tables_processed": len([t for t in tables_to_sync if t[0] in [tm[0] for tm in table_mappings]]),
+                "backup_path": str(backup_path)
+            })
+            console.print(f"💡 Use 'domain rollback execute {migration_log.id}' to restore from backup", style="blue")
             raise typer.Exit(1)
 
 
@@ -614,6 +856,8 @@ def add_card(uuid: str = typer.Argument(..., help="UUID of the card to add to do
 
     try:
         with get_domain_session() as session:
+            rollback_manager = RollbackManager(session)
+            
             # Check if card already exists in domain tables
             from mtgsim.db.domain_models import DomainCard
 
@@ -639,6 +883,13 @@ def add_card(uuid: str = typer.Argument(..., help="UUID of the card to add to do
             migration_log = log_migration_start(session, "add_card", "mtgjson")
 
             try:
+                # Store rollback data
+                rollback_data = {
+                    "card_uuid": uuid,
+                    "operation_type": "add_card"
+                }
+                rollback_manager.store_rollback_data(migration_log, rollback_data)
+
                 # Transform and add to domain tables
                 domain_card = transform_reference_card_to_domain(ref_card, session)
 
@@ -665,6 +916,7 @@ def add_card(uuid: str = typer.Argument(..., help="UUID of the card to add to do
 
             except Exception as e:
                 log_migration_error(session, migration_log, str(e))
+                console.print(f"💡 Use 'domain rollback execute {migration_log.id}' to rollback changes", style="blue")
                 raise
 
     except Exception as e:
@@ -681,6 +933,8 @@ def add_set(code: str = typer.Argument(..., help="Set code to add all cards from
 
     try:
         with get_domain_session() as session:
+            rollback_manager = RollbackManager(session)
+            
             # Find set in reference tables
             from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
 
@@ -695,6 +949,7 @@ def add_set(code: str = typer.Argument(..., help="Set code to add all cards from
             from mtgsim.db.domain_models import DomainCard, DomainSet
 
             existing_set = session.exec(select(DomainSet).where(DomainSet.code == code)).first()
+            set_was_added = False
 
             if existing_set:
                 console.print(f"✅ Set {code} already exists in domain tables", style="yellow")
@@ -704,6 +959,7 @@ def add_set(code: str = typer.Argument(..., help="Set code to add all cards from
                 domain_set = transform_reference_set_to_domain(ref_set, session)
                 session.add(domain_set)
                 session.flush()
+                set_was_added = True
 
             # Get all cards from this set in reference tables
             ref_cards = session.exec(select(MTGJsonCard).where(MTGJsonCard.set_code == code)).all()
@@ -718,6 +974,16 @@ def add_set(code: str = typer.Argument(..., help="Set code to add all cards from
             try:
                 cards_added = 0
                 cards_skipped = 0
+                added_card_uuids = []
+
+                # Store rollback data
+                rollback_data = {
+                    "set_code": code,
+                    "set_was_added": set_was_added,
+                    "added_cards": [],  # Will be populated as we add cards
+                    "operation_type": "add_set"
+                }
+                rollback_manager.store_rollback_data(migration_log, rollback_data)
 
                 with Progress(
                     SpinnerColumn(),
@@ -736,8 +1002,13 @@ def add_set(code: str = typer.Argument(..., help="Set code to add all cards from
                             # Transform and add card
                             transform_reference_card_to_domain(ref_card, session)
                             cards_added += 1
+                            added_card_uuids.append(ref_card.uuid)
 
                         progress.advance(task)
+
+                # Update rollback data with added cards
+                rollback_data["added_cards"] = added_card_uuids
+                rollback_manager.store_rollback_data(migration_log, rollback_data)
 
                 session.commit()
 
@@ -750,6 +1021,7 @@ def add_set(code: str = typer.Argument(..., help="Set code to add all cards from
 
             except Exception as e:
                 log_migration_error(session, migration_log, str(e))
+                console.print(f"💡 Use 'domain rollback execute {migration_log.id}' to rollback changes", style="blue")
                 raise
 
     except Exception as e:
@@ -888,32 +1160,57 @@ def collect_card(
 
     try:
         with get_domain_session() as session:
+            rollback_manager = RollbackManager(session)
+            
             from mtgsim.db.domain_models import DomainCard
 
             # Check if card already exists in domain tables
             existing_card = session.exec(select(DomainCard).where(DomainCard.uuid == uuid)).first()
 
             if existing_card:
-                # Update existing card collection status
-                if wanted:
-                    existing_card.is_wanted = True
-                    console.print("✅ Card marked as wanted", style="green")
-                else:
-                    existing_card.is_owned = True
-                    existing_card.quantity_owned += quantity
-                    existing_card.is_foil = foil or existing_card.is_foil
-                    console.print(f"✅ Added {quantity} copies to collection", style="green")
+                # Log migration start for collection update
+                migration_log = log_migration_start(session, "collect_card", "user_collection")
+                
+                try:
+                    # Store rollback data for existing card update
+                    rollback_data = {
+                        "card_uuid": uuid,
+                        "operation_type": "update_collection",
+                        "previous_state": {
+                            "is_owned": existing_card.is_owned,
+                            "quantity_owned": existing_card.quantity_owned,
+                            "is_wanted": existing_card.is_wanted,
+                            "is_foil": existing_card.is_foil
+                        }
+                    }
+                    rollback_manager.store_rollback_data(migration_log, rollback_data)
 
-                existing_card.updated_at = datetime.utcnow()
-                session.add(existing_card)
-                session.commit()
+                    # Update existing card collection status
+                    if wanted:
+                        existing_card.is_wanted = True
+                        console.print("✅ Card marked as wanted", style="green")
+                    else:
+                        existing_card.is_owned = True
+                        existing_card.quantity_owned += quantity
+                        existing_card.is_foil = foil or existing_card.is_foil
+                        console.print(f"✅ Added {quantity} copies to collection", style="green")
 
-                console.print(f"   Name: {existing_card.name}")
-                console.print(f"   Set: {existing_card.set_code}")
-                console.print(f"   Owned: {existing_card.quantity_owned}")
-                console.print(f"   Wanted: {existing_card.is_wanted}")
-                console.print(f"   Foil: {existing_card.is_foil}")
-                return
+                    existing_card.updated_at = datetime.utcnow()
+                    session.add(existing_card)
+                    session.commit()
+
+                    log_migration_complete(session, migration_log, 1)
+                    console.print(f"   Name: {existing_card.name}")
+                    console.print(f"   Set: {existing_card.set_code}")
+                    console.print(f"   Owned: {existing_card.quantity_owned}")
+                    console.print(f"   Wanted: {existing_card.is_wanted}")
+                    console.print(f"   Foil: {existing_card.is_foil}")
+                    return
+
+                except Exception as e:
+                    log_migration_error(session, migration_log, str(e))
+                    console.print(f"💡 Use 'domain rollback execute {migration_log.id}' to rollback changes", style="blue")
+                    raise
 
             # Card doesn't exist in domain tables, need to add it first
             from mtgsim.db.reference_models import MTGJsonCard
@@ -929,6 +1226,13 @@ def collect_card(
             migration_log = log_migration_start(session, "collect_card", "user_collection")
 
             try:
+                # Store rollback data
+                rollback_data = {
+                    "card_uuid": uuid,
+                    "operation_type": "add_to_collection"
+                }
+                rollback_manager.store_rollback_data(migration_log, rollback_data)
+
                 # Transform and add to domain tables with collection info
                 domain_card = transform_reference_card_to_domain(ref_card, session)
 
@@ -958,6 +1262,7 @@ def collect_card(
 
             except Exception as e:
                 log_migration_error(session, migration_log, str(e))
+                console.print(f"💡 Use 'domain rollback execute {migration_log.id}' to rollback changes", style="blue")
                 raise
 
     except Exception as e:
