@@ -238,7 +238,7 @@ class CardsData:
                 "frame_version": row["frameVersion"],
                 "border_color": row["borderColor"],
                 "identifiers": {},  # Not available in this schema
-                "legalities": {},   # Not available in this schema
+                "legalities": {},  # Not available in this schema
                 "in_collection": False,  # Reference cards are not in collection
             }
             cards.append(card_dict)
@@ -410,7 +410,7 @@ class CardsData:
             "frame_version": row["frameVersion"],
             "border_color": row["borderColor"],
             "identifiers": {},  # Not available in this schema
-            "legalities": {},   # Not available in this schema
+            "legalities": {},  # Not available in this schema
             "in_collection": False,  # Reference cards are not in collection
         }
 

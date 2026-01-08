@@ -326,15 +326,15 @@ class SetsData:
     def _get_reference_set(self, session: Session, code: str) -> dict | None:
         """Get reference set metadata by code using direct SQL query."""
         from mtgsim.reference import ref_db
-        
+
         query = """
-            SELECT code, name, type, releaseDate, baseSetSize, totalSetSize, block, 
-                   keyruneCode, isFoilOnly, isOnlineOnly, mtgoCode, tcgplayerGroupId, 
+            SELECT code, name, type, releaseDate, baseSetSize, totalSetSize, block,
+                   keyruneCode, isFoilOnly, isOnlineOnly, mtgoCode, tcgplayerGroupId,
                    languages
-            FROM sets 
+            FROM sets
             WHERE code = ?
         """
-        
+
         cursor = ref_db.conn.execute(query, [code])
         row = cursor.fetchone()
 
@@ -356,7 +356,7 @@ class SetsData:
             "tcgplayer_group_id": row["tcgplayerGroupId"],
             "cardmarket_id": None,  # Not available in this schema
             "languages": self._parse_json(row["languages"], []),
-            "translations": {},     # Not available in this schema
+            "translations": {},  # Not available in this schema
             "in_collection": False,
         }
 
@@ -403,7 +403,10 @@ class SetsData:
         if color:
             # Since color_identity is a property based on relationships, we need to join with color links
             from mtgsim.db.domain_models import DomainCardColorLink
-            query = query.join(DomainCardColorLink, DomainCard.id == DomainCardColorLink.card_id).where(DomainCardColorLink.color == color)
+
+            query = query.join(DomainCardColorLink, DomainCard.id == DomainCardColorLink.card_id).where(
+                DomainCardColorLink.color == color
+            )
 
         if card_type:
             query = query.where(DomainCard.type_line.contains(card_type))
