@@ -34,7 +34,7 @@ class DeckService:
         order: str = "asc",
         page: int = 1,
         limit: int = 50,
-        scope: str = "user",  # "user", "reference", "combined"
+        scope: str = "combined",  # "user", "reference", "combined"
     ) -> DeckListResponse:
         """List and filter decks with pagination and scope control."""
         decks, total = decks_data.list_decks(
@@ -82,7 +82,7 @@ class DeckService:
             ),
         )
 
-    async def get_deck(self, file: str, scope: str = "user") -> DeckDetail | None:
+    async def get_deck(self, file: str, scope: str = "combined") -> DeckDetail | None:
         """Get full deck details including cards and statistics with scope control."""
         deck = decks_data.get_deck(file, scope=scope)
         if not deck:
@@ -177,14 +177,14 @@ class DeckService:
             ),
         )
 
-    async def get_deck_raw(self, file: str, scope: str = "user") -> dict | None:
+    async def get_deck_raw(self, file: str, scope: str = "combined") -> dict | None:
         """Get raw deck data with scope control."""
         deck = decks_data.get_deck(file, scope=scope)
         if not deck:
             return None
         return deck
 
-    async def get_available_sets(self, scope: str = "user") -> list[str]:
+    async def get_available_sets(self, scope: str = "combined") -> list[str]:
         """Get list of set codes that have decks with scope control."""
         return decks_data.get_available_sets(scope=scope)
 
