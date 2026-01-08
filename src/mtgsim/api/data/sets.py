@@ -10,6 +10,17 @@ from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
 class SetsData:
     """Data access for sets."""
 
+    def _parse_json(self, value: str | None, default=None):
+        """Parse JSON string, returning default if None or invalid."""
+        if not value:
+            return default if default is not None else []
+        try:
+            import json
+
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return default if default is not None else []
+
     def list_sets(
         self,
         q: str | None = None,
@@ -121,60 +132,73 @@ class SetsData:
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
-        """List reference sets."""
-        query = select(MTGJsonSet)
+        """List reference sets using direct SQL queries."""
+        from mtgsim.reference import ref_db
 
-        # Apply filters
+        # Build WHERE conditions
+        conditions = []
+        params = []
+
         if q:
-            query = query.where((MTGJsonSet.name.contains(q)) | (MTGJsonSet.code.contains(q)))
+            conditions.append("(name LIKE ? OR code LIKE ?)")
+            params.extend([f"%{q}%", f"%{q}%"])
 
         if set_type:
-            query = query.where(MTGJsonSet.type == set_type)
+            conditions.append("type = ?")
+            params.append(set_type)
 
         if block:
-            query = query.where(MTGJsonSet.block == block)
+            conditions.append("block = ?")
+            params.append(block)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = session.exec(count_query).one()
+        count_query = f"SELECT COUNT(*) FROM sets WHERE {where_clause}"
+        cursor = ref_db.conn.execute(count_query, params)
+        total = cursor.fetchone()[0]
 
-        # Apply sorting
+        # Build sort clause
         sort_map = {
-            "name": MTGJsonSet.name,
-            "release_date": MTGJsonSet.release_date,
-            "code": MTGJsonSet.code,
-            "size": MTGJsonSet.total_set_size,
+            "name": "name",
+            "release_date": "releaseDate",
+            "code": "code",
+            "size": "totalSetSize",
         }
-        sort_field = sort_map.get(sort, MTGJsonSet.release_date)
-
-        if order == "desc":
-            query = query.order_by(sort_field.desc())
-        else:
-            query = query.order_by(sort_field.asc())
+        sort_field = sort_map.get(sort, "releaseDate")
+        order_clause = f"ORDER BY {sort_field} {'DESC' if order == 'desc' else 'ASC'}"
 
         # Apply pagination
         offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
+        limit_clause = f"LIMIT {limit} OFFSET {offset}"
 
-        # Execute query
-        results = session.exec(query).all()
+        # Execute main query
+        query = f"""
+            SELECT code, name, type, releaseDate, baseSetSize, totalSetSize, block, keyruneCode
+            FROM sets
+            WHERE {where_clause}
+            {order_clause}
+            {limit_clause}
+        """
 
-        # Convert to dict format for API compatibility
+        cursor = ref_db.conn.execute(query, params)
+        results = cursor.fetchall()
+
+        # Convert to API format
         sets = []
-        for set_obj in results:
-            sets.append(
-                {
-                    "code": set_obj.code,
-                    "name": set_obj.name,
-                    "type": set_obj.type,
-                    "release_date": set_obj.release_date,
-                    "base_set_size": set_obj.base_set_size,
-                    "total_set_size": set_obj.total_set_size,
-                    "block": set_obj.block,
-                    "keyrune_code": set_obj.keyrune_code,
-                    "in_collection": False,
-                }
-            )
+        for row in results:
+            set_dict = {
+                "code": row["code"],
+                "name": row["name"],
+                "type": row["type"],
+                "release_date": row["releaseDate"],
+                "base_set_size": row["baseSetSize"],
+                "total_set_size": row["totalSetSize"],
+                "block": row["block"],
+                "keyrune_code": row["keyruneCode"],
+                "in_collection": False,  # Reference sets are not in collection
+            }
+            sets.append(set_dict)
 
         return sets, total
 
@@ -300,29 +324,39 @@ class SetsData:
         }
 
     def _get_reference_set(self, session: Session, code: str) -> dict | None:
-        """Get reference set metadata by code."""
-        query = select(MTGJsonSet).where(MTGJsonSet.code == code)
-        set_obj = session.exec(query).first()
+        """Get reference set metadata by code using direct SQL query."""
+        from mtgsim.reference import ref_db
 
-        if not set_obj:
+        query = """
+            SELECT code, name, type, releaseDate, baseSetSize, totalSetSize, block,
+                   keyruneCode, isFoilOnly, isOnlineOnly, mtgoCode, tcgplayerGroupId,
+                   languages
+            FROM sets
+            WHERE code = ?
+        """
+
+        cursor = ref_db.conn.execute(query, [code])
+        row = cursor.fetchone()
+
+        if not row:
             return None
 
         return {
-            "code": set_obj.code,
-            "name": set_obj.name,
-            "type": set_obj.type,
-            "release_date": set_obj.release_date,
-            "base_set_size": set_obj.base_set_size,
-            "total_set_size": set_obj.total_set_size,
-            "block": set_obj.block,
-            "keyrune_code": set_obj.keyrune_code,
-            "is_foil_only": set_obj.is_foil_only,
-            "is_online_only": set_obj.is_online_only,
-            "mtgo_code": set_obj.mtgo_code,
-            "tcgplayer_group_id": set_obj.tcgplayer_group_id,
-            "cardmarket_id": set_obj.cardmarket_id,
-            "languages": set_obj.languages,
-            "translations": set_obj.translations,
+            "code": row["code"],
+            "name": row["name"],
+            "type": row["type"],
+            "release_date": row["releaseDate"],
+            "base_set_size": row["baseSetSize"],
+            "total_set_size": row["totalSetSize"],
+            "block": row["block"],
+            "keyrune_code": row["keyruneCode"],
+            "is_foil_only": bool(row["isFoilOnly"]),
+            "is_online_only": bool(row["isOnlineOnly"]),
+            "mtgo_code": row["mtgoCode"],
+            "tcgplayer_group_id": row["tcgplayerGroupId"],
+            "cardmarket_id": None,  # Not available in this schema
+            "languages": self._parse_json(row["languages"], []),
+            "translations": {},  # Not available in this schema
             "in_collection": False,
         }
 
@@ -367,7 +401,12 @@ class SetsData:
             query = query.where(DomainCard.rarity == rarity)
 
         if color:
-            query = query.where(func.json_extract(DomainCard.color_identity, "$").contains(f'"{color}"'))
+            # Since color_identity is a property based on relationships, we need to join with color links
+            from mtgsim.db.domain_models import DomainCardColorLink
+
+            query = query.join(DomainCardColorLink, DomainCard.id == DomainCardColorLink.card_id).where(
+                DomainCardColorLink.color == color
+            )
 
         if card_type:
             query = query.where(DomainCard.type_line.contains(card_type))

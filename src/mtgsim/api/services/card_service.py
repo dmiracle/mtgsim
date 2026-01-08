@@ -29,7 +29,7 @@ class CardService:
         order: str = "asc",
         page: int = 1,
         limit: int = 50,
-        scope: str = "user",  # "user", "reference", "combined"
+        scope: str = "combined",  # "user", "reference", "combined"
     ) -> CardListResponse:
         """Search cards with filters and scope control."""
         cards, total = cards_data.search_cards(
@@ -72,7 +72,7 @@ class CardService:
             pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
         )
 
-    async def get_card(self, uuid: str, scope: str = "user") -> CardDetail | None:
+    async def get_card(self, uuid: str, scope: str = "combined") -> CardDetail | None:
         """Get full card details with scope control."""
         card = cards_data.get_card(uuid, scope=scope)
         if not card:
@@ -142,7 +142,7 @@ class CardService:
             in_collection=card.get("in_collection", scope == "user"),
         )
 
-    async def get_card_by_name(self, name: str, scope: str = "user") -> list[CardSummary]:
+    async def get_card_by_name(self, name: str, scope: str = "combined") -> list[CardSummary]:
         """Get all printings of a card by name with scope control."""
         cards = cards_data.get_cards_by_name(name, scope=scope)
         return [

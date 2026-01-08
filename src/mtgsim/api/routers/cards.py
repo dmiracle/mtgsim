@@ -30,7 +30,7 @@ async def search_cards(
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> CardListResponse:
     """
     Search cards with filters and scope control.
@@ -66,7 +66,7 @@ async def search_cards(
 @router.get("/{uuid}", response_model=CardDetail)
 async def get_card(
     uuid: str,
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> CardDetail:
     """
     Get full card details with scope control.

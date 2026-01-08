@@ -17,7 +17,7 @@ async def list_sets(
     order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> SetListResponse:
     """
     List and filter sets with pagination and scope control.
@@ -49,7 +49,7 @@ async def get_set(
     type: str | None = Query(None, description="Filter cards by type"),
     card_page: int = Query(1, ge=1, description="Card page number"),
     card_limit: int = Query(50, ge=1, le=100, description="Cards per page"),
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> SetDetail:
     """
     Get full set details including cards and statistics with scope control.
@@ -78,7 +78,7 @@ async def get_set(
 @router.get("/{code}/raw")
 async def get_set_raw(
     code: str,
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> dict:
     """
     Get raw set JSON for developer inspection with scope control.

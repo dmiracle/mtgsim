@@ -143,18 +143,12 @@ def test_remove_card_from_collection_consistency(uuid):
     **Feature: domain-api-consolidation, Property 10: Collection Management Consistency**
     **Validates: Requirements 4.1, 4.3**
     """
-    # Mock successful card removal (for testing purposes)
-    _mock_result = {
-        "success": True,
-        "message": f"Card {uuid} removed from collection",
-    }
-
     # Mock the card being in both domain and reference initially
     domain_card = {**mock_domain_card(), "uuid": uuid}
     reference_card = {**mock_reference_card(), "uuid": uuid}
 
     with (
-        patch("mtgsim.db.domain_session.get_domain_session") as mock_session,
+        patch("mtgsim.api.data.cards.get_domain_session") as mock_session,
         patch("mtgsim.api.data.cards_data.get_card") as mock_get,
     ):
         # Mock database session for removal

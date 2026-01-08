@@ -23,7 +23,7 @@ async def list_decks(
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> DeckListResponse:
     """
     List and filter decks with pagination and scope control.
@@ -62,7 +62,7 @@ async def list_decks(
 @router.get("/{file}", response_model=DeckDetail)
 async def get_deck(
     file: str,
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> DeckDetail:
     """
     Get full deck details including cards and statistics with scope control.
@@ -86,7 +86,7 @@ async def get_deck(
 @router.get("/{file}/raw")
 async def get_deck_raw(
     file: str,
-    scope: str = Query("user", pattern="^(user|reference|combined)$", description="Search scope"),
+    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> dict:
     """
     Get raw deck JSON for developer inspection with scope control.
