@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
 
-from ..db.models import (
+from ..db.models_legacy import (
     CardColorLink,
     CardDB,
     CardLegalityLink,

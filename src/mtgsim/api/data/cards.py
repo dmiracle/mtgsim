@@ -201,12 +201,14 @@ class CardsData:
         offset = (page - 1) * limit
         limit_clause = f"LIMIT {limit} OFFSET {offset}"
 
-        # Execute main query
+        # Execute main query with cardIdentifiers join for scryfallId
         query = f"""
-            SELECT uuid, name, manaValue, manaCost, type, text, rarity, setCode,
-                   colors, colorIdentity, power, toughness, loyalty, defense,
-                   flavorText, artist, frameVersion, borderColor
-            FROM cards
+            SELECT c.uuid, c.name, c.manaValue, c.manaCost, c.type, c.text, c.rarity, c.setCode,
+                   c.colors, c.colorIdentity, c.power, c.toughness, c.loyalty, c.defense,
+                   c.flavorText, c.artist, c.frameVersion, c.borderColor,
+                   ci.scryfallId
+            FROM cards c
+            LEFT JOIN cardIdentifiers ci ON c.uuid = ci.uuid
             WHERE {where_clause}
             {order_clause}
             {limit_clause}
@@ -240,6 +242,7 @@ class CardsData:
                 "identifiers": {},  # Not available in this schema
                 "legalities": {},  # Not available in this schema
                 "in_collection": False,  # Reference cards are not in collection
+                "image_url": self._build_image_url(row["scryfallId"]),
             }
             cards.append(card_dict)
 
@@ -365,13 +368,15 @@ class CardsData:
         """Get reference card details by UUID using direct SQL query."""
         from mtgsim.reference import ref_db
 
-        # Query the actual cards table with correct column names
+        # Query the cards table with cardIdentifiers join for scryfallId
         query = """
-            SELECT uuid, name, manaValue, manaCost, type, text, rarity, setCode,
-                   colors, colorIdentity, power, toughness, loyalty, defense,
-                   flavorText, artist, frameVersion, borderColor
-            FROM cards
-            WHERE uuid = ?
+            SELECT c.uuid, c.name, c.manaValue, c.manaCost, c.type, c.text, c.rarity, c.setCode,
+                   c.colors, c.colorIdentity, c.power, c.toughness, c.loyalty, c.defense,
+                   c.flavorText, c.artist, c.frameVersion, c.borderColor,
+                   ci.scryfallId
+            FROM cards c
+            LEFT JOIN cardIdentifiers ci ON c.uuid = ci.uuid
+            WHERE c.uuid = ?
         """
 
         cursor = ref_db.conn.execute(query, [uuid])
@@ -412,6 +417,7 @@ class CardsData:
             "identifiers": {},  # Not available in this schema
             "legalities": {},  # Not available in this schema
             "in_collection": False,  # Reference cards are not in collection
+            "image_url": self._build_image_url(row["scryfallId"]),
         }
 
         return card_dict

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import typer
 
-from ..db.session import get_session, init_db
+from ..db.session_legacy import get_session, init_db
 from ..domain.card import Card, CardType, ManaCost, Rarity, Supertype
 from ..extract.pipelines import get_pipeline
 from ..render.ascii import render_card
