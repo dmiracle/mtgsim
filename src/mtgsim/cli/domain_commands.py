@@ -845,7 +845,7 @@ def transform_reference_deck_to_domain(ref_deck, session):
         side_board_count=ref_deck.side_board_count,
         commander_count=ref_deck.commander_count,
         commander=ref_deck.commander or [],
-        meta=ref_deck.meta or {},
+        meta={},  # MTGJsonDeck doesn't have meta field, use empty dict
         added_at=datetime.utcnow(),
         source="mtgjson",
     )

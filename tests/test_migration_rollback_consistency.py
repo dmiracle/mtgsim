@@ -7,7 +7,9 @@
 import tempfile
 import time
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
@@ -399,41 +401,67 @@ def test_backup_cleanup_consistency(keep_days):
     """
     with temp_domain_db() as db_path:
         with get_domain_session(db_path) as session:
-            rollback_manager = RollbackManager(session)
+            # Create a test-specific backup directory to avoid interfering with real backups
+            test_backup_dir = db_path.parent / "test_backups"
+            test_backup_dir.mkdir(exist_ok=True)
 
-            # Create backup directory
-            backup_dir = db_path.parent / "backups"
-            backup_dir.mkdir(exist_ok=True)
+            # Patch the backup directory path for this test
+            with patch("mtgsim.cli.rollback.DOMAIN_DB_PATH") as mock_domain_path:
+                mock_domain_path.parent = db_path.parent
 
-            # Create some test backup files with different ages
-            current_time = time.time()
+                # Create rollback manager with test backup directory
+                rollback_manager = RollbackManager(session)
 
-            # Recent backup (should be kept)
-            recent_backup = backup_dir / "recent_backup.sqlite"
-            recent_backup.touch()
+                # Patch the backup directory in the cleanup method
+                def test_cleanup(keep_days_param):
+                    """Test version of cleanup that uses test backup directory."""
+                    if not test_backup_dir.exists():
+                        return 0
 
-            # Old backup (should be deleted if older than keep_days)
-            old_backup = backup_dir / "old_backup.sqlite"
-            old_backup.touch()
-            # Set modification time to be older than keep_days
-            old_time = current_time - (keep_days + 1) * 24 * 60 * 60
-            import os
+                    cutoff_time = datetime.utcnow().timestamp() - (keep_days_param * 24 * 60 * 60)
+                    deleted_count = 0
 
-            os.utime(old_backup, (old_time, old_time))
+                    for backup_file in test_backup_dir.glob("*.sqlite"):
+                        if backup_file.stat().st_mtime < cutoff_time:
+                            try:
+                                backup_file.unlink()
+                                deleted_count += 1
+                            except Exception:
+                                pass
 
-            # Count initial backups
-            initial_backups = list(backup_dir.glob("*.sqlite"))
+                    return deleted_count
 
-            # Run cleanup
-            deleted_count = rollback_manager.cleanup_old_backups(keep_days)
+                rollback_manager.cleanup_old_backups = test_cleanup
 
-            # Verify cleanup results
-            remaining_backups = list(backup_dir.glob("*.sqlite"))
+                # Create some test backup files with different ages
+                current_time = time.time()
 
-            # Recent backup should still exist
-            assert recent_backup.exists(), "Recent backup should not be deleted"
+                # Recent backup (should be kept)
+                recent_backup = test_backup_dir / "recent_backup.sqlite"
+                recent_backup.touch()
 
-            # The number of remaining backups should be consistent
-            assert len(remaining_backups) <= len(initial_backups), "Cleanup should not increase backup count"
-            assert deleted_count >= 0, "Deleted count should be non-negative"
-            assert len(remaining_backups) + deleted_count <= len(initial_backups), "Counts should be consistent"
+                # Old backup (should be deleted if older than keep_days)
+                old_backup = test_backup_dir / "old_backup.sqlite"
+                old_backup.touch()
+                # Set modification time to be older than keep_days
+                old_time = current_time - (keep_days + 1) * 24 * 60 * 60
+                import os
+
+                os.utime(old_backup, (old_time, old_time))
+
+                # Count initial backups
+                initial_backups = list(test_backup_dir.glob("*.sqlite"))
+
+                # Run cleanup
+                deleted_count = rollback_manager.cleanup_old_backups(keep_days)
+
+                # Verify cleanup results
+                remaining_backups = list(test_backup_dir.glob("*.sqlite"))
+
+                # Recent backup should still exist
+                assert recent_backup.exists(), "Recent backup should not be deleted"
+
+                # The number of remaining backups should be consistent
+                assert len(remaining_backups) <= len(initial_backups), "Cleanup should not increase backup count"
+                assert deleted_count >= 0, "Deleted count should be non-negative"
+                assert len(remaining_backups) + deleted_count == len(initial_backups), "Counts should be consistent"

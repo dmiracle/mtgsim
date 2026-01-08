@@ -131,6 +131,11 @@ class DomainCard(SQLModel, table=True):
             + self.mana_cost_generic
         )
 
+    @property
+    def in_collection(self) -> bool:
+        """Whether this card is in the user's collection (always True for domain cards)."""
+        return True
+
 
 class DomainSet(SQLModel, table=True):
     """Enhanced domain set model with all API-required fields."""
@@ -184,6 +189,11 @@ class DomainSet(SQLModel, table=True):
     # Relationships
     cards: list["DomainCard"] = Relationship(back_populates="set_ref")
 
+    @property
+    def in_collection(self) -> bool:
+        """Whether this set is in the user's collection (always True for domain sets)."""
+        return True
+
 
 class DomainDeck(SQLModel, table=True):
     """Enhanced domain deck model with all API-required fields."""
@@ -228,6 +238,11 @@ class DomainDeck(SQLModel, table=True):
 
     # Relationships
     cards: list["DomainDeckCard"] = Relationship(back_populates="deck")
+
+    @property
+    def in_collection(self) -> bool:
+        """Whether this deck is in the user's collection (always True for domain decks)."""
+        return True
 
 
 class DomainDeckCard(SQLModel, table=True):

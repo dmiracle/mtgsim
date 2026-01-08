@@ -9,7 +9,6 @@ Verifies graceful handling of missing reference data.
 - 5.4: THE CLI SHALL provide rollback capabilities for failed migrations
 """
 
-import json
 import shutil
 import sqlite3
 import tempfile
@@ -18,15 +17,11 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from sqlmodel import select
 
-from mtgsim.cli.domain_commands import domain_app
 from mtgsim.cli.rollback import RollbackManager
-from mtgsim.config import DOMAIN_DB_PATH
-from mtgsim.db.domain_models import DomainCard, DomainSet
+from mtgsim.db.domain_models import DomainCard
 from mtgsim.db.domain_session import get_domain_session
 from mtgsim.db.migration_models import MigrationLog, MigrationStatus
-from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
 
 
 class TestDataAccessLayerErrorHandling:
@@ -36,13 +31,13 @@ class TestDataAccessLayerErrorHandling:
         """Test that missing reference database is handled gracefully."""
         # This tests requirement 4.5: maintain existing error handling behavior
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Test with scope that requires reference tables but they don't exist
         # The system should handle this gracefully by returning empty results
         results, total = cards_data.search_cards(q="test", scope="reference")
-        
+
         # Should handle gracefully - either return empty results or raise appropriate error
         assert isinstance(results, list)
         assert isinstance(total, int)
@@ -51,14 +46,14 @@ class TestDataAccessLayerErrorHandling:
     def test_corrupted_reference_data_handling(self):
         """Test handling of corrupted reference data."""
         from mtgsim.api.data.converters import reference_card_to_domain
-        
+
         # Create a mock corrupted card with missing required fields
         corrupted_card = Mock()
         corrupted_card.uuid = "test-uuid"
         corrupted_card.name = None  # Missing required field
         corrupted_card.mana_cost = None
         corrupted_card.type = None
-        
+
         # The converter should handle this gracefully by providing defaults
         result = reference_card_to_domain(corrupted_card)
         assert isinstance(result, DomainCard)
@@ -70,14 +65,14 @@ class TestDataAccessLayerErrorHandling:
         """Test handling of invalid JSON data in reference tables."""
         # Test the actual JSON parsing in the converters
         from mtgsim.api.data.converters import reference_card_to_api_dict
-        
+
         # Create a mock card with invalid JSON-like data
         mock_card = Mock()
         mock_card.uuid = "test-uuid"
         mock_card.name = "Test Card"
         mock_card.identifiers = "invalid json"  # Should be dict
-        mock_card.legalities = "invalid json"   # Should be dict
-        mock_card.color_identity = "invalid"    # Should be list
+        mock_card.legalities = "invalid json"  # Should be dict
+        mock_card.color_identity = "invalid"  # Should be list
         mock_card.mana_cost = None
         mock_card.type = "Creature"
         mock_card.text = "Test text"
@@ -91,7 +86,7 @@ class TestDataAccessLayerErrorHandling:
         mock_card.set_code = "TST"
         mock_card.collector_number = "1"
         mock_card.scryfall_id = "test-scryfall-id"
-        
+
         # Should handle invalid JSON gracefully
         result = reference_card_to_api_dict(mock_card)
         assert isinstance(result, dict)
@@ -100,9 +95,9 @@ class TestDataAccessLayerErrorHandling:
     def test_database_connection_failure_handling(self):
         """Test handling of database connection failures."""
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Test with invalid UUID that doesn't exist
         # Should handle gracefully by returning None
         result = cards_data.get_card("nonexistent-uuid-12345")
@@ -111,9 +106,9 @@ class TestDataAccessLayerErrorHandling:
     def test_malformed_uuid_handling(self):
         """Test handling of malformed UUIDs."""
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Test with various malformed UUIDs
         malformed_uuids = [
             "",
@@ -122,7 +117,7 @@ class TestDataAccessLayerErrorHandling:
             None,
             "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  # Invalid format
         ]
-        
+
         for bad_uuid in malformed_uuids:
             # Should handle malformed UUIDs gracefully (return None or empty results)
             result = cards_data.get_card(bad_uuid)
@@ -132,12 +127,12 @@ class TestDataAccessLayerErrorHandling:
     def test_empty_search_results_handling(self):
         """Test handling of empty search results."""
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Search for something that definitely doesn't exist
         results, total = cards_data.search_cards(q="ThisCardDefinitelyDoesNotExist12345")
-        
+
         # Should return empty results gracefully
         assert isinstance(results, list)
         assert len(results) == 0
@@ -146,18 +141,18 @@ class TestDataAccessLayerErrorHandling:
     def test_pagination_edge_cases(self):
         """Test pagination with edge case values."""
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Test edge case pagination values
         edge_cases = [
-            {"page": 0, "limit": 10},      # Page 0
-            {"page": -1, "limit": 10},     # Negative page
-            {"page": 1, "limit": 0},       # Zero limit
-            {"page": 1, "limit": -1},      # Negative limit
-            {"page": 999999, "limit": 10}, # Very high page number
+            {"page": 0, "limit": 10},  # Page 0
+            {"page": -1, "limit": 10},  # Negative page
+            {"page": 1, "limit": 0},  # Zero limit
+            {"page": 1, "limit": -1},  # Negative limit
+            {"page": 999999, "limit": 10},  # Very high page number
         ]
-        
+
         for params in edge_cases:
             # Should handle edge cases gracefully, not crash
             try:
@@ -178,7 +173,7 @@ class TestRollbackErrorHandling:
         """Set up test fixtures."""
         self.temp_dir = Path(tempfile.mkdtemp())
         self.test_db_path = self.temp_dir / "test.sqlite"
-        
+
     def teardown_method(self):
         """Clean up test fixtures."""
         if self.temp_dir.exists():
@@ -187,13 +182,13 @@ class TestRollbackErrorHandling:
     def test_rollback_nonexistent_migration(self):
         """Test rollback of non-existent migration ID."""
         # This tests requirement 5.4: rollback capabilities for failed migrations
-        
+
         # Create a mock session
         mock_session = Mock()
         mock_session.exec.return_value.first.return_value = None  # No migration found
-        
+
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should handle non-existent migration gracefully
         result = rollback_manager.rollback_migration(99999)
         assert result is False
@@ -205,12 +200,12 @@ class TestRollbackErrorHandling:
         mock_migration.id = 1
         mock_migration.can_rollback = False
         mock_migration.operation_name = "test_operation"
-        
+
         mock_session = Mock()
         mock_session.exec.return_value.first.return_value = mock_migration
-        
+
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should handle non-rollbackable migration gracefully
         result = rollback_manager.rollback_migration(1)
         assert result is False
@@ -223,12 +218,12 @@ class TestRollbackErrorHandling:
         mock_migration.can_rollback = True
         mock_migration.status = MigrationStatus.ROLLED_BACK
         mock_migration.operation_name = "test_operation"
-        
+
         mock_session = Mock()
         mock_session.exec.return_value.first.return_value = mock_migration
-        
+
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should handle already rolled back migration gracefully
         result = rollback_manager.rollback_migration(1)
         assert result is True  # Returns True because it's already in desired state
@@ -237,9 +232,9 @@ class TestRollbackErrorHandling:
         """Test backup creation when domain database doesn't exist."""
         mock_session = Mock()
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Mock DOMAIN_DB_PATH to point to non-existent file
-        with patch('mtgsim.cli.rollback.DOMAIN_DB_PATH', Path("/nonexistent/path/db.sqlite")):
+        with patch("mtgsim.cli.rollback.DOMAIN_DB_PATH", Path("/nonexistent/path/db.sqlite")):
             # Should raise FileNotFoundError for missing database
             with pytest.raises(FileNotFoundError):
                 rollback_manager.create_backup("test_operation")
@@ -248,16 +243,16 @@ class TestRollbackErrorHandling:
         """Test backup creation when backup directory is not writable."""
         mock_session = Mock()
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Create a temporary database file
         test_db = self.temp_dir / "test.sqlite"
         test_db.touch()
-        
-        with patch('mtgsim.cli.rollback.DOMAIN_DB_PATH', test_db):
+
+        with patch("mtgsim.cli.rollback.DOMAIN_DB_PATH", test_db):
             # Mock backup directory to be non-writable
-            with patch('pathlib.Path.mkdir') as mock_mkdir:
+            with patch("pathlib.Path.mkdir") as mock_mkdir:
                 mock_mkdir.side_effect = PermissionError("Permission denied")
-                
+
                 # Should handle permission errors gracefully
                 with pytest.raises(PermissionError):
                     rollback_manager.create_backup("test_operation")
@@ -267,10 +262,10 @@ class TestRollbackErrorHandling:
         mock_migration = Mock()
         mock_migration.id = 1
         mock_migration.operation_name = "test_operation"
-        
+
         mock_session = Mock()
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should handle missing backup file gracefully
         result = rollback_manager._restore_from_backup(mock_migration, "/nonexistent/backup.sqlite")
         assert result is False
@@ -283,10 +278,10 @@ class TestRollbackErrorHandling:
         mock_migration.status = MigrationStatus.COMPLETED
         mock_migration.operation_name = "add_card"
         mock_migration.rollback_data = {"corrupted": "data", "missing_card_uuid": True}
-        
+
         mock_session = Mock()
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should handle corrupted rollback data gracefully
         result = rollback_manager._rollback_add_card(mock_migration, mock_migration.rollback_data)
         assert result is False
@@ -295,12 +290,12 @@ class TestRollbackErrorHandling:
         """Test capturing table state for non-existent table."""
         mock_session = Mock()
         mock_session.exec.side_effect = sqlite3.OperationalError("no such table: nonexistent_table")
-        
+
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should handle non-existent table gracefully
         state = rollback_manager.capture_table_state("nonexistent_table")
-        
+
         assert state["table_name"] == "nonexistent_table"
         assert state["exists"] is False
         assert "error" in state
@@ -309,20 +304,20 @@ class TestRollbackErrorHandling:
         """Test backup cleanup when files cannot be deleted."""
         mock_session = Mock()
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Create a mock backup directory with files
         backup_dir = self.temp_dir / "backups"
         backup_dir.mkdir()
-        
+
         # Create a test backup file
         old_backup = backup_dir / "old_backup_20200101_120000.sqlite"
         old_backup.touch()
-        
-        with patch('mtgsim.cli.rollback.DOMAIN_DB_PATH', self.test_db_path):
+
+        with patch("mtgsim.cli.rollback.DOMAIN_DB_PATH", self.test_db_path):
             # Mock file deletion to raise permission error
-            with patch('pathlib.Path.unlink') as mock_unlink:
+            with patch("pathlib.Path.unlink") as mock_unlink:
                 mock_unlink.side_effect = PermissionError("Permission denied")
-                
+
                 # Should handle permission errors gracefully and continue
                 deleted_count = rollback_manager.cleanup_old_backups(keep_days=0)
                 assert deleted_count == 0  # No files deleted due to permission error
@@ -335,11 +330,11 @@ class TestMigrationErrorHandling:
         """Test migration when source database is invalid or corrupted."""
         # Test the domain initialization which checks for source database
         from mtgsim.db.domain_session import validate_domain_schema
-        
+
         # Create a mock session that simulates invalid schema
         mock_session = Mock()
         mock_session.exec.return_value.first.return_value = None
-        
+
         # Should handle invalid schema gracefully
         result = validate_domain_schema(mock_session)
         # Should return False for invalid schema, not crash
@@ -350,11 +345,11 @@ class TestMigrationErrorHandling:
         # This would test scenarios where the reference database has unexpected schema
         # For now, we'll test the validation function
         from mtgsim.db.domain_session import validate_domain_schema
-        
+
         # Mock a session that returns unexpected schema
         mock_session = Mock()
         mock_session.exec.return_value.first.return_value = None  # No schema version found
-        
+
         # Should handle schema validation gracefully
         try:
             is_valid = validate_domain_schema(mock_session)
@@ -373,12 +368,12 @@ class TestMigrationErrorHandling:
             started_at=datetime.utcnow(),
             status=MigrationStatus.IN_PROGRESS,
             can_rollback=True,
-            rollback_data={"tables": [{"table_name": "mtgjson_card", "exists": False}]}
+            rollback_data={"tables": [{"table_name": "mtgjson_card", "exists": False}]},
         )
-        
+
         mock_session = Mock()
         rollback_manager = RollbackManager(mock_session)
-        
+
         # Should be able to rollback interrupted operations
         result = rollback_manager._rollback_sync_reference(mock_migration, mock_migration.rollback_data)
         # The specific result depends on implementation, but should not crash
@@ -387,8 +382,7 @@ class TestMigrationErrorHandling:
     def test_concurrent_migration_handling(self):
         """Test handling of concurrent migration attempts."""
         # This tests database locking and concurrent access scenarios
-        from mtgsim.db.domain_session import get_domain_session
-        
+
         # Test that we can get a session normally
         try:
             with get_domain_session() as session:
@@ -405,17 +399,18 @@ class TestAPIErrorHandling:
     def test_api_maintains_error_response_format(self):
         """Test that API maintains existing error response formats."""
         # This tests requirement 4.5: maintain existing error handling behavior
-        
+
         # Mock API client for testing
         from fastapi.testclient import TestClient
+
         from mtgsim.api.main import app
-        
+
         client = TestClient(app)
-        
+
         # Test 404 error format is maintained
         response = client.get("/api/cards/nonexistent-uuid")
         assert response.status_code == 404
-        
+
         # Should maintain existing error format
         error_data = response.json()
         # Check for the actual error format used by the API
@@ -424,15 +419,16 @@ class TestAPIErrorHandling:
     def test_api_handles_database_unavailable(self):
         """Test API behavior when domain database is unavailable."""
         from fastapi.testclient import TestClient
+
         from mtgsim.api.main import app
-        
+
         client = TestClient(app)
-        
+
         # Test with a request that should work normally
         response = client.get("/api/cards")
         # API should handle requests gracefully
         assert response.status_code in [200, 404, 500, 503]
-        
+
         # Should return valid JSON response
         try:
             response.json()
@@ -443,10 +439,11 @@ class TestAPIErrorHandling:
     def test_api_handles_malformed_query_parameters(self):
         """Test API handling of malformed query parameters."""
         from fastapi.testclient import TestClient
+
         from mtgsim.api.main import app
-        
+
         client = TestClient(app)
-        
+
         # Test various malformed parameters
         malformed_params = [
             {"limit": "not_a_number"},
@@ -454,12 +451,12 @@ class TestAPIErrorHandling:
             {"limit": "999999999999999999999"},  # Extremely large number
             {"q": "x" * 1000},  # Very long query (reduced from 10000)
         ]
-        
+
         for params in malformed_params:
             response = client.get("/api/cards", params=params)
             # Should return valid response, not crash
             assert response.status_code in [200, 400, 422]
-            
+
             # Should return valid JSON
             try:
                 error_data = response.json()
@@ -475,14 +472,14 @@ class TestEdgeCaseDataHandling:
     def test_empty_database_handling(self):
         """Test behavior with completely empty domain database."""
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Mock empty database
-        with patch('mtgsim.db.domain_session.get_domain_session') as mock_session:
+        with patch("mtgsim.db.domain_session.get_domain_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.all.return_value = []
             mock_session.return_value.__enter__.return_value.exec.return_value.first.return_value = 0
-            
+
             # Should handle empty database gracefully
             results, total = cards_data.search_cards()
             assert results == []
@@ -491,12 +488,12 @@ class TestEdgeCaseDataHandling:
     def test_extremely_large_dataset_handling(self):
         """Test handling of extremely large datasets."""
         from mtgsim.api.data.cards import CardsData
-        
+
         cards_data = CardsData()
-        
+
         # Test with very large limit
         results, total = cards_data.search_cards(limit=999999)
-        
+
         # Should handle large limits gracefully (may cap at reasonable limit)
         assert isinstance(results, list)
         assert isinstance(total, int)
@@ -505,14 +502,14 @@ class TestEdgeCaseDataHandling:
     def test_unicode_and_special_character_handling(self):
         """Test handling of Unicode and special characters in data."""
         from mtgsim.api.data.converters import reference_card_to_api_dict
-        
+
         # Test with various Unicode and special characters
         mock_card = Mock()
         mock_card.uuid = "test-uuid"
         mock_card.name = "Ñoño Card 日本語 🎮"  # Unicode characters
         mock_card.mana_cost = None
         mock_card.type = "Creature — Test"
-        mock_card.text = "Test with\nnewlines and \"quotes\""
+        mock_card.text = 'Test with\nnewlines and "quotes"'
         mock_card.oracle_text = "Oracle with special chars: ⚡"
         mock_card.flavor_text = "Flavor text"
         mock_card.power = None
@@ -526,7 +523,7 @@ class TestEdgeCaseDataHandling:
         mock_card.identifiers = {}
         mock_card.legalities = {}
         mock_card.color_identity = []
-        
+
         # Should handle Unicode gracefully
         result = reference_card_to_api_dict(mock_card)
         assert isinstance(result, dict)
@@ -535,7 +532,7 @@ class TestEdgeCaseDataHandling:
     def test_null_and_missing_field_handling(self):
         """Test handling of null and missing fields in data."""
         from mtgsim.api.data.converters import reference_card_to_api_dict
-        
+
         # Create mock card with various null/missing fields
         mock_card = Mock()
         mock_card.uuid = "test-uuid"
@@ -556,7 +553,7 @@ class TestEdgeCaseDataHandling:
         mock_card.color_identity = None
         mock_card.legalities = None
         mock_card.identifiers = None
-        
+
         # Should handle null fields gracefully
         result = reference_card_to_api_dict(mock_card)
         assert isinstance(result, dict)

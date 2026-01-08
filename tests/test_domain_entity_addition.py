@@ -280,7 +280,8 @@ class TestDomainEntityAdditionCorrectness:
             assert domain_deck.side_board_count == ref_deck.side_board_count
             assert domain_deck.commander_count == ref_deck.commander_count
             assert domain_deck.commander == ref_deck.commander
-            assert domain_deck.meta == ref_deck.meta
+            # MTGJsonDeck doesn't have meta field, so domain deck should have empty meta
+            assert domain_deck.meta == {}
 
             # Verify metadata fields are set
             assert domain_deck.source == "mtgjson"
