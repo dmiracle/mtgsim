@@ -12,6 +12,16 @@ from .converters import create_readonly_domain_card, domain_card_to_api_dict, re
 class CardsData:
     """Data access for cards."""
 
+    def _parse_json(self, value: str | None, default=None):
+        """Parse JSON string, returning default if None or invalid."""
+        if not value:
+            return default if default is not None else []
+        try:
+            import json
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return default if default is not None else []
+
     def search_cards(
         self,
         q: str | None = None,
@@ -141,57 +151,93 @@ class CardsData:
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
-        """Search reference cards (read-only)."""
-        query = select(MTGJsonCard)
-
-        # Apply filters
+        """Search reference cards using direct SQL queries."""
+        from mtgsim.reference import ref_db
+        
+        # Build WHERE conditions
+        conditions = []
+        params = []
+        
         if q:
-            query = query.where((MTGJsonCard.name.contains(q)) | (MTGJsonCard.type.contains(q)))
-
+            conditions.append("(name LIKE ? OR type LIKE ?)")
+            params.extend([f"%{q}%", f"%{q}%"])
+            
         if set_code:
-            query = query.where(MTGJsonCard.set_code == set_code)
-
+            conditions.append("setCode = ?")
+            params.append(set_code)
+            
         if rarity:
-            query = query.where(MTGJsonCard.rarity == rarity)
-
+            conditions.append("rarity = ?")
+            params.append(rarity)
+            
         if card_type:
-            query = query.where(MTGJsonCard.type.contains(card_type))
-
+            conditions.append("type LIKE ?")
+            params.append(f"%{card_type}%")
+            
         if colors:
             for color in colors:
-                # Use JSON_EXTRACT for SQLite JSON queries
-                query = query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
-
+                conditions.append("colorIdentity LIKE ?")
+                params.append(f'%"{color}"%')
+        
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        
         # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = session.exec(count_query).one()
-
-        # Apply sorting
+        count_query = f"SELECT COUNT(*) FROM cards WHERE {where_clause}"
+        cursor = ref_db.conn.execute(count_query, params)
+        total = cursor.fetchone()[0]
+        
+        # Build sort clause
         sort_map = {
-            "name": MTGJsonCard.name,
-            "mana_value": MTGJsonCard.mana_value,
-            "rarity": MTGJsonCard.rarity,
-            "set_code": MTGJsonCard.set_code,
+            "name": "name",
+            "mana_value": "manaValue", 
+            "rarity": "rarity",
+            "set_code": "setCode",
         }
-        sort_field = sort_map.get(sort, MTGJsonCard.name)
-
-        if order == "desc":
-            query = query.order_by(sort_field.desc())
-        else:
-            query = query.order_by(sort_field.asc())
-
+        sort_field = sort_map.get(sort, "name")
+        order_clause = f"ORDER BY {sort_field} {'DESC' if order == 'desc' else 'ASC'}"
+        
         # Apply pagination
         offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
-
-        # Execute query
-        results = session.exec(query).all()
-
-        # Convert to dict format for API compatibility
+        limit_clause = f"LIMIT {limit} OFFSET {offset}"
+        
+        # Execute main query
+        query = f"""
+            SELECT uuid, name, manaValue, manaCost, type, text, rarity, setCode,
+                   colors, colorIdentity, power, toughness, loyalty, defense,
+                   identifiers, legalities
+            FROM cards 
+            WHERE {where_clause} 
+            {order_clause} 
+            {limit_clause}
+        """
+        
+        cursor = ref_db.conn.execute(query, params)
+        results = cursor.fetchall()
+        
+        # Convert to API format
         cards = []
-        for card in results:
-            cards.append(reference_card_to_api_dict(card))
-
+        for row in results:
+            card_dict = {
+                "uuid": row["uuid"],
+                "name": row["name"],
+                "mana_cost": row["manaCost"],
+                "mana_value": row["manaValue"],
+                "type": row["type"],
+                "text": row["text"],
+                "rarity": row["rarity"],
+                "set_code": row["setCode"],
+                "colors": self._parse_json(row["colors"], []),
+                "color_identity": self._parse_json(row["colorIdentity"], []),
+                "power": row["power"],
+                "toughness": row["toughness"],
+                "loyalty": row["loyalty"],
+                "defense": row["defense"],
+                "identifiers": self._parse_json(row["identifiers"], {}),
+                "legalities": self._parse_json(row["legalities"], {}),
+                "in_collection": False,  # Reference cards are not in collection
+            }
+            cards.append(card_dict)
+        
         return cards, total
 
     def _search_combined_cards(
@@ -311,24 +357,55 @@ class CardsData:
         return domain_card_to_api_dict(card)
 
     def _get_reference_card(self, session: Session, uuid: str) -> dict | None:
-        """Get reference card details by UUID."""
-        query = select(MTGJsonCard).where(MTGJsonCard.uuid == uuid)
-        card = session.exec(query).first()
-
-        if not card:
+        """Get reference card details by UUID using direct SQL query."""
+        from mtgsim.reference import ref_db
+        
+        # Query the actual cards table
+        query = """
+            SELECT uuid, name, manaValue, manaCost, type, text, rarity, setCode,
+                   colors, colorIdentity, power, toughness, loyalty, defense,
+                   identifiers, legalities
+            FROM cards 
+            WHERE uuid = ?
+        """
+        
+        cursor = ref_db.conn.execute(query, [uuid])
+        row = cursor.fetchone()
+        
+        if not row:
             return None
-
+        
         # Get set name if available
         set_name = None
-        if card.set_code:
-            set_query = select(MTGJsonSet).where(MTGJsonSet.code == card.set_code)
-            set_obj = session.exec(set_query).first()
-            set_name = set_obj.name if set_obj else None
-
-        api_dict = reference_card_to_api_dict(card)
-        # Add set name if available
-        api_dict["set_name"] = set_name
-        return api_dict
+        if row["setCode"]:
+            set_query = "SELECT name FROM sets WHERE code = ?"
+            set_cursor = ref_db.conn.execute(set_query, [row["setCode"]])
+            set_row = set_cursor.fetchone()
+            set_name = set_row["name"] if set_row else None
+        
+        # Convert to API format
+        card_dict = {
+            "uuid": row["uuid"],
+            "name": row["name"],
+            "mana_cost": row["manaCost"],
+            "mana_value": row["manaValue"],
+            "type": row["type"],
+            "text": row["text"],
+            "rarity": row["rarity"],
+            "set_code": row["setCode"],
+            "set_name": set_name,
+            "colors": self._parse_json(row["colors"], []),
+            "color_identity": self._parse_json(row["colorIdentity"], []),
+            "power": row["power"],
+            "toughness": row["toughness"],
+            "loyalty": row["loyalty"],
+            "defense": row["defense"],
+            "identifiers": self._parse_json(row["identifiers"], {}),
+            "legalities": self._parse_json(row["legalities"], {}),
+            "in_collection": False,  # Reference cards are not in collection
+        }
+        
+        return card_dict
 
     def get_cards_by_name(self, name: str, scope: str = "user") -> list[dict]:
         """Get all printings of a card by exact name."""
