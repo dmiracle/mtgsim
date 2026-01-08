@@ -26,7 +26,7 @@ from mtgsim.config import (
 )
 from mtgsim.db.deck_models import Deck, DeckCard, DeckList
 from mtgsim.db.keyword_models import Keyword
-from mtgsim.db.session import init_deck_db
+from mtgsim.db.session_legacy import init_deck_db
 from mtgsim.db.set_models import SetCardDB, SetDB, init_sets_db
 
 logger = logging.getLogger(__name__)

@@ -2,9 +2,9 @@ from pathlib import Path
 
 import typer
 
-from mtgsim.config import MERGED_DB_PATH, USER_DB_PATH
+from mtgsim.config import DB_PATH, MERGED_DB_PATH, USER_DB_PATH
 
-from ..db.session import get_session, init_db
+from ..db.session_legacy import get_session, init_db
 from ..domain.card import Card, Rarity
 from ..repository.card_repository import CardRepository, db_to_card
 from ..sync.mtgjson import update_decks, update_keywords, update_references, update_sets
@@ -14,9 +14,33 @@ db_app = typer.Typer(help="Database operations")
 
 @db_app.command("init")
 def db_init():
-    """Initialize the database."""
+    """Initialize the legacy database."""
     init_db()
     typer.echo(f"Database initialized at {USER_DB_PATH}")
+
+
+@db_app.command("init-unified")
+def db_init_unified():
+    """Initialize the unified database with new schema.
+
+    Creates a single database at ~/.mtgsim/mtgsim.sqlite with:
+    - Reference tables (mj_*): synced from MTGJSON
+    - User tables (card, deck, deck_card): user collection data
+    """
+    from ..db.session import init_db as init_unified_db
+
+    init_unified_db()
+    typer.echo(f"Unified database initialized at {DB_PATH}")
+
+    # Show table list
+    import sqlite3
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    tables = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    typer.echo(f"Tables created: {', '.join(tables)}")
 
 
 @db_app.command("sync-decks")

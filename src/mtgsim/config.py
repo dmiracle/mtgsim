@@ -7,12 +7,13 @@ MTGSIM_HOME = Path.home() / ".mtgsim"
 REFERENCE_DIR = MTGSIM_HOME / "reference"
 MTGJSON_DIR = REFERENCE_DIR / "mtgjson"
 
-# User database (legacy)
-USER_DB_PATH = MTGSIM_HOME / "mtgsim.db"
+# Unified database (new single database)
+DB_PATH = MTGSIM_HOME / "mtgsim.sqlite"
 
-# Domain database (new unified database)
+# Legacy paths (for migration, to be removed later)
+USER_DB_PATH = MTGSIM_HOME / "mtgsim.db"  # Legacy user database
 DOMAIN_DIR = MTGSIM_HOME / "domain"
-DOMAIN_DB_PATH = DOMAIN_DIR / "mtgsim.sqlite"
+DOMAIN_DB_PATH = DOMAIN_DIR / "mtgsim.sqlite"  # Legacy domain database
 
 # Merged reference database (all tables in one file)
 MERGED_DB_PATH = MTGJSON_DIR / "mtgjson-merged.sqlite"

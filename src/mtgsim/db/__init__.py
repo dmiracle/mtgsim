@@ -34,7 +34,7 @@ from .migration_models import (
     MigrationType,
     SchemaVersion,
 )
-from .models import (
+from .models_legacy import (
     AllPrintingsMetadata,
     CardColorLink,
     CardDB,
@@ -51,7 +51,7 @@ from .reference_models import (
     MTGJsonPrice,
     MTGJsonSet,
 )
-from .session import get_engine, get_session, init_db, init_deck_db
+from .session_legacy import get_engine, get_session, init_db, init_deck_db
 from .set_models import SetCardDB, SetDB, get_sets_engine, init_sets_db
 
 __all__ = [
