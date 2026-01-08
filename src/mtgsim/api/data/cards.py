@@ -6,7 +6,7 @@ from mtgsim.db.domain_models import DomainCard, DomainSet
 from mtgsim.db.domain_session import get_domain_session
 from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
 
-from .converters import create_readonly_domain_card, domain_card_to_api_dict, reference_card_to_api_dict
+from .converters import create_readonly_domain_card, domain_card_to_api_dict
 
 
 class CardsData:
@@ -18,6 +18,7 @@ class CardsData:
             return default if default is not None else []
         try:
             import json
+
             return json.loads(value)
         except (json.JSONDecodeError, TypeError):
             return default if default is not None else []
@@ -153,67 +154,67 @@ class CardsData:
     ) -> tuple[list[dict], int]:
         """Search reference cards using direct SQL queries."""
         from mtgsim.reference import ref_db
-        
+
         # Build WHERE conditions
         conditions = []
         params = []
-        
+
         if q:
             conditions.append("(name LIKE ? OR type LIKE ?)")
             params.extend([f"%{q}%", f"%{q}%"])
-            
+
         if set_code:
             conditions.append("setCode = ?")
             params.append(set_code)
-            
+
         if rarity:
             conditions.append("rarity = ?")
             params.append(rarity)
-            
+
         if card_type:
             conditions.append("type LIKE ?")
             params.append(f"%{card_type}%")
-            
+
         if colors:
             for color in colors:
                 conditions.append("colorIdentity LIKE ?")
                 params.append(f'%"{color}"%')
-        
+
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        
+
         # Get total count
         count_query = f"SELECT COUNT(*) FROM cards WHERE {where_clause}"
         cursor = ref_db.conn.execute(count_query, params)
         total = cursor.fetchone()[0]
-        
+
         # Build sort clause
         sort_map = {
             "name": "name",
-            "mana_value": "manaValue", 
+            "mana_value": "manaValue",
             "rarity": "rarity",
             "set_code": "setCode",
         }
         sort_field = sort_map.get(sort, "name")
         order_clause = f"ORDER BY {sort_field} {'DESC' if order == 'desc' else 'ASC'}"
-        
+
         # Apply pagination
         offset = (page - 1) * limit
         limit_clause = f"LIMIT {limit} OFFSET {offset}"
-        
+
         # Execute main query
         query = f"""
             SELECT uuid, name, manaValue, manaCost, type, text, rarity, setCode,
                    colors, colorIdentity, power, toughness, loyalty, defense,
-                   identifiers, legalities
-            FROM cards 
-            WHERE {where_clause} 
-            {order_clause} 
+                   flavorText, artist, frameVersion, borderColor
+            FROM cards
+            WHERE {where_clause}
+            {order_clause}
             {limit_clause}
         """
-        
+
         cursor = ref_db.conn.execute(query, params)
         results = cursor.fetchall()
-        
+
         # Convert to API format
         cards = []
         for row in results:
@@ -224,6 +225,7 @@ class CardsData:
                 "mana_value": row["manaValue"],
                 "type": row["type"],
                 "text": row["text"],
+                "flavor_text": row["flavorText"],
                 "rarity": row["rarity"],
                 "set_code": row["setCode"],
                 "colors": self._parse_json(row["colors"], []),
@@ -232,12 +234,15 @@ class CardsData:
                 "toughness": row["toughness"],
                 "loyalty": row["loyalty"],
                 "defense": row["defense"],
-                "identifiers": self._parse_json(row["identifiers"], {}),
-                "legalities": self._parse_json(row["legalities"], {}),
+                "artist": row["artist"],
+                "frame_version": row["frameVersion"],
+                "border_color": row["borderColor"],
+                "identifiers": {},  # Not available in this schema
+                "legalities": {},   # Not available in this schema
                 "in_collection": False,  # Reference cards are not in collection
             }
             cards.append(card_dict)
-        
+
         return cards, total
 
     def _search_combined_cards(
@@ -359,22 +364,22 @@ class CardsData:
     def _get_reference_card(self, session: Session, uuid: str) -> dict | None:
         """Get reference card details by UUID using direct SQL query."""
         from mtgsim.reference import ref_db
-        
-        # Query the actual cards table
+
+        # Query the actual cards table with correct column names
         query = """
             SELECT uuid, name, manaValue, manaCost, type, text, rarity, setCode,
                    colors, colorIdentity, power, toughness, loyalty, defense,
-                   identifiers, legalities
-            FROM cards 
+                   flavorText, artist, frameVersion, borderColor
+            FROM cards
             WHERE uuid = ?
         """
-        
+
         cursor = ref_db.conn.execute(query, [uuid])
         row = cursor.fetchone()
-        
+
         if not row:
             return None
-        
+
         # Get set name if available
         set_name = None
         if row["setCode"]:
@@ -382,7 +387,7 @@ class CardsData:
             set_cursor = ref_db.conn.execute(set_query, [row["setCode"]])
             set_row = set_cursor.fetchone()
             set_name = set_row["name"] if set_row else None
-        
+
         # Convert to API format
         card_dict = {
             "uuid": row["uuid"],
@@ -391,6 +396,7 @@ class CardsData:
             "mana_value": row["manaValue"],
             "type": row["type"],
             "text": row["text"],
+            "flavor_text": row["flavorText"],
             "rarity": row["rarity"],
             "set_code": row["setCode"],
             "set_name": set_name,
@@ -400,11 +406,14 @@ class CardsData:
             "toughness": row["toughness"],
             "loyalty": row["loyalty"],
             "defense": row["defense"],
-            "identifiers": self._parse_json(row["identifiers"], {}),
-            "legalities": self._parse_json(row["legalities"], {}),
+            "artist": row["artist"],
+            "frame_version": row["frameVersion"],
+            "border_color": row["borderColor"],
+            "identifiers": {},  # Not available in this schema
+            "legalities": {},   # Not available in this schema
             "in_collection": False,  # Reference cards are not in collection
         }
-        
+
         return card_dict
 
     def get_cards_by_name(self, name: str, scope: str = "user") -> list[dict]:
