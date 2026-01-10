@@ -1,12 +1,14 @@
-"""Prices data access layer."""
+"""Prices data access layer using unified database schema."""
 
-from .database import db
+from sqlmodel import func, select
+
+from mtgsim.db.models import MJCard, MJCardPrice
+from mtgsim.db.session import get_session
 
 
 class PricesData:
-    """Data access for card prices."""
+    """Data access for card prices using unified schema."""
 
-    # Providers for USD paper prices
     PAPER_PROVIDERS = ["tcgplayer", "cardkingdom", "cardsphere", "cardmarket"]
     MTGO_PROVIDERS = ["cardhoarder"]
 
@@ -16,48 +18,48 @@ class PricesData:
 
         Returns structured price data by provider and finish.
         """
-        conn = db.prices
+        with get_session() as session:
+            query = select(MJCardPrice).where(MJCardPrice.card_uuid == uuid)
+            results = session.exec(query).all()
 
-        cursor = conn.execute(
-            """
-            SELECT priceProvider, providerListing, cardFinish, currency,
-                   gameAvailability, price
-            FROM cardPrices
-            WHERE uuid = ?
-        """,
-            [uuid],
-        )
+            if not results:
+                return None
 
-        rows = cursor.fetchall()
-        if not rows:
-            return None
+            # Structure: provider -> listing_type -> finish -> price
+            prices = {}
+            for price in results:
+                provider = price.provider
+                listing = price.listing_type
+                finish = price.finish
 
-        # Structure: paper/mtgo -> provider -> listing -> finish -> price
-        paper = {}
-        mtgo = {}
+                if provider not in prices:
+                    prices[provider] = {"retail": {}, "buylist": {}}
 
-        for row in rows:
-            provider = row["priceProvider"]
-            listing = row["providerListing"]  # retail or buylist
-            finish = row["cardFinish"]  # normal or foil
-            price = row["price"]
-            game = row["gameAvailability"]
+                if listing in prices[provider]:
+                    prices[provider][listing][finish] = price.price
 
-            if game == "paper":
-                if provider not in paper:
-                    paper[provider] = {"retail": {}, "buylist": {}}
-                if listing in paper[provider]:
-                    paper[provider][listing][finish] = price
-            elif game == "mtgo":
-                if provider not in mtgo:
-                    mtgo[provider] = {"retail": {}, "buylist": {}}
-                if listing in mtgo[provider]:
-                    mtgo[provider][listing][finish] = price
+            return prices
 
-        return {
-            "paper": paper,
-            "mtgo": mtgo,
-        }
+    def get_price(
+        self,
+        uuid: str,
+        provider: str = "tcgplayer",
+        listing_type: str = "retail",
+        finish: str = "normal",
+    ) -> float | None:
+        """Get specific price for a card."""
+        with get_session() as session:
+            query = select(MJCardPrice.price).where(
+                (MJCardPrice.card_uuid == uuid)
+                & (MJCardPrice.provider == provider)
+                & (MJCardPrice.listing_type == listing_type)
+                & (MJCardPrice.finish == finish)
+            )
+            return session.exec(query).first()
+
+    def get_tcgplayer_price(self, uuid: str) -> float | None:
+        """Get TCGplayer retail normal price."""
+        return self.get_price(uuid, "tcgplayer", "retail", "normal")
 
     def get_average_price(self, uuid: str) -> float | None:
         """
@@ -65,171 +67,132 @@ class PricesData:
 
         Uses tcgplayer, cardkingdom, cardsphere retail normal prices.
         """
-        conn = db.prices
+        with get_session() as session:
+            query = select(func.avg(MJCardPrice.price)).where(
+                (MJCardPrice.card_uuid == uuid)
+                & (MJCardPrice.currency == "USD")
+                & (MJCardPrice.listing_type == "retail")
+                & (MJCardPrice.finish == "normal")
+                & (MJCardPrice.provider.in_(["tcgplayer", "cardkingdom", "cardsphere"]))
+            )
+            result = session.exec(query).first()
+            return round(result, 2) if result else None
 
-        cursor = conn.execute(
-            """
-            SELECT AVG(price) as avg_price
-            FROM cardPrices
-            WHERE uuid = ?
-              AND currency = 'USD'
-              AND gameAvailability = 'paper'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
-              AND priceProvider IN ('tcgplayer', 'cardkingdom', 'cardsphere')
-        """,
-            [uuid],
-        )
-
-        row = cursor.fetchone()
-        return row["avg_price"] if row and row["avg_price"] else None
-
-    def get_tcgplayer_price(self, uuid: str) -> float | None:
-        """Get TCGplayer retail normal price."""
-        conn = db.prices
-
-        cursor = conn.execute(
-            """
-            SELECT price FROM cardPrices
-            WHERE uuid = ?
-              AND priceProvider = 'tcgplayer'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
-        """,
-            [uuid],
-        )
-
-        row = cursor.fetchone()
-        return row["price"] if row else None
-
-    def search_prices(
+    def search_by_price(
         self,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        provider: str = "tcgplayer",
+        listing_type: str = "retail",
+        finish: str = "normal",
         q: str | None = None,
         set_code: str | None = None,
         rarity: str | None = None,
-        price_min: float | None = None,
-        price_max: float | None = None,
-        sort: str = "average_usd",
+        sort: str = "price",
         order: str = "desc",
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
         """
-        Search cards with prices.
+        Search cards by price range.
 
-        Joins setcarddb with cardPrices for filtering and sorting.
         Returns: (list of price summaries, total count)
         """
-        sets_conn = db.sets
-        prices_conn = db.prices
-
-        # First, get card UUIDs with prices that match filters
-
-        # Build base query on setcarddb
-        base_conditions = []
-        base_params = []
-
-        if q:
-            base_conditions.append("name LIKE ?")
-            base_params.append(f"%{q}%")
-
-        if set_code:
-            base_conditions.append("set_code = ?")
-            base_params.append(set_code)
-
-        if rarity:
-            base_conditions.append("rarity = ?")
-            base_params.append(rarity)
-
-        where_clause = " AND ".join(base_conditions) if base_conditions else "1=1"
-
-        # Get matching cards from sets database
-        cards_sql = f"""
-            SELECT uuid, name, set_code, rarity, mana_cost, color_identity
-            FROM setcarddb
-            WHERE {where_clause}
-        """
-        cursor = sets_conn.execute(cards_sql, base_params)
-        cards_map = {row["uuid"]: dict(row) for row in cursor.fetchall()}
-
-        if not cards_map:
-            return [], 0
-
-        # Get prices for these cards
-        uuids = list(cards_map.keys())
-        placeholders = ",".join(["?"] * len(uuids))
-
-        prices_sql = f"""
-            SELECT uuid, priceProvider, price
-            FROM cardPrices
-            WHERE uuid IN ({placeholders})
-              AND currency = 'USD'
-              AND gameAvailability = 'paper'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
-        """
-        cursor = prices_conn.execute(prices_sql, uuids)
-
-        # Build price map: uuid -> {provider: price}
-        price_map = {}
-        for row in cursor.fetchall():
-            uuid = row["uuid"]
-            if uuid not in price_map:
-                price_map[uuid] = {}
-            price_map[uuid][row["priceProvider"]] = row["price"]
-
-        # Combine and calculate average prices
-        results = []
-        for uuid, card in cards_map.items():
-            prices = price_map.get(uuid, {})
-            if not prices:
-                continue  # Skip cards without prices
-
-            # Calculate average from available sources
-            avg_sources = [prices.get(p) for p in ["tcgplayer", "cardkingdom", "cardsphere"] if prices.get(p)]
-            avg_price = sum(avg_sources) / len(avg_sources) if avg_sources else None
-
-            if avg_price is None:
-                continue
-
-            # Apply price filters
-            if price_min is not None and avg_price < price_min:
-                continue
-            if price_max is not None and avg_price > price_max:
-                continue
-
-            results.append(
-                {
-                    "uuid": uuid,
-                    "name": card["name"],
-                    "set_code": card["set_code"],
-                    "rarity": card["rarity"],
-                    "mana_cost": card["mana_cost"],
-                    "prices": {
-                        "tcgplayer": prices.get("tcgplayer"),
-                        "cardkingdom": prices.get("cardkingdom"),
-                        "cardsphere": prices.get("cardsphere"),
-                        "cardmarket": prices.get("cardmarket"),
-                    },
-                    "average_usd": round(avg_price, 2) if avg_price else None,
-                }
+        with get_session() as session:
+            # Join cards with prices
+            query = (
+                select(MJCard, MJCardPrice)
+                .join(MJCardPrice, MJCard.uuid == MJCardPrice.card_uuid)
+                .where(
+                    (MJCardPrice.provider == provider)
+                    & (MJCardPrice.listing_type == listing_type)
+                    & (MJCardPrice.finish == finish)
+                    & (MJCardPrice.price.is_not(None))
+                )
             )
 
-        # Sort
-        if sort == "average_usd":
-            results.sort(key=lambda x: x["average_usd"] or 0, reverse=(order == "desc"))
-        elif sort == "name":
-            results.sort(key=lambda x: x["name"], reverse=(order == "desc"))
-        elif sort in ["tcgplayer", "cardkingdom", "cardsphere"]:
-            results.sort(key=lambda x: x["prices"].get(sort) or 0, reverse=(order == "desc"))
+            # Text search
+            if q:
+                query = query.where(MJCard.name.contains(q))
 
-        total = len(results)
+            # Set filter
+            if set_code:
+                query = query.where(MJCard.set_code == set_code)
 
-        # Paginate
-        offset = (page - 1) * limit
-        results = results[offset : offset + limit]
+            # Rarity filter
+            if rarity:
+                query = query.where(MJCard.rarity == rarity)
 
-        return results, total
+            # Price range filters
+            if price_min is not None:
+                query = query.where(MJCardPrice.price >= price_min)
+            if price_max is not None:
+                query = query.where(MJCardPrice.price <= price_max)
+
+            # Count
+            count_query = select(func.count()).select_from(query.subquery())
+            total = session.exec(count_query).one()
+
+            # Sorting
+            if sort == "price":
+                sort_field = MJCardPrice.price
+            elif sort == "name":
+                sort_field = MJCard.name
+            else:
+                sort_field = MJCardPrice.price
+
+            if order == "desc":
+                query = query.order_by(sort_field.desc())
+            else:
+                query = query.order_by(sort_field.asc())
+
+            # Pagination
+            offset = (page - 1) * limit
+            query = query.offset(offset).limit(limit)
+
+            # Execute
+            results = session.exec(query).all()
+
+            cards = []
+            for card, price in results:
+                cards.append(
+                    {
+                        "uuid": card.uuid,
+                        "name": card.name,
+                        "set_code": card.set_code,
+                        "rarity": card.rarity,
+                        "mana_cost": card.mana_cost,
+                        "price": price.price,
+                        "provider": price.provider,
+                        "finish": price.finish,
+                    }
+                )
+
+            return cards, total
+
+    def get_price_history(self, uuid: str) -> list[dict]:
+        """Get price history for a card (if available)."""
+        # Note: This would require a price history table
+        # For now, return current prices only
+        prices = self.get_card_prices(uuid)
+        if not prices:
+            return []
+
+        history = []
+        for provider, listings in prices.items():
+            for listing_type, finishes in listings.items():
+                for finish, price in finishes.items():
+                    if price is not None:
+                        history.append(
+                            {
+                                "provider": provider,
+                                "listing_type": listing_type,
+                                "finish": finish,
+                                "price": price,
+                            }
+                        )
+
+        return history
 
     def calculate_deck_price(self, deck_cards: list[dict]) -> dict:
         """
@@ -239,78 +202,99 @@ class PricesData:
             deck_cards: List of dicts with 'uuid' and 'count' keys
 
         Returns:
-            Dict with total and by_source breakdowns
+            Dict with total and by_provider breakdowns
         """
         if not deck_cards:
-            return {"total": 0, "by_source": {}}
-
-        prices_conn = db.prices
+            return {"total": 0, "by_provider": {}}
 
         uuids = [c["uuid"] for c in deck_cards if c.get("uuid")]
         if not uuids:
-            return {"total": 0, "by_source": {}}
+            return {"total": 0, "by_provider": {}}
 
-        placeholders = ",".join(["?"] * len(uuids))
-        cursor = prices_conn.execute(
-            f"""
-            SELECT uuid, priceProvider, price
-            FROM cardPrices
-            WHERE uuid IN ({placeholders})
-              AND currency = 'USD'
-              AND gameAvailability = 'paper'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
-        """,
-            uuids,
-        )
+        # Create uuid -> count map
+        count_map = {c["uuid"]: c.get("count", 1) for c in deck_cards}
 
-        # Build price map
-        price_map = {}
-        for row in cursor.fetchall():
-            uuid = row["uuid"]
-            if uuid not in price_map:
-                price_map[uuid] = {}
-            price_map[uuid][row["priceProvider"]] = row["price"]
+        with get_session() as session:
+            # Get prices for all providers
+            query = select(MJCardPrice).where(
+                (MJCardPrice.card_uuid.in_(uuids))
+                & (MJCardPrice.listing_type == "retail")
+                & (MJCardPrice.finish == "normal")
+            )
+            results = session.exec(query).all()
 
-        # Calculate totals by source
-        by_source = {"tcgplayer": 0, "cardkingdom": 0, "cardsphere": 0}
+            # Build price map: uuid -> {provider: price}
+            price_map = {}
+            for price in results:
+                if price.card_uuid not in price_map:
+                    price_map[price.card_uuid] = {}
+                price_map[price.card_uuid][price.provider] = price.price
 
-        for card in deck_cards:
-            uuid = card.get("uuid")
-            count = card.get("count", 1)
-            if uuid and uuid in price_map:
-                for source in by_source:
-                    if price_map[uuid].get(source):
-                        by_source[source] += price_map[uuid][source] * count
+            # Calculate totals by provider
+            by_provider = {}
+            for provider in self.PAPER_PROVIDERS:
+                total = 0.0
+                for uuid, count in count_map.items():
+                    if uuid in price_map and price_map[uuid].get(provider):
+                        total += price_map[uuid][provider] * count
+                if total > 0:
+                    by_provider[provider] = round(total, 2)
 
-        # Calculate average total
-        valid_totals = [v for v in by_source.values() if v > 0]
-        total = sum(valid_totals) / len(valid_totals) if valid_totals else 0
+            # Calculate average total
+            valid_totals = [v for v in by_provider.values() if v > 0]
+            total = round(sum(valid_totals) / len(valid_totals), 2) if valid_totals else 0
 
-        return {
-            "total": round(total, 2),
-            "by_source": {k: round(v, 2) for k, v in by_source.items()},
-        }
+            return {
+                "total": total,
+                "by_provider": by_provider,
+            }
 
     def get_price_stats(self) -> dict:
         """Get overall price statistics."""
-        conn = db.prices
+        with get_session() as session:
+            # Total cards with prices
+            count_query = select(func.count(func.distinct(MJCardPrice.card_uuid)))
+            cards_with_prices = session.exec(count_query).first() or 0
 
-        cursor = conn.execute("""
-            SELECT COUNT(DISTINCT uuid) as cards_with_prices
-            FROM cardPrices
-        """)
-        row = cursor.fetchone()
+            # Get latest update time
+            latest_query = select(func.max(MJCardPrice.updated_at))
+            latest_update = session.exec(latest_query).first()
 
-        cursor = conn.execute("""
-            SELECT date FROM cardPrices LIMIT 1
-        """)
-        date_row = cursor.fetchone()
+            # Price distribution
+            price_ranges = {
+                "under_1": 0,
+                "1_to_5": 0,
+                "5_to_20": 0,
+                "20_to_100": 0,
+                "over_100": 0,
+            }
 
-        return {
-            "total_cards_with_prices": row["cards_with_prices"] if row else 0,
-            "last_updated": date_row["date"] if date_row else None,
-        }
+            # Count cards in each price range (tcgplayer retail normal)
+            range_query = select(MJCardPrice.price).where(
+                (MJCardPrice.provider == "tcgplayer")
+                & (MJCardPrice.listing_type == "retail")
+                & (MJCardPrice.finish == "normal")
+                & (MJCardPrice.price.is_not(None))
+            )
+            prices = session.exec(range_query).all()
+
+            for price in prices:
+                if price < 1:
+                    price_ranges["under_1"] += 1
+                elif price < 5:
+                    price_ranges["1_to_5"] += 1
+                elif price < 20:
+                    price_ranges["5_to_20"] += 1
+                elif price < 100:
+                    price_ranges["20_to_100"] += 1
+                else:
+                    price_ranges["over_100"] += 1
+
+            return {
+                "total_cards_with_prices": cards_with_prices,
+                "last_updated": latest_update.isoformat() if latest_update else None,
+                "price_distribution": price_ranges,
+            }
 
 
 # Singleton instance

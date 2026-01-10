@@ -30,43 +30,43 @@ class DeckService:
         card_count_max: int | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
+        source: str | None = None,
         sort: str = "name",
         order: str = "asc",
         page: int = 1,
         limit: int = 50,
-        scope: str = "combined",  # "user", "reference", "combined"
     ) -> DeckListResponse:
-        """List and filter decks with pagination and scope control."""
+        """List and filter decks with pagination."""
         decks, total = decks_data.list_decks(
             q=q,
-            format_filter=format,
             set_code=set_code,
             deck_type=deck_type,
+            source=source,
             colors=colors,
             card_count_min=card_count_min,
             card_count_max=card_count_max,
-            price_min=price_min,
-            price_max=price_max,
             sort=sort,
             order=order,
             page=page,
             limit=limit,
-            scope=scope,
         )
 
         data = []
         for d in decks:
+            # Handle both precon and user deck formats
+            file_name = d.get("file") or f"user-deck-{d.get('id')}"
             data.append(
                 DeckSummary(
-                    file=d["file"],
+                    file=file_name,
                     name=d["name"],
-                    code=d["code"],
-                    card_count=d["card_count"],
-                    colors=d["colors"],
+                    code=d.get("code", ""),
+                    deck_type=d.get("deck_type"),
+                    card_count=d.get("card_count", 0),
+                    colors=d.get("colors", []),
                     price=d.get("price"),
-                    release_date=d["release_date"],
+                    release_date=d.get("release_date"),
                     legality=DeckLegality(),
-                    in_collection=d.get("in_collection", scope == "user"),
+                    source=d.get("source", "precon"),
                 )
             )
 
@@ -76,29 +76,59 @@ class DeckService:
             data=data,
             pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
             filters=DeckFilters(
-                formats=decks_data.get_available_formats(),
-                sets=decks_data.get_available_sets(scope=scope),
+                formats=[],
+                sets=decks_data.get_available_sets(),
                 color_combinations=[],
             ),
         )
 
-    async def get_deck(self, file: str, scope: str = "combined") -> DeckDetail | None:
-        """Get full deck details including cards and statistics with scope control."""
-        deck = decks_data.get_deck(file, scope=scope)
+    async def get_deck(self, file: str) -> DeckDetail | None:
+        """Get full deck details including cards and statistics."""
+        deck = decks_data.get_deck(file)
         if not deck:
             return None
 
-        meta = deck["meta"]
-        stats = deck["stats"]
+        meta = deck.get("meta", {})
+        stats = deck.get("stats", {})
         legality = deck.get("legality", {})
+
+        # Handle both precon and user deck formats
+        file_name = meta.get("file") or f"user-deck-{deck.get('id')}"
+        source = deck.get("source", "precon")
+
+        def make_deck_card(c: dict, board: str | None = None) -> DeckCard:
+            count = c.get("count", 1)
+            owned_count = c.get("owned_count", 0)
+            missing_count = max(0, count - owned_count)
+            return DeckCard(
+                uuid=c.get("card_uuid") or c.get("uuid", ""),
+                name=c["name"],
+                count=count,
+                board=board,
+                mana_cost=c.get("mana_cost"),
+                mana_value=c.get("mana_value"),
+                type=", ".join(c.get("types", [])) if c.get("types") else c.get("type", ""),
+                types=c.get("types", []),
+                colors=c.get("colors", []),
+                rarity=c.get("rarity", ""),
+                text=c.get("text"),
+                price=c.get("price"),
+                image_url=c.get("image_url"),
+                owns_enough=c.get("owns_enough", False),
+                owned_count=owned_count,
+                missing_count=missing_count,
+            )
 
         return DeckDetail(
             meta=DeckMeta(
-                file=meta["file"],
-                name=meta["name"],
-                code=meta["code"],
-                release_date=meta["release_date"],
-                in_collection=deck.get("in_collection", scope == "user"),
+                file=file_name,
+                name=meta.get("name", ""),
+                code=meta.get("code", ""),
+                deck_type=meta.get("deck_type"),
+                release_date=meta.get("release_date"),
+                description=meta.get("description"),
+                format=meta.get("format"),
+                source=source,
             ),
             legality=DeckLegality(
                 standard=legality.get("standard", False),
@@ -108,66 +138,21 @@ class DeckService:
                 vintage=legality.get("vintage", False),
                 commander=legality.get("commander", False),
             ),
-            colors=deck["colors"],
+            colors=deck.get("colors", []),
             price=DeckPrice(
                 total=deck.get("price") or 0,
                 by_source=PriceBySource(),
             ),
-            commander=[
-                DeckCard(
-                    uuid=c["uuid"],
-                    name=c["name"],
-                    count=c["count"],
-                    mana_cost=c["mana_cost"],
-                    mana_value=c["mana_value"],
-                    type=c["type"],
-                    rarity=c["rarity"],
-                    text=c.get("text"),
-                    price=c.get("price"),
-                    image_url=c.get("image_url"),
-                    in_collection=c.get("in_collection", scope == "user"),
-                )
-                for c in deck["commander"]
-            ],
-            main_board=[
-                DeckCard(
-                    uuid=c["uuid"],
-                    name=c["name"],
-                    count=c["count"],
-                    mana_cost=c["mana_cost"],
-                    mana_value=c["mana_value"],
-                    type=c["type"],
-                    rarity=c["rarity"],
-                    text=c.get("text"),
-                    price=c.get("price"),
-                    image_url=c.get("image_url"),
-                    in_collection=c.get("in_collection", scope == "user"),
-                )
-                for c in deck["main_board"]
-            ],
-            side_board=[
-                DeckCard(
-                    uuid=c["uuid"],
-                    name=c["name"],
-                    count=c["count"],
-                    mana_cost=c["mana_cost"],
-                    mana_value=c["mana_value"],
-                    type=c["type"],
-                    rarity=c["rarity"],
-                    text=c.get("text"),
-                    price=c.get("price"),
-                    image_url=c.get("image_url"),
-                    in_collection=c.get("in_collection", scope == "user"),
-                )
-                for c in deck["side_board"]
-            ],
+            commander=[make_deck_card(c, "commander") for c in deck.get("commander", [])],
+            main_board=[make_deck_card(c, "main") for c in deck.get("main_board", [])],
+            side_board=[make_deck_card(c, "side") for c in deck.get("side_board", [])],
             stats=DeckStats(
-                total_cards=stats["total_cards"],
-                unique_cards=stats["unique_cards"],
-                mana_curve=stats["mana_curve"],
-                type_distribution=stats["type_distribution"],
-                rarity_distribution=stats["rarity_distribution"],
-                color_distribution=stats["color_distribution"],
+                total_cards=stats.get("total_cards", 0),
+                unique_cards=stats.get("unique_cards", 0),
+                mana_curve=stats.get("mana_curve", {}),
+                type_distribution=stats.get("type_distribution", {}),
+                rarity_distribution=stats.get("rarity_distribution", {}),
+                color_distribution=stats.get("color_distribution", {}),
                 price_histogram=[],
                 keywords=KeywordCounts(
                     ability_words={},
@@ -177,16 +162,55 @@ class DeckService:
             ),
         )
 
-    async def get_deck_raw(self, file: str, scope: str = "combined") -> dict | None:
-        """Get raw deck data with scope control."""
-        deck = decks_data.get_deck(file, scope=scope)
+    async def get_deck_raw(self, file: str) -> dict | None:
+        """Get raw deck data."""
+        deck = decks_data.get_deck(file)
         if not deck:
             return None
         return deck
 
-    async def get_available_sets(self, scope: str = "combined") -> list[str]:
-        """Get list of set codes that have decks with scope control."""
-        return decks_data.get_available_sets(scope=scope)
+    async def get_available_sets(self) -> list[str]:
+        """Get list of set codes that have decks."""
+        return decks_data.get_available_sets()
+
+    async def create_user_deck(
+        self,
+        name: str,
+        description: str | None = None,
+        format: str | None = None,
+    ) -> dict:
+        """Create a new user deck."""
+        return decks_data.create_user_deck(name=name, description=description, format=format)
+
+    async def add_card_to_deck(
+        self,
+        deck_id: int,
+        card_uuid: str,
+        count: int = 1,
+        board: str = "main",
+        is_foil: bool = False,
+    ) -> dict | None:
+        """Add a card to a user deck."""
+        return decks_data.add_card_to_deck(
+            deck_id=deck_id,
+            card_uuid=card_uuid,
+            count=count,
+            board=board,
+            is_foil=is_foil,
+        )
+
+    async def remove_card_from_deck(
+        self,
+        deck_id: int,
+        card_uuid: str,
+        board: str | None = None,
+    ) -> bool:
+        """Remove a card from a user deck."""
+        return decks_data.remove_card_from_deck(deck_id=deck_id, card_uuid=card_uuid, board=board)
+
+    async def delete_user_deck(self, deck_id: int) -> bool:
+        """Delete a user deck."""
+        return decks_data.delete_user_deck(deck_id)
 
 
 # Singleton instance

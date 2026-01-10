@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from mtgsim.api.models.common import Pagination
+from mtgsim.api.models.common import CollectionDetail, Pagination
 from mtgsim.api.models.deck import PriceBySource
 
 
@@ -13,14 +13,17 @@ class CardSummary(BaseModel):
     name: str
     type: str | None = None
     mana_cost: str | None = None
-    mana_value: int = 0
+    mana_value: float | None = None
     rarity: str | None = None
     set_code: str | None = None
     color_identity: list[str] = []
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
-    in_collection: bool = False
+    owns: bool = False
+    wants: bool = False
+    total_owned: int = 0
+    total_wanted: int = 0
 
 
 class CardListResponse(BaseModel):
@@ -58,7 +61,9 @@ class CardPrinting(BaseModel):
     set_code: str
     set_name: str
     uuid: str
-    in_collection: bool = False
+    image_url: str | None = None
+    owns: bool = False
+    total_owned: int = 0
 
 
 class CardDetail(BaseModel):
@@ -67,7 +72,7 @@ class CardDetail(BaseModel):
     uuid: str
     name: str
     mana_cost: str | None = None
-    mana_value: int = 0
+    mana_value: float | None = None
     type: str | None = None
     types: list[str] = []
     subtypes: list[str] = []
@@ -85,4 +90,8 @@ class CardDetail(BaseModel):
     legalities: CardLegalities
     appears_in_decks: list[CardAppearance] = []
     other_printings: list[CardPrinting] = []
-    in_collection: bool = False
+    owns: bool = False
+    wants: bool = False
+    total_owned: int = 0
+    total_wanted: int = 0
+    collection: CollectionDetail | None = None

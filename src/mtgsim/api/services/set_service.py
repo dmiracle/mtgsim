@@ -7,6 +7,7 @@ from mtgsim.api.models.set import (
     ColorWordFrequencies,
     SetCard,
     SetCardsResponse,
+    SetCollectionStats,
     SetDetail,
     SetFilters,
     SetListResponse,
@@ -25,37 +26,49 @@ class SetService:
         q: str | None = None,
         set_type: str | None = None,
         block: str | None = None,
+        has_owned_cards: bool | None = None,
         sort: str = "release_date",
         order: str = "desc",
         page: int = 1,
         limit: int = 50,
-        scope: str = "combined",  # "user", "reference", "combined"
     ) -> SetListResponse:
-        """List and filter sets with pagination and scope control."""
+        """List and filter sets with pagination."""
         sets, total = sets_data.list_sets(
             q=q,
             set_type=set_type,
             block=block,
+            has_owned_cards=has_owned_cards,
             sort=sort,
             order=order,
             page=page,
             limit=limit,
-            scope=scope,
         )
 
         data = []
         for s in sets:
+            cs = s.get("collection_stats", {})
+            collection_stats = None
+            if cs:
+                total_cards = cs.get("total_cards", 0)
+                owned_cards = cs.get("owned_cards", 0)
+                owned_pct = (owned_cards / total_cards * 100) if total_cards > 0 else 0.0
+                collection_stats = SetCollectionStats(
+                    total_cards=total_cards,
+                    owned_cards=owned_cards,
+                    owned_percentage=round(owned_pct, 1),
+                    wanted_cards=cs.get("wanted_cards", 0),
+                )
             data.append(
                 SetSummary(
                     code=s["code"],
                     name=s["name"],
-                    type=s["type"],
-                    release_date=s["release_date"],
-                    base_set_size=s["base_set_size"],
-                    total_set_size=s["total_set_size"],
-                    block=s["block"],
-                    keyrune_code=s["keyrune_code"],
-                    in_collection=s.get("in_collection", scope == "user"),
+                    type=s.get("type", ""),
+                    release_date=s.get("release_date"),
+                    base_set_size=s.get("base_set_size", 0),
+                    total_set_size=s.get("total_set_size", 0),
+                    block=s.get("block"),
+                    keyrune_code=s.get("keyrune_code"),
+                    collection_stats=collection_stats,
                 )
             )
 
@@ -65,8 +78,8 @@ class SetService:
             data=data,
             pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
             filters=SetFilters(
-                types=sets_data.get_available_types(scope=scope),
-                blocks=sets_data.get_available_blocks(scope=scope),
+                types=sets_data.get_available_types(),
+                blocks=sets_data.get_available_blocks(),
             ),
         )
 
@@ -76,12 +89,13 @@ class SetService:
         rarity: str | None = None,
         color: str | None = None,
         card_type: str | None = None,
+        owns: bool | None = None,
+        wants: bool | None = None,
         card_page: int = 1,
         card_limit: int = 50,
-        scope: str = "combined",  # "user", "reference", "combined"
     ) -> SetDetail | None:
-        """Get full set details including cards and statistics with scope control."""
-        set_meta = sets_data.get_set(code, scope=scope)
+        """Get full set details including cards and statistics."""
+        set_meta = sets_data.get_set(code)
         if not set_meta:
             return None
 
@@ -91,13 +105,26 @@ class SetService:
             rarity=rarity,
             color=color,
             card_type=card_type,
+            owns=owns,
+            wants=wants,
             page=card_page,
             limit=card_limit,
-            scope=scope,
         )
 
         # Get stats
-        stats_data = sets_data.get_set_stats(code, scope=scope)
+        stats_data = sets_data.get_set_stats(code)
+        cs = set_meta.get("collection_stats", {})
+        collection_stats = None
+        if cs:
+            total_cards = cs.get("total_cards", 0)
+            owned_cards = cs.get("owned_cards", 0)
+            owned_pct = (owned_cards / total_cards * 100) if total_cards > 0 else 0.0
+            collection_stats = SetCollectionStats(
+                total_cards=total_cards,
+                owned_cards=owned_cards,
+                owned_percentage=round(owned_pct, 1),
+                wanted_cards=cs.get("wanted_cards", 0),
+            )
 
         card_pages = (card_total + card_limit - 1) // card_limit if card_limit > 0 else 1
 
@@ -105,23 +132,23 @@ class SetService:
             meta=SetMeta(
                 code=set_meta["code"],
                 name=set_meta["name"],
-                type=set_meta["type"],
-                release_date=set_meta["release_date"],
-                base_set_size=set_meta["base_set_size"],
-                total_set_size=set_meta["total_set_size"],
-                block=set_meta["block"],
-                keyrune_code=set_meta["keyrune_code"],
-                in_collection=set_meta.get("in_collection", scope == "user"),
+                type=set_meta.get("type", ""),
+                release_date=set_meta.get("release_date"),
+                base_set_size=set_meta.get("base_set_size", 0),
+                total_set_size=set_meta.get("total_set_size", 0),
+                block=set_meta.get("block"),
+                keyrune_code=set_meta.get("keyrune_code"),
+                collection_stats=collection_stats,
             ),
             stats=SetStats(
-                rarity_count=stats_data["rarity_count"],
+                rarity_count=stats_data.get("rarity_count", {}),
                 price=SetPrice(
-                    total=stats_data.get("total_price") or 0,
-                    by_source=PriceBySource(tcgplayer=stats_data.get("total_price")),
+                    total=0,
+                    by_source=PriceBySource(),
                 ),
                 price_histogram=[],
                 keywords=KeywordCounts(
-                    ability_words=stats_data.get("keywords", {}),
+                    ability_words={},
                     keyword_abilities={},
                     keyword_actions={},
                 ),
@@ -139,13 +166,22 @@ class SetService:
                     SetCard(
                         uuid=c["uuid"],
                         name=c["name"],
-                        type=c["type"],
-                        rarity=c["rarity"],
-                        color_identity=c["color_identity"],
-                        text=c.get("text"),
-                        price=c.get("price"),
+                        mana_cost=c.get("mana_cost"),
+                        mana_value=c.get("mana_value"),
+                        type=c.get("type", ""),
+                        rarity=c.get("rarity", ""),
+                        color_identity=c.get("color_identity", []),
+                        colors=c.get("colors", []),
+                        power=c.get("power"),
+                        toughness=c.get("toughness"),
+                        number=c.get("number"),
+                        text=c.get("oracle_text"),
+                        price=None,
                         image_url=c.get("image_url"),
-                        in_collection=c.get("in_collection", scope == "user"),
+                        owns=c.get("owns", False),
+                        wants=c.get("wants", False),
+                        total_owned=c.get("total_owned", 0),
+                        total_wanted=c.get("total_wanted", 0),
                     )
                     for c in cards
                 ],
@@ -153,20 +189,20 @@ class SetService:
             ),
         )
 
-    async def get_set_raw(self, code: str, scope: str = "combined") -> dict | None:
-        """Get raw set data with scope control."""
-        set_data = sets_data.get_set(code, scope=scope)
+    async def get_set_raw(self, code: str) -> dict | None:
+        """Get raw set data."""
+        set_data = sets_data.get_set(code)
         if not set_data:
             return None
         return set_data
 
-    async def get_available_types(self, scope: str = "combined") -> list[str]:
-        """Get list of available set types with scope control."""
-        return sets_data.get_available_types(scope=scope)
+    async def get_available_types(self) -> list[str]:
+        """Get list of available set types."""
+        return sets_data.get_available_types()
 
-    async def get_available_blocks(self, scope: str = "combined") -> list[str]:
-        """Get list of available blocks with scope control."""
-        return sets_data.get_available_blocks(scope=scope)
+    async def get_available_blocks(self) -> list[str]:
+        """Get list of available blocks."""
+        return sets_data.get_available_blocks()
 
 
 # Singleton instance

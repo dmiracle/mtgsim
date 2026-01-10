@@ -13,31 +13,31 @@ async def list_sets(
     q: str | None = Query(None, description="Search by set name or code"),
     type: str | None = Query(None, description="Filter by set type"),
     block: str | None = Query(None, description="Filter by block name"),
+    has_owned_cards: bool | None = Query(None, description="Filter to sets with owned cards"),
     sort: str = Query("release_date", description="Sort field"),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> SetListResponse:
     """
-    List and filter sets with pagination and scope control.
+    List and filter sets with pagination.
 
     - **q**: Search set names and codes
     - **type**: Filter by set type (core, expansion, masters, commander, etc.)
     - **block**: Filter by block name
+    - **has_owned_cards**: Filter to sets with owned cards (true) or without (false)
     - **sort**: Sort by name, release_date, size
     - **order**: Sort order (asc, desc)
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     return await set_service.list_sets(
         q=q,
         set_type=type,
         block=block,
+        has_owned_cards=has_owned_cards,
         sort=sort,
         order=order,
         page=page,
         limit=limit,
-        scope=scope,
     )
 
 
@@ -47,28 +47,28 @@ async def get_set(
     rarity: str | None = Query(None, description="Filter cards by rarity"),
     color: str | None = Query(None, description="Filter cards by color"),
     type: str | None = Query(None, description="Filter cards by type"),
+    owns: bool | None = Query(None, description="Filter by ownership (true=owned, false=not owned)"),
+    wants: bool | None = Query(None, description="Filter by want status"),
     card_page: int = Query(1, ge=1, description="Card page number"),
     card_limit: int = Query(50, ge=1, le=100, description="Cards per page"),
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> SetDetail:
     """
-    Get full set details including cards and statistics with scope control.
+    Get full set details including cards and statistics.
 
     Returns complete set information with:
     - Set metadata (name, code, type, release date, sizes)
-    - Statistics (rarity breakdown, prices, keywords, word frequencies)
-    - Paginated card list (filterable by rarity, color, type)
-
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
+    - Statistics (rarity breakdown, keywords)
+    - Paginated card list (filterable by rarity, color, type, ownership)
     """
     set_data = await set_service.get_set(
         code=code,
         rarity=rarity,
         color=color,
         card_type=type,
+        owns=owns,
+        wants=wants,
         card_page=card_page,
         card_limit=card_limit,
-        scope=scope,
     )
     if set_data is None:
         raise HTTPException(status_code=404, detail=f"Set not found: {code}")
@@ -76,18 +76,13 @@ async def get_set(
 
 
 @router.get("/{code}/raw")
-async def get_set_raw(
-    code: str,
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
-) -> dict:
+async def get_set_raw(code: str) -> dict:
     """
-    Get raw set JSON for developer inspection with scope control.
+    Get raw set JSON for developer inspection.
 
-    Returns the original MTGJSON set file format.
-
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
+    Returns the set data in raw format.
     """
-    data = await set_service.get_set_raw(code, scope=scope)
+    data = await set_service.get_set_raw(code)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Set not found: {code}")
     return data

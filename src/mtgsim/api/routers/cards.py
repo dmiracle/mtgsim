@@ -26,14 +26,15 @@ async def search_cards(
     colors: str | None = Query(None, description="Filter by color identity"),
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
+    owns: bool | None = Query(None, description="Filter by ownership (true=owned, false=not owned)"),
+    wants: bool | None = Query(None, description="Filter by want status (true=wanted, false=not wanted)"),
     sort: str = Query("name", description="Sort field"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> CardListResponse:
     """
-    Search cards with filters and scope control.
+    Search cards with filters.
 
     - **q**: Search card names (minimum 2 characters recommended)
     - **set**: Filter by set code
@@ -41,9 +42,10 @@ async def search_cards(
     - **type**: Filter by card type (Creature, Instant, Sorcery, etc.)
     - **colors**: Filter by color identity (e.g., "WU", "BRG")
     - **price_min/price_max**: Filter by price range
+    - **owns**: Filter by ownership (true=owned only, false=not owned only)
+    - **wants**: Filter by want status (true=wanted only, false=not wanted only)
     - **sort**: Sort by name, price, mana_value
     - **order**: Sort order (asc, desc)
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     color_list = list(colors.upper()) if colors else None
 
@@ -55,50 +57,60 @@ async def search_cards(
         colors=color_list,
         price_min=price_min,
         price_max=price_max,
+        owns=owns,
+        wants=wants,
         sort=sort,
         order=order,
         page=page,
         limit=limit,
-        scope=scope,
     )
 
 
 @router.get("/{uuid}", response_model=CardDetail)
-async def get_card(
-    uuid: str,
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
-) -> CardDetail:
+async def get_card(uuid: str) -> CardDetail:
     """
-    Get full card details with scope control.
+    Get full card details.
 
     Returns complete card information with:
     - Card data (name, type, text, stats)
-    - Prices from all sources (if in collection)
+    - Prices from all sources
     - Format legalities
     - Deck appearances
     - Other printings
-
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
+    - Collection status (owns, wants, quantities)
     """
-    card = await card_service.get_card(uuid, scope=scope)
+    card = await card_service.get_card(uuid)
     if card is None:
         raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
     return card
 
 
 @router.post("/{uuid}/collection", response_model=CollectionResponse)
-async def add_card_to_collection(uuid: str) -> CollectionResponse:
+async def add_card_to_collection(
+    uuid: str,
+    quantity_owned: int = Query(1, ge=0, description="Quantity owned (non-foil)"),
+    quantity_owned_foil: int = Query(0, ge=0, description="Quantity owned (foil)"),
+    quantity_wanted: int = Query(0, ge=0, description="Quantity wanted (non-foil)"),
+    quantity_wanted_foil: int = Query(0, ge=0, description="Quantity wanted (foil)"),
+) -> CollectionResponse:
     """
-    Add a card from reference tables to user's collection.
-
-    This endpoint allows users to add cards from the complete MTGJSON reference
-    database to their personal collection in the domain database.
+    Add a card to user's collection.
 
     - **uuid**: The UUID of the card to add to collection
+    - **quantity_owned**: Number of non-foil copies owned
+    - **quantity_owned_foil**: Number of foil copies owned
+    - **quantity_wanted**: Number of non-foil copies wanted
+    - **quantity_wanted_foil**: Number of foil copies wanted
 
     Returns success/failure status and details about the operation.
     """
-    result = await card_service.add_card_to_collection(uuid)
+    result = await card_service.add_card_to_collection(
+        card_uuid=uuid,
+        quantity_owned=quantity_owned,
+        quantity_owned_foil=quantity_owned_foil,
+        quantity_wanted=quantity_wanted,
+        quantity_wanted_foil=quantity_wanted_foil,
+    )
 
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
@@ -110,9 +122,6 @@ async def add_card_to_collection(uuid: str) -> CollectionResponse:
 async def remove_card_from_collection(uuid: str) -> CollectionResponse:
     """
     Remove a card from user's collection.
-
-    This endpoint removes a card from the user's personal collection in the
-    domain database. The card will still be available in reference tables.
 
     - **uuid**: The UUID of the card to remove from collection
 

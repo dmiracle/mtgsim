@@ -28,13 +28,14 @@ class DeckSummary(BaseModel):
 
     file: str
     name: str
-    code: str
-    card_count: int
-    colors: list[str]
+    code: str = ""
+    deck_type: str | None = None
+    card_count: int = 0
+    colors: list[str] = []
     price: float | None = None
     release_date: str | None = None
-    legality: DeckLegality
-    in_collection: bool = False
+    legality: DeckLegality | None = None
+    source: str = "precon"
 
 
 class DeckFilters(BaseModel):
@@ -59,14 +60,19 @@ class DeckCard(BaseModel):
     uuid: str
     name: str
     count: int = 1
+    board: str | None = None
     mana_cost: str | None = None
-    mana_value: int = 0
+    mana_value: float | None = None
     type: str | None = None
+    types: list[str] = []
+    colors: list[str] = []
     rarity: str | None = None
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
-    in_collection: bool = False
+    owns_enough: bool = False
+    owned_count: int = 0
+    missing_count: int = 0
 
 
 class PriceBySource(BaseModel):
@@ -118,9 +124,12 @@ class DeckMeta(BaseModel):
 
     file: str
     name: str
-    code: str
+    code: str = ""
+    deck_type: str | None = None
     release_date: str | None = None
-    in_collection: bool = False
+    description: str | None = None
+    format: str | None = None
+    source: str = "precon"
 
 
 class DeckDetail(BaseModel):

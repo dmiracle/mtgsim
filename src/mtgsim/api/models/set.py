@@ -11,6 +11,15 @@ from mtgsim.api.models.common import (
 from mtgsim.api.models.deck import PriceBySource
 
 
+class SetCollectionStats(BaseModel):
+    """Collection statistics for a set."""
+
+    total_cards: int = 0
+    owned_cards: int = 0
+    owned_percentage: float = 0.0
+    wanted_cards: int = 0
+
+
 class SetSummary(BaseModel):
     """Summary set information for list views."""
 
@@ -18,11 +27,11 @@ class SetSummary(BaseModel):
     name: str
     type: str
     release_date: str | None = None
-    base_set_size: int
-    total_set_size: int
+    base_set_size: int = 0
+    total_set_size: int = 0
     block: str | None = None
-    keyrune_code: str
-    in_collection: bool = False
+    keyrune_code: str | None = None
+    collection_stats: SetCollectionStats | None = None
 
 
 class SetFilters(BaseModel):
@@ -45,13 +54,22 @@ class SetCard(BaseModel):
 
     uuid: str
     name: str
+    mana_cost: str | None = None
+    mana_value: float | None = None
     type: str | None = None
     rarity: str | None = None
-    color_identity: list[str]
+    color_identity: list[str] = []
+    colors: list[str] = []
+    power: str | None = None
+    toughness: str | None = None
+    number: str | None = None
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
-    in_collection: bool = False
+    owns: bool = False
+    wants: bool = False
+    total_owned: int = 0
+    total_wanted: int = 0
 
 
 class SetCardsResponse(BaseModel):
@@ -96,11 +114,11 @@ class SetMeta(BaseModel):
     name: str
     type: str
     release_date: str | None = None
-    base_set_size: int
-    total_set_size: int
+    base_set_size: int = 0
+    total_set_size: int = 0
     block: str | None = None
-    keyrune_code: str
-    in_collection: bool = False
+    keyrune_code: str | None = None
+    collection_stats: SetCollectionStats | None = None
 
 
 class SetDetail(BaseModel):

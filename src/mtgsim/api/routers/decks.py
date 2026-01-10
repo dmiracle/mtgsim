@@ -19,14 +19,14 @@ async def list_decks(
     card_count_max: int | None = Query(None, ge=0, description="Maximum card count"),
     price_min: float | None = Query(None, ge=0, description="Minimum deck price"),
     price_max: float | None = Query(None, ge=0, description="Maximum deck price"),
+    source: str | None = Query(None, pattern="^(precon|user)$", description="Deck source (precon or user)"),
     sort: str = Query("name", description="Sort field"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
 ) -> DeckListResponse:
     """
-    List and filter decks with pagination and scope control.
+    List and filter decks with pagination.
 
     - **q**: Search deck names and codes
     - **format**: Filter by format legality (standard, pioneer, modern, legacy, vintage, commander)
@@ -35,9 +35,9 @@ async def list_decks(
     - **colors**: Filter by color identity (e.g., "WU" for white-blue decks)
     - **card_count_min/card_count_max**: Filter by card count range
     - **price_min/price_max**: Filter by deck price range
+    - **source**: Filter by deck source (precon=preconstructed, user=user-created)
     - **sort**: Sort by name, release_date, card_count, price, colors
     - **order**: Sort order (asc, desc)
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
     """
     color_list = list(colors.upper()) if colors else None
 
@@ -51,51 +51,41 @@ async def list_decks(
         card_count_max=card_count_max,
         price_min=price_min,
         price_max=price_max,
+        source=source,
         sort=sort,
         order=order,
         page=page,
         limit=limit,
-        scope=scope,
     )
 
 
 @router.get("/{file}", response_model=DeckDetail)
-async def get_deck(
-    file: str,
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
-) -> DeckDetail:
+async def get_deck(file: str) -> DeckDetail:
     """
-    Get full deck details including cards and statistics with scope control.
+    Get full deck details including cards and statistics.
 
     Returns complete deck information with:
     - Deck metadata (name, code, release date)
     - Format legality
     - Color identity
-    - Price breakdown by source (if in collection)
-    - All cards (commander, main board, sideboard)
-    - Statistics (mana curve, type distribution, keywords, price histogram)
-
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
+    - Price breakdown by source
+    - All cards (commander, main board, sideboard) with ownership status
+    - Statistics (mana curve, type distribution, keywords)
     """
-    deck = await deck_service.get_deck(file, scope=scope)
+    deck = await deck_service.get_deck(file)
     if deck is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
     return deck
 
 
 @router.get("/{file}/raw")
-async def get_deck_raw(
-    file: str,
-    scope: str = Query("combined", pattern="^(user|reference|combined)$", description="Search scope"),
-) -> dict:
+async def get_deck_raw(file: str) -> dict:
     """
-    Get raw deck JSON for developer inspection with scope control.
+    Get raw deck JSON for developer inspection.
 
-    Returns the original MTGJSON deck file format.
-
-    - **scope**: Search scope (user=collection only, reference=all available, combined=both)
+    Returns the deck data in raw format.
     """
-    data = await deck_service.get_deck_raw(file, scope=scope)
+    data = await deck_service.get_deck_raw(file)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
     return data
