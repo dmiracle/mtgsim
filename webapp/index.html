@@ -3276,6 +3276,12 @@
 
 
                     <div class="stat-card stat-card-2col">
+                        <h4>Rules Text (Residue)</h4>
+                        <div id="text-residue-wordcloud"></div>
+                    </div>
+
+
+                    <div class="stat-card stat-card-2col">
                         <h4>Flavor Text</h4>
                         <div id="flavor-wordcloud"></div>
                     </div>
@@ -3413,7 +3419,8 @@
 
             mainContent.innerHTML = html;
             renderPriceHistogram(stats.cardPrices);
-            renderWordCloud('#text-wordcloud', generateResidueScaledText(stats.allText, 1000), 420, 140);
+            renderWordCloud('#text-wordcloud', stats.allText, 420, 140);
+            renderWordCloud('#text-residue-wordcloud', generateResidueScaledText(stats.allText, 1000), 420, 140);
             renderWordCloud('#flavor-wordcloud', stats.allFlavorText, 420, 140);
             renderKeywordCloud('#ability-wordcloud', stats.abilityWords, 200, 100);
             renderKeywordCloud('#keyword-ability-wordcloud', stats.keywordAbilities, 200, 100);
