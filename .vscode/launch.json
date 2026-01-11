@@ -16,7 +16,8 @@
                 "--port",
                 "8080",
             ],
-            "jinja": true
+            "jinja": true,
+            "justMyCode": false
         }
     ]
 }

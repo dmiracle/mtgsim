@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sqlmodel import Session, delete
 
-from mtgsim.config import ALL_DECK_FILES_DIR, DB_PATH, MTGJSON_DIR
+from mtgsim.config import ALL_DECK_FILES_DIR, DB_PATH, MTGJSON_DIR, MTGSIM_HOME
 from mtgsim.db.models import (
     MJCard,
     MJCardIdentifier,
@@ -80,6 +80,9 @@ def sync_all(force: bool = False):
 
     if ALL_DECK_FILES_DIR.exists():
         sync_decks(ALL_DECK_FILES_DIR)
+
+    # Compute corpus word frequencies for wordcloud baseline
+    compute_corpus_wordfreq()
 
     logger.info(f"Unified sync complete. Data in {DB_PATH}")
     return True
@@ -417,3 +420,60 @@ def _process_deck_file(session: Session, file_path: Path):
 
     except Exception as e:
         logger.warning(f"Error processing {file_path.name}: {e}")
+
+
+def compute_corpus_wordfreq():
+    """Compute word frequencies from all card oracle text and save to JSON."""
+    import re
+    from collections import Counter
+
+    from sqlmodel import select
+
+    logger.info("Computing corpus word frequencies...")
+
+    # Same stopwords as webapp
+    stop_words = {
+        "a", "an", "the", "and", "or", "but", "if", "then", "of", "to", "in", "on", "at", "for",
+        "is", "it", "its", "this", "that", "with", "as", "be", "by", "from", "are", "was", "were",
+        "you", "your", "may", "can", "has", "have", "do", "does", "each", "all", "any", "one",
+        "two", "three", "four", "five", "up", "into", "when", "where", "until", "end", "turn",
+        "would", "could", "they", "their", "them", "he", "she", "his", "her", "who", "which",
+    }
+
+    engine = get_engine()
+    word_counts: Counter = Counter()
+    total_words = 0
+
+    with Session(engine) as session:
+        stmt = select(MJCard.oracle_text)
+        results = session.exec(stmt)
+
+        for oracle_text in results:
+            if not oracle_text:
+                continue
+
+            # Tokenize same as webapp
+            text = oracle_text.lower()
+            text = re.sub(r"[{}\(\)•—\-:;,.\"\\'!?]", " ", text)
+            words = [
+                w for w in text.split()
+                if len(w) > 2 and w not in stop_words and not w.isdigit()
+            ]
+            word_counts.update(words)
+            total_words += len(words)
+
+    # Compute frequencies (count / total)
+    word_freq = {word: count / total_words for word, count in word_counts.items()}
+
+    # Save to JSON
+    output_path = MTGSIM_HOME / "corpus_wordfreq.json"
+    output_data = {
+        "total_words": total_words,
+        "unique_words": len(word_freq),
+        "frequencies": word_freq,
+    }
+
+    with open(output_path, "w") as f:
+        json.dump(output_data, f)
+
+    logger.info(f"Saved corpus word frequencies: {len(word_freq)} unique words, {total_words} total words")
