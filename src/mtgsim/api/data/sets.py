@@ -1,364 +1,143 @@
-"""Sets data access layer."""
+"""Sets data access layer using unified database schema."""
 
-from sqlmodel import Session, func, select
+from sqlmodel import func, select
 
-from mtgsim.db.domain_models import DomainCard, DomainSet
-from mtgsim.db.domain_session import get_domain_session
-from mtgsim.db.reference_models import MTGJsonCard, MTGJsonSet
+from mtgsim.db.models import MJCard, MJCardIdentifier, MJSet, UserCard
+from mtgsim.db.session import get_session
+
+from .helpers import build_image_url, set_to_api_dict
 
 
 class SetsData:
-    """Data access for sets."""
-
-    def _parse_json(self, value: str | None, default=None):
-        """Parse JSON string, returning default if None or invalid."""
-        if not value:
-            return default if default is not None else []
-        try:
-            import json
-
-            return json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            return default if default is not None else []
+    """Data access for sets using unified schema."""
 
     def list_sets(
         self,
         q: str | None = None,
         set_type: str | None = None,
         block: str | None = None,
+        has_owned_cards: bool | None = None,
         sort: str = "release_date",
         order: str = "desc",
         page: int = 1,
         limit: int = 50,
-        scope: str = "user",  # "user", "reference", "combined"
     ) -> tuple[list[dict], int]:
         """
-        List sets with filtering and pagination using domain database.
+        List sets with filtering and pagination.
+
+        Args:
+            q: Text search in name and code
+            set_type: Filter by set type (expansion, core, etc.)
+            block: Filter by block name
+            has_owned_cards: Filter to sets with owned cards
+            sort: Sort field (name, release_date, code, size)
+            order: Sort order (asc, desc)
+            page: Page number (1-indexed)
+            limit: Results per page
 
         Returns: (list of sets, total count)
         """
-        try:
-            with get_domain_session() as session:
-                if scope == "reference":
-                    return self._list_reference_sets(session, q, set_type, block, sort, order, page, limit)
-                elif scope == "combined":
-                    return self._list_combined_sets(session, q, set_type, block, sort, order, page, limit)
-                else:  # scope == "user" (default)
-                    return self._list_domain_sets(session, q, set_type, block, sort, order, page, limit)
-        except Exception as e:
-            # Maintain backward compatibility - if domain database fails, return empty results
-            if "no such table" in str(e).lower() or "database" in str(e).lower():
-                return [], 0
-            else:
-                # Re-raise unexpected errors
-                raise
+        with get_session() as session:
+            query = select(MJSet)
 
-    def _list_domain_sets(
-        self,
-        session: Session,
-        q: str | None = None,
-        set_type: str | None = None,
-        block: str | None = None,
-        sort: str = "release_date",
-        order: str = "desc",
-        page: int = 1,
-        limit: int = 50,
-    ) -> tuple[list[dict], int]:
-        """List user's domain sets."""
-        query = select(DomainSet)
+            # Text search
+            if q:
+                query = query.where((MJSet.name.contains(q)) | (MJSet.code.contains(q)))
 
-        # Apply filters
-        if q:
-            query = query.where((DomainSet.name.contains(q)) | (DomainSet.code.contains(q)))
+            # Type filter
+            if set_type:
+                query = query.where(MJSet.type == set_type)
 
-        if set_type:
-            query = query.where(DomainSet.type == set_type)
+            # Block filter
+            if block:
+                query = query.where(MJSet.block == block)
 
-        if block:
-            query = query.where(DomainSet.block == block)
+            # Count total before pagination
+            count_query = select(func.count()).select_from(query.subquery())
+            total = session.exec(count_query).one()
 
-        # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = session.exec(count_query).one()
-
-        # Apply sorting
-        sort_map = {
-            "name": DomainSet.name,
-            "release_date": DomainSet.release_date,
-            "code": DomainSet.code,
-            "size": DomainSet.total_set_size,
-        }
-        sort_field = sort_map.get(sort, DomainSet.release_date)
-
-        if order == "desc":
-            query = query.order_by(sort_field.desc())
-        else:
-            query = query.order_by(sort_field.asc())
-
-        # Apply pagination
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
-
-        # Execute query
-        results = session.exec(query).all()
-
-        # Convert to dict format for API compatibility
-        sets = []
-        for set_obj in results:
-            sets.append(
-                {
-                    "code": set_obj.code,
-                    "name": set_obj.name,
-                    "type": set_obj.type,
-                    "release_date": set_obj.release_date,
-                    "base_set_size": set_obj.base_set_size,
-                    "total_set_size": set_obj.total_set_size,
-                    "block": set_obj.block,
-                    "keyrune_code": set_obj.keyrune_code,
-                    "in_collection": True,
-                }
-            )
-
-        return sets, total
-
-    def _list_reference_sets(
-        self,
-        session: Session,
-        q: str | None = None,
-        set_type: str | None = None,
-        block: str | None = None,
-        sort: str = "release_date",
-        order: str = "desc",
-        page: int = 1,
-        limit: int = 50,
-    ) -> tuple[list[dict], int]:
-        """List reference sets using direct SQL queries."""
-        from mtgsim.reference import ref_db
-
-        # Build WHERE conditions
-        conditions = []
-        params = []
-
-        if q:
-            conditions.append("(name LIKE ? OR code LIKE ?)")
-            params.extend([f"%{q}%", f"%{q}%"])
-
-        if set_type:
-            conditions.append("type = ?")
-            params.append(set_type)
-
-        if block:
-            conditions.append("block = ?")
-            params.append(block)
-
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-
-        # Get total count
-        count_query = f"SELECT COUNT(*) FROM sets WHERE {where_clause}"
-        cursor = ref_db.conn.execute(count_query, params)
-        total = cursor.fetchone()[0]
-
-        # Build sort clause
-        sort_map = {
-            "name": "name",
-            "release_date": "releaseDate",
-            "code": "code",
-            "size": "totalSetSize",
-        }
-        sort_field = sort_map.get(sort, "releaseDate")
-        order_clause = f"ORDER BY {sort_field} {'DESC' if order == 'desc' else 'ASC'}"
-
-        # Apply pagination
-        offset = (page - 1) * limit
-        limit_clause = f"LIMIT {limit} OFFSET {offset}"
-
-        # Execute main query
-        query = f"""
-            SELECT code, name, type, releaseDate, baseSetSize, totalSetSize, block, keyruneCode
-            FROM sets
-            WHERE {where_clause}
-            {order_clause}
-            {limit_clause}
-        """
-
-        cursor = ref_db.conn.execute(query, params)
-        results = cursor.fetchall()
-
-        # Convert to API format
-        sets = []
-        for row in results:
-            set_dict = {
-                "code": row["code"],
-                "name": row["name"],
-                "type": row["type"],
-                "release_date": row["releaseDate"],
-                "base_set_size": row["baseSetSize"],
-                "total_set_size": row["totalSetSize"],
-                "block": row["block"],
-                "keyrune_code": row["keyruneCode"],
-                "in_collection": False,  # Reference sets are not in collection
+            # Sorting
+            sort_map = {
+                "name": MJSet.name,
+                "release_date": MJSet.release_date,
+                "code": MJSet.code,
+                "size": MJSet.total_set_size,
             }
-            sets.append(set_dict)
+            sort_field = sort_map.get(sort, MJSet.release_date)
 
-        return sets, total
-
-    def _list_combined_sets(
-        self,
-        session: Session,
-        q: str | None = None,
-        set_type: str | None = None,
-        block: str | None = None,
-        sort: str = "release_date",
-        order: str = "desc",
-        page: int = 1,
-        limit: int = 50,
-    ) -> tuple[list[dict], int]:
-        """List both domain and reference sets."""
-        # Get domain sets first
-        domain_sets, _ = self._list_domain_sets(session, q, set_type, block, sort, order, 1, 1000)
-
-        # Get reference sets, excluding those already in domain
-        domain_codes = {s["code"] for s in domain_sets}
-
-        ref_query = select(MTGJsonSet)
-        if domain_codes:
-            ref_query = ref_query.where(MTGJsonSet.code.not_in(domain_codes))
-
-        # Apply same filters to reference query
-        if q:
-            ref_query = ref_query.where((MTGJsonSet.name.contains(q)) | (MTGJsonSet.code.contains(q)))
-
-        if set_type:
-            ref_query = ref_query.where(MTGJsonSet.type == set_type)
-
-        if block:
-            ref_query = ref_query.where(MTGJsonSet.block == block)
-
-        ref_results = session.exec(ref_query).all()
-
-        # Convert reference sets to dict format
-        ref_sets = []
-        for set_obj in ref_results:
-            ref_sets.append(
-                {
-                    "code": set_obj.code,
-                    "name": set_obj.name,
-                    "type": set_obj.type,
-                    "release_date": set_obj.release_date,
-                    "base_set_size": set_obj.base_set_size,
-                    "total_set_size": set_obj.total_set_size,
-                    "block": set_obj.block,
-                    "keyrune_code": set_obj.keyrune_code,
-                    "in_collection": False,
-                }
-            )
-
-        # Combine and sort all sets
-        all_sets = domain_sets + ref_sets
-
-        # Apply sorting to combined results
-        sort_key_map = {
-            "name": lambda x: x["name"] or "",
-            "release_date": lambda x: x["release_date"] or "",
-            "code": lambda x: x["code"] or "",
-            "size": lambda x: x["total_set_size"] or 0,
-        }
-        sort_key = sort_key_map.get(sort, sort_key_map["release_date"])
-
-        all_sets.sort(key=sort_key, reverse=(order == "desc"))
-
-        # Apply pagination to combined results
-        total = len(all_sets)
-        offset = (page - 1) * limit
-        paginated_sets = all_sets[offset : offset + limit]
-
-        return paginated_sets, total
-
-    def get_set(self, code: str, scope: str = "user") -> dict | None:
-        """Get set metadata by code from domain database."""
-        try:
-            with get_domain_session() as session:
-                if scope == "reference":
-                    return self._get_reference_set(session, code)
-                elif scope == "combined":
-                    # Try domain first, then reference
-                    set_data = self._get_domain_set(session, code)
-                    if set_data:
-                        return set_data
-                    return self._get_reference_set(session, code)
-                else:  # scope == "user" (default)
-                    return self._get_domain_set(session, code)
-        except Exception as e:
-            # Maintain backward compatibility - if domain database fails, return None
-            if "no such table" in str(e).lower() or "database" in str(e).lower():
-                return None
+            if order == "desc":
+                query = query.order_by(sort_field.desc())
             else:
-                # Re-raise unexpected errors
-                raise
+                query = query.order_by(sort_field.asc())
 
-    def _get_domain_set(self, session: Session, code: str) -> dict | None:
-        """Get domain set metadata by code."""
-        query = select(DomainSet).where(DomainSet.code == code)
-        set_obj = session.exec(query).first()
+            # Pagination
+            offset = (page - 1) * limit
+            query = query.offset(offset).limit(limit)
 
-        if not set_obj:
-            return None
+            # Execute
+            results = session.exec(query).all()
+
+            # Convert to API format with collection stats
+            sets = []
+            for mj_set in results:
+                collection_stats = self._get_set_collection_stats(session, mj_set.code)
+
+                # Filter by has_owned_cards if specified
+                if has_owned_cards is True and collection_stats["owned_cards"] == 0:
+                    total -= 1
+                    continue
+                elif has_owned_cards is False and collection_stats["owned_cards"] > 0:
+                    total -= 1
+                    continue
+
+                sets.append(set_to_api_dict(mj_set, collection_stats))
+
+            return sets, total
+
+    def _get_set_collection_stats(self, session, set_code: str) -> dict:
+        """Get collection statistics for a set."""
+        # Total cards in set
+        total_query = select(func.count(MJCard.uuid)).where(MJCard.set_code == set_code)
+        total_cards = session.exec(total_query).first() or 0
+
+        # Owned cards
+        owned_query = (
+            select(func.count(MJCard.uuid))
+            .join(UserCard, MJCard.uuid == UserCard.card_uuid)
+            .where(MJCard.set_code == set_code)
+            .where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+        )
+        owned_cards = session.exec(owned_query).first() or 0
+
+        # Wanted cards
+        wanted_query = (
+            select(func.count(MJCard.uuid))
+            .join(UserCard, MJCard.uuid == UserCard.card_uuid)
+            .where(MJCard.set_code == set_code)
+            .where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
+        )
+        wanted_cards = session.exec(wanted_query).first() or 0
+
+        owned_percentage = round((owned_cards / total_cards * 100), 1) if total_cards > 0 else 0
 
         return {
-            "code": set_obj.code,
-            "name": set_obj.name,
-            "type": set_obj.type,
-            "release_date": set_obj.release_date,
-            "base_set_size": set_obj.base_set_size,
-            "total_set_size": set_obj.total_set_size,
-            "block": set_obj.block,
-            "keyrune_code": set_obj.keyrune_code,
-            "is_foil_only": set_obj.is_foil_only,
-            "is_online_only": set_obj.is_online_only,
-            "mtgo_code": set_obj.mtgo_code,
-            "tcgplayer_group_id": set_obj.tcgplayer_group_id,
-            "cardmarket_id": set_obj.cardmarket_id,
-            "languages": set_obj.languages,
-            "translations": set_obj.translations,
-            "in_collection": True,
+            "total_cards": total_cards,
+            "owned_cards": owned_cards,
+            "owned_percentage": owned_percentage,
+            "wanted_cards": wanted_cards,
         }
 
-    def _get_reference_set(self, session: Session, code: str) -> dict | None:
-        """Get reference set metadata by code using direct SQL query."""
-        from mtgsim.reference import ref_db
+    def get_set(self, code: str) -> dict | None:
+        """Get set metadata with collection stats."""
+        with get_session() as session:
+            query = select(MJSet).where(MJSet.code == code)
+            mj_set = session.exec(query).first()
 
-        query = """
-            SELECT code, name, type, releaseDate, baseSetSize, totalSetSize, block,
-                   keyruneCode, isFoilOnly, isOnlineOnly, mtgoCode, tcgplayerGroupId,
-                   languages
-            FROM sets
-            WHERE code = ?
-        """
+            if not mj_set:
+                return None
 
-        cursor = ref_db.conn.execute(query, [code])
-        row = cursor.fetchone()
-
-        if not row:
-            return None
-
-        return {
-            "code": row["code"],
-            "name": row["name"],
-            "type": row["type"],
-            "release_date": row["releaseDate"],
-            "base_set_size": row["baseSetSize"],
-            "total_set_size": row["totalSetSize"],
-            "block": row["block"],
-            "keyrune_code": row["keyruneCode"],
-            "is_foil_only": bool(row["isFoilOnly"]),
-            "is_online_only": bool(row["isOnlineOnly"]),
-            "mtgo_code": row["mtgoCode"],
-            "tcgplayer_group_id": row["tcgplayerGroupId"],
-            "cardmarket_id": None,  # Not available in this schema
-            "languages": self._parse_json(row["languages"], []),
-            "translations": {},  # Not available in this schema
-            "in_collection": False,
-        }
+            collection_stats = self._get_set_collection_stats(session, code)
+            return set_to_api_dict(mj_set, collection_stats)
 
     def get_set_cards(
         self,
@@ -366,389 +145,180 @@ class SetsData:
         rarity: str | None = None,
         color: str | None = None,
         card_type: str | None = None,
+        owns: bool | None = None,
+        wants: bool | None = None,
+        sort: str = "number",
+        order: str = "asc",
         page: int = 1,
         limit: int = 50,
-        scope: str = "user",
     ) -> tuple[list[dict], int]:
         """
-        Get cards in a set with filtering and pagination using domain database.
+        Get cards in a set with filtering and collection status.
 
         Returns: (list of cards, total count)
         """
-        with get_domain_session() as session:
-            if scope == "reference":
-                return self._get_reference_set_cards(session, code, rarity, color, card_type, page, limit)
-            elif scope == "combined":
-                return self._get_combined_set_cards(session, code, rarity, color, card_type, page, limit)
-            else:  # scope == "user" (default)
-                return self._get_domain_set_cards(session, code, rarity, color, card_type, page, limit)
-
-    def _get_domain_set_cards(
-        self,
-        session: Session,
-        code: str,
-        rarity: str | None = None,
-        color: str | None = None,
-        card_type: str | None = None,
-        page: int = 1,
-        limit: int = 50,
-    ) -> tuple[list[dict], int]:
-        """Get cards in a domain set."""
-        query = select(DomainCard).where(DomainCard.set_code == code)
-
-        # Apply filters
-        if rarity:
-            query = query.where(DomainCard.rarity == rarity)
-
-        if color:
-            # Since color_identity is a property based on relationships, we need to join with color links
-            from mtgsim.db.domain_models import DomainCardColorLink
-
-            query = query.join(DomainCardColorLink, DomainCard.id == DomainCardColorLink.card_id).where(
-                DomainCardColorLink.color == color
+        with get_session() as session:
+            query = (
+                select(MJCard, MJCardIdentifier, UserCard)
+                .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+                .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
+                .where(MJCard.set_code == code)
             )
 
-        if card_type:
-            query = query.where(DomainCard.type_line.contains(card_type))
+            # Rarity filter
+            if rarity:
+                query = query.where(MJCard.rarity == rarity)
 
-        # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = session.exec(count_query).one()
+            # Color filter
+            if color:
+                query = query.where(func.json_extract(MJCard.color_identity, "$").contains(f'"{color}"'))
 
-        # Apply sorting by collector number
-        query = query.order_by(DomainCard.collector_number)
+            # Type filter
+            if card_type:
+                query = query.where(MJCard.type_line.contains(card_type))
 
-        # Apply pagination
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
+            # Ownership filter
+            if owns is True:
+                query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+            elif owns is False:
+                query = query.where(
+                    (UserCard.id.is_(None)) | ((UserCard.quantity_owned == 0) & (UserCard.quantity_owned_foil == 0))
+                )
 
-        # Execute query
-        results = session.exec(query).all()
+            # Wants filter
+            if wants is True:
+                query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
+            elif wants is False:
+                query = query.where(
+                    (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
+                )
 
-        # Convert to dict format for API compatibility
-        cards = []
-        for card in results:
-            cards.append(
-                {
-                    "uuid": card.uuid,
-                    "name": card.name,
-                    "mana_cost": card.mana_cost,
-                    "mana_value": card.mana_value,
-                    "type": card.type_line,
-                    "rarity": card.rarity,
-                    "color_identity": card.color_identity,
-                    "colors": card.colors,
-                    "power": card.power,
-                    "toughness": card.toughness,
-                    "number": card.collector_number,
-                    "text": card.oracle_text,
-                    "image_url": card.image_url or self._build_image_url(card.scryfall_id),
-                    "price": card.tcgplayer_price_usd,
-                    "in_collection": True,
+            # Count total before pagination
+            count_query = select(func.count()).select_from(query.subquery())
+            total = session.exec(count_query).one()
+
+            # Sorting
+            sort_map = {
+                "name": MJCard.name,
+                "number": MJCard.number,
+                "mana_value": MJCard.mana_value,
+                "rarity": MJCard.rarity,
+            }
+            sort_field = sort_map.get(sort, MJCard.number)
+
+            if order == "desc":
+                query = query.order_by(sort_field.desc())
+            else:
+                query = query.order_by(sort_field.asc())
+
+            # Pagination
+            offset = (page - 1) * limit
+            query = query.offset(offset).limit(limit)
+
+            # Execute
+            results = session.exec(query).all()
+
+            # Convert to API format
+            cards = []
+            for mj_card, identifier, user_card in results:
+                total_owned = 0
+                total_wanted = 0
+                if user_card:
+                    total_owned = (user_card.quantity_owned or 0) + (user_card.quantity_owned_foil or 0)
+                    total_wanted = (user_card.quantity_wanted or 0) + (user_card.quantity_wanted_foil or 0)
+
+                cards.append(
+                    {
+                        "uuid": mj_card.uuid,
+                        "name": mj_card.name,
+                        "mana_cost": mj_card.mana_cost,
+                        "mana_value": mj_card.mana_value,
+                        "type": mj_card.type_line,
+                        "rarity": mj_card.rarity,
+                        "color_identity": mj_card.color_identity or [],
+                        "colors": mj_card.colors or [],
+                        "power": mj_card.power,
+                        "toughness": mj_card.toughness,
+                        "number": mj_card.number,
+                        "oracle_text": mj_card.oracle_text,
+                        "image_url": build_image_url(identifier.scryfall_id if identifier else None),
+                        "owns": total_owned > 0,
+                        "wants": total_wanted > 0,
+                        "total_owned": total_owned,
+                        "total_wanted": total_wanted,
+                    }
+                )
+
+            return cards, total
+
+    def get_set_stats(self, code: str) -> dict:
+        """Calculate statistics for a set."""
+        with get_session() as session:
+            cards_query = select(MJCard).where(MJCard.set_code == code)
+            cards = session.exec(cards_query).all()
+
+            if not cards:
+                return {
+                    "rarity_count": {},
+                    "color_distribution": {},
+                    "type_distribution": {},
+                    "mana_curve": {},
                 }
-            )
 
-        return cards, total
+            # Rarity distribution
+            rarity_count = {}
+            for card in cards:
+                rarity = card.rarity or "unknown"
+                rarity_count[rarity] = rarity_count.get(rarity, 0) + 1
 
-    def _get_reference_set_cards(
-        self,
-        session: Session,
-        code: str,
-        rarity: str | None = None,
-        color: str | None = None,
-        card_type: str | None = None,
-        page: int = 1,
-        limit: int = 50,
-    ) -> tuple[list[dict], int]:
-        """Get cards in a reference set."""
-        query = select(MTGJsonCard).where(MTGJsonCard.set_code == code)
+            # Color distribution
+            color_count = {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "C": 0}
+            for card in cards:
+                colors = card.color_identity or []
+                if not colors:
+                    color_count["C"] += 1
+                else:
+                    for c in colors:
+                        if c in color_count:
+                            color_count[c] += 1
 
-        # Apply filters
-        if rarity:
-            query = query.where(MTGJsonCard.rarity == rarity)
+            # Type distribution
+            type_count = {}
+            for card in cards:
+                types = card.types or []
+                for t in types:
+                    type_count[t] = type_count.get(t, 0) + 1
 
-        if color:
-            query = query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
+            # Mana curve
+            mana_curve = {}
+            for card in cards:
+                mv = card.mana_value
+                if mv is None:
+                    key = "X"
+                elif mv >= 7:
+                    key = "7+"
+                else:
+                    key = str(int(mv))
+                mana_curve[key] = mana_curve.get(key, 0) + 1
 
-        if card_type:
-            query = query.where(MTGJsonCard.type.contains(card_type))
-
-        # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = session.exec(count_query).one()
-
-        # Apply sorting by collector number
-        query = query.order_by(MTGJsonCard.number)
-
-        # Apply pagination
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
-
-        # Execute query
-        results = session.exec(query).all()
-
-        # Convert to dict format for API compatibility
-        cards = []
-        for card in results:
-            cards.append(
-                {
-                    "uuid": card.uuid,
-                    "name": card.name,
-                    "mana_cost": card.mana_cost,
-                    "mana_value": card.mana_value,
-                    "type": card.type,
-                    "rarity": card.rarity,
-                    "color_identity": card.color_identity,
-                    "colors": card.colors,
-                    "power": card.power,
-                    "toughness": card.toughness,
-                    "number": card.number,
-                    "text": card.oracle_text or card.text,
-                    "image_url": self._build_image_url(card.scryfall_id),
-                    "price": None,  # No pricing for reference cards
-                    "in_collection": False,
-                }
-            )
-
-        return cards, total
-
-    def _get_combined_set_cards(
-        self,
-        session: Session,
-        code: str,
-        rarity: str | None = None,
-        color: str | None = None,
-        card_type: str | None = None,
-        page: int = 1,
-        limit: int = 50,
-    ) -> tuple[list[dict], int]:
-        """Get cards from both domain and reference sets."""
-        # Get domain cards first
-        domain_cards, _ = self._get_domain_set_cards(session, code, rarity, color, card_type, 1, 1000)
-
-        # Get reference cards, excluding those already in domain
-        domain_uuids = {card["uuid"] for card in domain_cards}
-
-        ref_query = select(MTGJsonCard).where(MTGJsonCard.set_code == code)
-        if domain_uuids:
-            ref_query = ref_query.where(MTGJsonCard.uuid.not_in(domain_uuids))
-
-        # Apply same filters to reference query
-        if rarity:
-            ref_query = ref_query.where(MTGJsonCard.rarity == rarity)
-
-        if color:
-            ref_query = ref_query.where(func.json_extract(MTGJsonCard.color_identity, "$").contains(f'"{color}"'))
-
-        if card_type:
-            ref_query = ref_query.where(MTGJsonCard.type.contains(card_type))
-
-        ref_results = session.exec(ref_query).all()
-
-        # Convert reference cards to dict format
-        ref_cards = []
-        for card in ref_results:
-            ref_cards.append(
-                {
-                    "uuid": card.uuid,
-                    "name": card.name,
-                    "mana_cost": card.mana_cost,
-                    "mana_value": card.mana_value,
-                    "type": card.type,
-                    "rarity": card.rarity,
-                    "color_identity": card.color_identity,
-                    "colors": card.colors,
-                    "power": card.power,
-                    "toughness": card.toughness,
-                    "number": card.number,
-                    "text": card.oracle_text or card.text,
-                    "image_url": self._build_image_url(card.scryfall_id),
-                    "price": None,
-                    "in_collection": False,
-                }
-            )
-
-        # Combine and sort all cards by collector number
-        all_cards = domain_cards + ref_cards
-        all_cards.sort(key=lambda x: (x["number"] or ""))
-
-        # Apply pagination to combined results
-        total = len(all_cards)
-        offset = (page - 1) * limit
-        paginated_cards = all_cards[offset : offset + limit]
-
-        return paginated_cards, total
-
-    def _build_image_url(self, scryfall_id: str | None) -> str | None:
-        """Build Scryfall image URL from scryfall_id."""
-        if not scryfall_id:
-            return None
-        return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
-
-    def get_set_stats(self, code: str, scope: str = "user") -> dict:
-        """Calculate statistics for a set using domain database."""
-        with get_domain_session() as session:
-            if scope == "reference":
-                return self._get_reference_set_stats(session, code)
-            elif scope == "combined":
-                return self._get_combined_set_stats(session, code)
-            else:  # scope == "user" (default)
-                return self._get_domain_set_stats(session, code)
-
-    def _get_domain_set_stats(self, session: Session, code: str) -> dict:
-        """Calculate statistics for a domain set."""
-        # Check if set has precomputed stats
-        set_query = select(DomainSet).where(DomainSet.code == code)
-        set_obj = session.exec(set_query).first()
-
-        if set_obj and set_obj.card_count_by_rarity:
             return {
-                "rarity_count": set_obj.card_count_by_rarity,
-                "color_distribution": set_obj.color_distribution,
-                "type_distribution": {},  # TODO: Add to domain model
-                "keywords": {},  # TODO: Add to domain model
-                "total_price": set_obj.total_price_usd,
+                "rarity_count": rarity_count,
+                "color_distribution": color_count,
+                "type_distribution": type_count,
+                "mana_curve": mana_curve,
             }
 
-        # Calculate stats on the fly
-        cards_query = select(DomainCard).where(DomainCard.set_code == code)
-        cards = session.exec(cards_query).all()
-
-        # Rarity distribution
-        rarity_count = {}
-        for card in cards:
-            rarity_count[card.rarity] = rarity_count.get(card.rarity, 0) + 1
-
-        # Color distribution
-        color_count = {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "C": 0}
-        for card in cards:
-            colors = card.color_identity
-            if not colors:
-                color_count["C"] += 1
-            else:
-                for c in colors:
-                    if c in color_count:
-                        color_count[c] += 1
-
-        # Type distribution
-        type_count = {}
-        for card in cards:
-            types = card.type_list
-            for t in types:
-                type_count[t] = type_count.get(t, 0) + 1
-
-        # Calculate total set price
-        total_price = sum(card.tcgplayer_price_usd or 0 for card in cards)
-
-        return {
-            "rarity_count": rarity_count,
-            "color_distribution": color_count,
-            "type_distribution": type_count,
-            "keywords": {},  # TODO: Add keywords support
-            "total_price": round(total_price, 2) if total_price > 0 else None,
-        }
-
-    def _get_reference_set_stats(self, session: Session, code: str) -> dict:
-        """Calculate statistics for a reference set."""
-        cards_query = select(MTGJsonCard).where(MTGJsonCard.set_code == code)
-        cards = session.exec(cards_query).all()
-
-        # Rarity distribution
-        rarity_count = {}
-        for card in cards:
-            rarity_count[card.rarity] = rarity_count.get(card.rarity, 0) + 1
-
-        # Color distribution
-        color_count = {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "C": 0}
-        for card in cards:
-            colors = card.color_identity
-            if not colors:
-                color_count["C"] += 1
-            else:
-                for c in colors:
-                    if c in color_count:
-                        color_count[c] += 1
-
-        # Type distribution
-        type_count = {}
-        for card in cards:
-            types = card.types
-            for t in types:
-                type_count[t] = type_count.get(t, 0) + 1
-
-        # Keywords
-        keyword_count = {}
-        for card in cards:
-            keywords = card.keywords
-            for k in keywords:
-                keyword_count[k] = keyword_count.get(k, 0) + 1
-
-        return {
-            "rarity_count": rarity_count,
-            "color_distribution": color_count,
-            "type_distribution": type_count,
-            "keywords": keyword_count,
-            "total_price": None,  # No pricing for reference sets
-        }
-
-    def _get_combined_set_stats(self, session: Session, code: str) -> dict:
-        """Calculate statistics for combined domain and reference sets."""
-        # For combined stats, prioritize domain stats if available
-        domain_stats = self._get_domain_set_stats(session, code)
-        ref_stats = self._get_reference_set_stats(session, code)
-
-        # Merge stats (domain takes precedence)
-        combined_stats = {
-            "rarity_count": {**ref_stats["rarity_count"], **domain_stats["rarity_count"]},
-            "color_distribution": {**ref_stats["color_distribution"], **domain_stats["color_distribution"]},
-            "type_distribution": {**ref_stats["type_distribution"], **domain_stats["type_distribution"]},
-            "keywords": ref_stats["keywords"],  # Use reference keywords
-            "total_price": domain_stats["total_price"],  # Use domain pricing
-        }
-
-        return combined_stats
-
-    def get_available_types(self, scope: str = "user") -> list[str]:
-        """Get list of unique set types from domain database."""
-        with get_domain_session() as session:
-            if scope == "reference":
-                query = select(MTGJsonSet.type).distinct().order_by(MTGJsonSet.type)
-            elif scope == "combined":
-                # Get both domain and reference types
-                domain_query = select(DomainSet.type).distinct()
-                ref_query = select(MTGJsonSet.type).distinct()
-
-                domain_types = set(session.exec(domain_query).all())
-                ref_types = set(session.exec(ref_query).all())
-
-                all_types = sorted(domain_types.union(ref_types))
-                return [t for t in all_types if t]
-            else:  # scope == "user" (default)
-                query = select(DomainSet.type).distinct().order_by(DomainSet.type)
-
+    def get_available_types(self) -> list[str]:
+        """Get list of unique set types."""
+        with get_session() as session:
+            query = select(MJSet.type).distinct().where(MJSet.type.is_not(None)).order_by(MJSet.type)
             results = session.exec(query).all()
             return [t for t in results if t]
 
-    def get_available_blocks(self, scope: str = "user") -> list[str]:
-        """Get list of unique blocks from domain database."""
-        with get_domain_session() as session:
-            if scope == "reference":
-                query = (
-                    select(MTGJsonSet.block).distinct().where(MTGJsonSet.block.is_not(None)).order_by(MTGJsonSet.block)
-                )
-            elif scope == "combined":
-                # Get both domain and reference blocks
-                domain_query = select(DomainSet.block).distinct().where(DomainSet.block.is_not(None))
-                ref_query = select(MTGJsonSet.block).distinct().where(MTGJsonSet.block.is_not(None))
-
-                domain_blocks = set(session.exec(domain_query).all())
-                ref_blocks = set(session.exec(ref_query).all())
-
-                all_blocks = sorted(domain_blocks.union(ref_blocks))
-                return [b for b in all_blocks if b]
-            else:  # scope == "user" (default)
-                query = select(DomainSet.block).distinct().where(DomainSet.block.is_not(None)).order_by(DomainSet.block)
-
+    def get_available_blocks(self) -> list[str]:
+        """Get list of unique blocks."""
+        with get_session() as session:
+            query = select(MJSet.block).distinct().where(MJSet.block.is_not(None)).order_by(MJSet.block)
             results = session.exec(query).all()
             return [b for b in results if b]
 

@@ -57,3 +57,23 @@ class KeywordCounts(BaseModel):
     ability_words: dict[str, int] = Field(default_factory=dict)
     keyword_abilities: dict[str, int] = Field(default_factory=dict)
     keyword_actions: dict[str, int] = Field(default_factory=dict)
+
+
+class CollectionStatus(BaseModel):
+    """User's collection status for an item."""
+
+    owns: bool = False
+    wants: bool = False
+    total_owned: int = 0
+    total_wanted: int = 0
+
+
+class CollectionDetail(BaseModel):
+    """Detailed collection quantities."""
+
+    quantity_owned: int = 0
+    quantity_owned_foil: int = 0
+    quantity_wanted: int = 0
+    quantity_wanted_foil: int = 0
+    condition: str | None = None
+    notes: str | None = None

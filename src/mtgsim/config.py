@@ -7,24 +7,15 @@ MTGSIM_HOME = Path.home() / ".mtgsim"
 REFERENCE_DIR = MTGSIM_HOME / "reference"
 MTGJSON_DIR = REFERENCE_DIR / "mtgjson"
 
-# Unified database (new single database)
+# Unified database (single database for all data)
 DB_PATH = MTGSIM_HOME / "mtgsim.sqlite"
 
-# Legacy paths (for migration, to be removed later)
-USER_DB_PATH = MTGSIM_HOME / "mtgsim.db"  # Legacy user database
-DOMAIN_DIR = MTGSIM_HOME / "domain"
-DOMAIN_DB_PATH = DOMAIN_DIR / "mtgsim.sqlite"  # Legacy domain database
+# Legacy aliases (all point to unified DB for backwards compatibility)
+USER_DB_PATH = DB_PATH
+DOMAIN_DB_PATH = DB_PATH
+MERGED_DB_PATH = DB_PATH
 
-# Merged reference database (all tables in one file)
-MERGED_DB_PATH = MTGJSON_DIR / "mtgjson-merged.sqlite"
-
-# Legacy individual database paths (deprecated, use MERGED_DB_PATH)
-ALLSETS_DB_PATH = MERGED_DB_PATH
-ALLDECKS_DB_PATH = MERGED_DB_PATH
-ALLPRICES_DB_PATH = MERGED_DB_PATH
-ALLPRINTINGS_DB_PATH = MERGED_DB_PATH
-
-# Deck files directory
+# Deck files directory (extracted from AllDeckFiles.tar.xz)
 ALL_DECK_FILES_DIR = MTGJSON_DIR / "AllDeckFiles"
 
 # MTGJSON API URLs
@@ -64,4 +55,3 @@ def ensure_dirs() -> None:
     MTGSIM_HOME.mkdir(parents=True, exist_ok=True)
     REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
     MTGJSON_DIR.mkdir(parents=True, exist_ok=True)
-    DOMAIN_DIR.mkdir(parents=True, exist_ok=True)
