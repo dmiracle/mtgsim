@@ -929,6 +929,43 @@
             display: none;
         }
         .json-collapsed + .json-ellipsis { display: inline; }
+        .deck-card-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #1a1a2e;
+            border-radius: 5px;
+        }
+        .deck-card-filters input {
+            padding: 6px 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background: #16213e;
+            color: #eee;
+            font-size: 13px;
+            flex: 1;
+            min-width: 150px;
+        }
+        .deck-card-filters select {
+            padding: 6px 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background: #16213e;
+            color: #eee;
+            font-size: 13px;
+        }
+        .deck-card-filters label {
+            font-size: 0.75rem;
+            color: #888;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .deck-card-filters .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
     </style>
 </head>
 <body>
@@ -1145,6 +1182,7 @@
         let cardDataMap = {};
         let priceData = null;
         let keywordsData = null;
+        let currentDeckData = null;
 
 
         async function loadKeywords() {
@@ -3246,10 +3284,55 @@
 
         function renderDeck(deckData) {
             cardDataMap = {};
+            currentDeckData = deckData;
             const data = deckData.data;
             const mainContent = document.getElementById('mainContent');
             const stats = calculateDeckStats(data);
 
+            const filterControls = `
+                <div class="deck-card-filters">
+                    <div class="filter-group">
+                        <label>Search</label>
+                        <input type="text" id="deckCardSearch" placeholder="Card name..." oninput="applyDeckCardFilters()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Type</label>
+                        <select id="deckCardTypeFilter" onchange="applyDeckCardFilters()">
+                            <option value="">All Types</option>
+                            <option value="Creature">Creature</option>
+                            <option value="Instant">Instant</option>
+                            <option value="Sorcery">Sorcery</option>
+                            <option value="Artifact">Artifact</option>
+                            <option value="Enchantment">Enchantment</option>
+                            <option value="Planeswalker">Planeswalker</option>
+                            <option value="Land">Land</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Rarity</label>
+                        <select id="deckCardRarityFilter" onchange="applyDeckCardFilters()">
+                            <option value="">All Rarities</option>
+                            <option value="mythic">Mythic</option>
+                            <option value="rare">Rare</option>
+                            <option value="uncommon">Uncommon</option>
+                            <option value="common">Common</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sort By</label>
+                        <select id="deckCardSort" onchange="applyDeckCardFilters()">
+                            <option value="name">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                            <option value="mana-asc">Mana Value (Low)</option>
+                            <option value="mana-desc">Mana Value (High)</option>
+                            <option value="price-asc">Price (Low)</option>
+                            <option value="price-desc">Price (High)</option>
+                            <option value="type">Type</option>
+                            <option value="rarity">Rarity</option>
+                        </select>
+                    </div>
+                </div>
+            `;
 
             let html = `
                 <div class="deck-header">
@@ -3260,14 +3343,15 @@
                     </div>
                 </div>
                 ${renderDeckStats(stats)}
+                ${filterControls}
             `;
 
 
             if (data.commander && data.commander.length > 0) {
                 html += `
-                    <div class="section">
-                        <h3>Commander (${data.commander.length})</h3>
-                        <div class="cards-grid">
+                    <div class="section" id="section-commander">
+                        <h3>Commander (<span id="commander-count">${data.commander.length}</span>)</h3>
+                        <div class="cards-grid" id="cards-commander">
                             ${data.commander.map(card => renderCard(card)).join('')}
                         </div>
                     </div>
@@ -3277,9 +3361,9 @@
 
             if (data.mainBoard && data.mainBoard.length > 0) {
                 html += `
-                    <div class="section">
-                        <h3>Main Board (${data.mainBoard.reduce((sum, c) => sum + (c.count || 1), 0)} cards)</h3>
-                        <div class="cards-grid">
+                    <div class="section" id="section-mainBoard">
+                        <h3>Main Board (<span id="mainBoard-count">${data.mainBoard.reduce((sum, c) => sum + (c.count || 1), 0)}</span> cards)</h3>
+                        <div class="cards-grid" id="cards-mainBoard">
                             ${data.mainBoard.map(card => renderCard(card)).join('')}
                         </div>
                     </div>
@@ -3289,9 +3373,9 @@
 
             if (data.sideBoard && data.sideBoard.length > 0) {
                 html += `
-                    <div class="section">
-                        <h3>Sideboard (${data.sideBoard.reduce((sum, c) => sum + (c.count || 1), 0)} cards)</h3>
-                        <div class="cards-grid">
+                    <div class="section" id="section-sideBoard">
+                        <h3>Sideboard (<span id="sideBoard-count">${data.sideBoard.reduce((sum, c) => sum + (c.count || 1), 0)}</span> cards)</h3>
+                        <div class="cards-grid" id="cards-sideBoard">
                             ${data.sideBoard.map(card => renderCard(card)).join('')}
                         </div>
                     </div>
@@ -3306,6 +3390,82 @@
             renderKeywordCloud('#ability-wordcloud', stats.abilityWords, 200, 100);
             renderKeywordCloud('#keyword-ability-wordcloud', stats.keywordAbilities, 200, 100);
             renderKeywordCloud('#keyword-action-wordcloud', stats.keywordActions, 200, 100);
+        }
+
+
+        function applyDeckCardFilters() {
+            if (!currentDeckData) return;
+
+            const searchQuery = (document.getElementById('deckCardSearch')?.value || '').toLowerCase();
+            const typeFilter = document.getElementById('deckCardTypeFilter')?.value || '';
+            const rarityFilter = document.getElementById('deckCardRarityFilter')?.value || '';
+            const sortBy = document.getElementById('deckCardSort')?.value || 'name';
+
+            const rarityOrder = { mythic: 0, rare: 1, uncommon: 2, common: 3 };
+
+            function filterAndSortCards(cards) {
+                let filtered = cards.filter(card => {
+                    if (searchQuery && !card.name.toLowerCase().includes(searchQuery)) return false;
+                    if (typeFilter && !(card.type || '').includes(typeFilter)) return false;
+                    if (rarityFilter && (card.rarity || '').toLowerCase() !== rarityFilter) return false;
+                    return true;
+                });
+
+                filtered.sort((a, b) => {
+                    switch (sortBy) {
+                        case 'name':
+                            return a.name.localeCompare(b.name);
+                        case 'name-desc':
+                            return b.name.localeCompare(a.name);
+                        case 'mana-asc':
+                            return (a.manaValue || 0) - (b.manaValue || 0);
+                        case 'mana-desc':
+                            return (b.manaValue || 0) - (a.manaValue || 0);
+                        case 'price-asc':
+                        case 'price-desc':
+                            const priceA = getCardPriceValue(a.uuid);
+                            const priceB = getCardPriceValue(b.uuid);
+                            return sortBy === 'price-asc' ? priceA - priceB : priceB - priceA;
+                        case 'type':
+                            return (a.type || '').localeCompare(b.type || '');
+                        case 'rarity':
+                            return (rarityOrder[(a.rarity || 'common').toLowerCase()] || 3) -
+                                   (rarityOrder[(b.rarity || 'common').toLowerCase()] || 3);
+                        default:
+                            return 0;
+                    }
+                });
+
+                return filtered;
+            }
+
+            const data = currentDeckData.data;
+            const boards = ['commander', 'mainBoard', 'sideBoard'];
+
+            boards.forEach(board => {
+                const cards = data[board];
+                if (!cards || cards.length === 0) return;
+
+                const container = document.getElementById(`cards-${board}`);
+                const countSpan = document.getElementById(`${board}-count`);
+                if (!container) return;
+
+                const filtered = filterAndSortCards(cards);
+                container.innerHTML = filtered.map(card => renderCard(card)).join('');
+
+                if (countSpan) {
+                    const totalCount = filtered.reduce((sum, c) => sum + (c.count || 1), 0);
+                    countSpan.textContent = totalCount;
+                }
+            });
+        }
+
+
+        function getCardPriceValue(uuid) {
+            const price = getCardPrice(uuid);
+            if (!price || !price.sources || price.sources.length === 0) return 0;
+            const paperSource = price.sources.find(s => s.type === 'paper');
+            return paperSource?.price || 0;
         }
 
 
