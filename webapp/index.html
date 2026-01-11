@@ -1183,6 +1183,7 @@
         let priceData = null;
         let keywordsData = null;
         let currentDeckData = null;
+        let corpusWordFreq = null;
 
 
         async function loadKeywords() {
@@ -1206,6 +1207,22 @@
                 updateDeckPrices();
             } catch (error) {
                 console.log('Price data not available');
+            }
+        }
+
+
+        async function loadCorpusWordFreq() {
+            try {
+                const response = await fetch('/api/stats/corpus-wordfreq');
+                corpusWordFreq = await response.json();
+                console.log('Loaded corpus word frequencies:', corpusWordFreq.unique_words, 'unique words');
+                // If home screen is showing, render the wordcloud now
+                const wordcloudEl = document.querySelector('#corpus-wordcloud');
+                if (wordcloudEl && corpusWordFreq) {
+                    renderCorpusWordCloud('#corpus-wordcloud', corpusWordFreq.frequencies, 500, 200);
+                }
+            } catch (error) {
+                console.log('Corpus word frequencies not available');
             }
         }
 
@@ -2834,6 +2851,12 @@
                         <div id="home-price-histogram"></div>
                         ` : '<div class="home-no-data">Loading prices...</div>'}
                     </div>
+
+                    <div class="home-section">
+                        <h3>Corpus Rules Text</h3>
+                        <p style="color: #888; font-size: 0.8rem; margin-bottom: 10px;">Most common words across all ${corpusWordFreq ? corpusWordFreq.unique_words.toLocaleString() : '...'} unique words in card rules text</p>
+                        <div id="corpus-wordcloud"></div>
+                    </div>
                 </div>
             `;
 
@@ -2841,6 +2864,11 @@
             // Render D3 histogram for deck prices
             if (deckPriceValues.length > 0) {
                 renderHomePriceHistogram(deckPriceValues);
+            }
+
+            // Render corpus wordcloud
+            if (corpusWordFreq) {
+                renderCorpusWordCloud('#corpus-wordcloud', corpusWordFreq.frequencies, 500, 200);
             }
         }
 
@@ -3248,6 +3276,12 @@
 
 
                     <div class="stat-card stat-card-2col">
+                        <h4>Rules Text (Residue)</h4>
+                        <div id="text-residue-wordcloud"></div>
+                    </div>
+
+
+                    <div class="stat-card stat-card-2col">
                         <h4>Flavor Text</h4>
                         <div id="flavor-wordcloud"></div>
                     </div>
@@ -3386,6 +3420,7 @@
             mainContent.innerHTML = html;
             renderPriceHistogram(stats.cardPrices);
             renderWordCloud('#text-wordcloud', stats.allText, 420, 140);
+            renderWordCloud('#text-residue-wordcloud', generateResidueScaledText(stats.allText, 1000), 420, 140);
             renderWordCloud('#flavor-wordcloud', stats.allFlavorText, 420, 140);
             renderKeywordCloud('#ability-wordcloud', stats.abilityWords, 200, 100);
             renderKeywordCloud('#keyword-ability-wordcloud', stats.keywordAbilities, 200, 100);
@@ -3557,6 +3592,120 @@
                     .attr('transform', d => `translate(${d.x},${d.y})`)
                     .text(d => d.text);
             }
+        }
+
+
+        function renderCorpusWordCloud(selector, frequencies, width, height) {
+            const container = d3.select(selector);
+            container.selectAll('*').remove();
+
+            if (!frequencies || Object.keys(frequencies).length === 0) {
+                container.append('div').style('color', '#666').text('No corpus data');
+                return;
+            }
+
+            // Get top 100 words by frequency
+            const wordData = Object.entries(frequencies)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 100)
+                .map(([text, freq]) => ({ text, freq }));
+
+            const maxFreq = d3.max(wordData, d => d.freq);
+            const fontScale = d3.scaleLinear()
+                .domain([wordData[wordData.length - 1].freq, maxFreq])
+                .range([10, 28]);
+
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(wordData.map(d => ({ text: d.text, size: fontScale(d.freq), freq: d.freq })))
+                .padding(2)
+                .rotate(() => 0)
+                .font('sans-serif')
+                .fontSize(d => d.size)
+                .on('end', draw);
+
+            layout.start();
+
+            function draw(words) {
+                const svg = container.append('svg')
+                    .attr('viewBox', `0 0 ${width} ${height}`)
+                    .attr('preserveAspectRatio', 'xMidYMid meet')
+                    .style('width', '100%')
+                    .style('height', 'auto');
+
+                const g = svg.append('g')
+                    .attr('transform', `translate(${width/2},${height/2})`);
+
+                g.selectAll('text')
+                    .data(words)
+                    .join('text')
+                    .style('font-size', d => `${d.size}px`)
+                    .style('font-family', 'sans-serif')
+                    .style('fill', (d, i) => d3.schemeTableau10[i % 10])
+                    .attr('text-anchor', 'middle')
+                    .attr('transform', d => `translate(${d.x},${d.y})`)
+                    .text(d => d.text)
+                    .append('title')
+                    .text(d => `${d.text}: ${(d.freq * 100).toFixed(2)}%`);
+            }
+        }
+
+
+        function generateResidueScaledText(texts, targetWordCount = 1000) {
+            if (!texts || texts.length === 0 || !corpusWordFreq) {
+                return [];
+            }
+
+            const stopWords = new Set([
+                'a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'of', 'to', 'in', 'on', 'at', 'for',
+                'is', 'it', 'its', 'this', 'that', 'with', 'as', 'be', 'by', 'from', 'are', 'was', 'were',
+                'you', 'your', 'may', 'can', 'has', 'have', 'do', 'does', 'each', 'all', 'any', 'one',
+                'two', 'three', 'four', 'five', 'up', 'into', 'when', 'where', 'until', 'end', 'turn',
+                'would', 'could', 'they', 'their', 'them', 'he', 'she', 'his', 'her', 'who', 'which'
+            ]);
+
+            // Compute deck word frequencies
+            const deckCounts = {};
+            let deckTotal = 0;
+            texts.forEach(text => {
+                const words = text.toLowerCase()
+                    .replace(/[{}\(\)•—\-:;,."'!?]/g, ' ')
+                    .split(/\s+/)
+                    .filter(w => w.length > 2 && !stopWords.has(w) && !/^\d+$/.test(w));
+                words.forEach(word => {
+                    deckCounts[word] = (deckCounts[word] || 0) + 1;
+                    deckTotal++;
+                });
+            });
+
+            if (deckTotal === 0) return [];
+
+            // Compute residue for each word (exclude words appearing only once)
+            const corpusFreqs = corpusWordFreq.frequencies;
+            const residueData = [];
+
+            for (const [word, count] of Object.entries(deckCounts)) {
+                if (count < 2) continue; // Skip single-occurrence words
+                const deckFreq = count / deckTotal;
+                const corpusFreq = corpusFreqs[word] || 0.0000001;
+                const residue = deckFreq / corpusFreq;
+                residueData.push({ word, residue, count });
+            }
+
+            // Calculate total residue to normalize
+            const totalResidue = residueData.reduce((sum, d) => sum + d.residue, 0);
+
+            // Generate text with words repeated proportionally to their residue
+            const scaledWords = [];
+            for (const { word, residue } of residueData) {
+                const repeats = Math.round((residue / totalResidue) * targetWordCount);
+                for (let i = 0; i < repeats; i++) {
+                    scaledWords.push(word);
+                }
+            }
+
+            // Return as array of single-word strings for renderWordCloud
+            return scaledWords;
         }
 
 
@@ -3968,6 +4117,7 @@
         loadDeckIndex();
         loadKeywords();
         loadSetIndex();
+        loadCorpusWordFreq();
     </script>
 </body>
 </html>
