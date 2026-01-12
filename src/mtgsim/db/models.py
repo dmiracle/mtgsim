@@ -81,7 +81,6 @@ class MJCardIdentifier(SQLModel, table=True):
     tcgplayer_etched_product_id: str | None = None
 
     cardmarket_id: str | None = None
-    cardsphere_id: str | None = None
 
     mtgo_id: str | None = None
     mtgo_foil_id: str | None = None
@@ -176,6 +175,16 @@ class MJDeckCard(SQLModel, table=True):
     mana_value: float | None = None
     colors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     types: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+
+class MJKeyword(SQLModel, table=True):
+    """MTG keyword from MTGJSON Keywords.json."""
+
+    __tablename__ = "mj_keyword"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    type: str = Field(index=True)  # abilityWords, keywordAbilities, keywordActions
 
 
 # =============================================================================
