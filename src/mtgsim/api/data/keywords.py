@@ -1,6 +1,9 @@
 """Keywords data access layer."""
 
-from mtgsim.reference import ref_db
+from sqlmodel import func, select
+
+from mtgdb.models import MJKeyword
+from mtgdb.session import get_session
 
 
 class KeywordsData:
@@ -8,14 +11,9 @@ class KeywordsData:
 
     def _get_keywords_by_type(self, keyword_type: str) -> list[str]:
         """Get keywords of a specific type from database."""
-        if not ref_db.is_initialized():
-            return []
-
-        cursor = ref_db.conn.execute(
-            "SELECT keyword FROM keyword WHERE type = ? ORDER BY keyword",
-            [keyword_type],
-        )
-        return [row["keyword"] for row in cursor.fetchall()]
+        with get_session() as session:
+            query = select(MJKeyword.name).where(MJKeyword.type == keyword_type).order_by(MJKeyword.name)
+            return list(session.exec(query).all())
 
     def get_ability_words(self) -> list[str]:
         """Get all ability words."""
@@ -39,22 +37,17 @@ class KeywordsData:
 
     def search_keywords(self, query: str) -> list[dict]:
         """Search keywords by partial match."""
-        if not ref_db.is_initialized():
-            return []
-
-        cursor = ref_db.conn.execute(
-            "SELECT keyword, type FROM keyword WHERE keyword LIKE ? ORDER BY keyword",
-            [f"%{query}%"],
-        )
-        return [{"keyword": row["keyword"], "type": row["type"]} for row in cursor.fetchall()]
+        with get_session() as session:
+            q = select(MJKeyword.name, MJKeyword.type).where(MJKeyword.name.contains(query)).order_by(MJKeyword.name)
+            results = session.exec(q).all()
+            return [{"keyword": name, "type": kw_type} for name, kw_type in results]
 
     def get_keyword_count(self) -> dict[str, int]:
         """Get count of keywords by type."""
-        if not ref_db.is_initialized():
-            return {}
-
-        cursor = ref_db.conn.execute("SELECT type, COUNT(*) as count FROM keyword GROUP BY type")
-        return {row["type"]: row["count"] for row in cursor.fetchall()}
+        with get_session() as session:
+            query = select(MJKeyword.type, func.count()).group_by(MJKeyword.type)
+            results = session.exec(query).all()
+            return {kw_type: count for kw_type, count in results}
 
 
 # Singleton instance

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from sqlmodel import Session, delete
 
-from mtgsim.db.models import (
+from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
     MJCardLegality,
@@ -19,7 +19,7 @@ from mtgsim.db.models import (
     MJKeyword,
     MJSet,
 )
-from mtgsim.db.session import get_engine
+from mtgdb.session import get_engine
 
 logger = logging.getLogger(__name__)
 

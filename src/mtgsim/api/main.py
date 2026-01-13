@@ -1,11 +1,14 @@
 """FastAPI application for MTG Webapp REST API."""
 
+import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from mtgsim.api.data import close_databases, init_databases
 from mtgsim.api.models.common import ErrorDetail, ErrorResponse
@@ -19,19 +22,57 @@ from mtgsim.api.routers import (
 )
 from mtgsim.config import get_resources_dir, get_web_dir, get_webapp_dir
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("mtgsim.api")
+
+# Threshold in seconds for warning about slow responses
+SLOW_RESPONSE_THRESHOLD = 1.0
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log request timing and identify slow responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip logging for static files and health checks
+        path = request.url.path
+        if path.startswith(("/web", "/webapp", "/resources")) or path == "/health":
+            return await call_next(request)
+
+        start_time = time.perf_counter()
+        method = request.method
+        query = f"?{request.url.query}" if request.url.query else ""
+
+        response = await call_next(request)
+
+        duration = time.perf_counter() - start_time
+        duration_ms = duration * 1000
+        status = response.status_code
+
+        if duration >= SLOW_RESPONSE_THRESHOLD:
+            logger.warning(f"SLOW {method} {path}{query} -> {status} ({duration_ms:.0f}ms)")
+        else:
+            logger.info(f"{method} {path}{query} -> {status} ({duration_ms:.0f}ms)")
+
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
     # Startup
-    print("Starting MTG API server...")
+    logger.info("Starting MTG API server...")
     init_databases()
-    print("Database connections initialized")
+    logger.info("Database connections initialized")
 
     yield
 
     # Shutdown
-    print("Shutting down MTG API server...")
+    logger.info("Shutting down MTG API server...")
     close_databases()
 
 
@@ -67,6 +108,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
 
 
 # Exception handlers

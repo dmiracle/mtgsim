@@ -1,8 +1,12 @@
-"""Database models for mtgsim.
+"""MTG database models and MTGJSON sync.
 
-Re-exports from mtgdb.models package.
+This package provides:
+- SQLModel database models for MTG data (MJ* tables)
+- Session management for the unified database
+- MTGJSON sync functionality
 """
 
+from mtgdb.config import DB_PATH, MTGJSON_DIR
 from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
@@ -16,8 +20,11 @@ from mtgdb.models import (
     UserDeck,
     UserDeckCard,
 )
+from mtgdb.session import get_engine, get_session, init_db
 
 __all__ = [
+    "DB_PATH",
+    "MTGJSON_DIR",
     "MJCard",
     "MJCardIdentifier",
     "MJCardLegality",
@@ -29,4 +36,7 @@ __all__ = [
     "UserCard",
     "UserDeck",
     "UserDeckCard",
+    "get_engine",
+    "get_session",
+    "init_db",
 ]

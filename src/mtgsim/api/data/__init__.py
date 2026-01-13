@@ -4,7 +4,7 @@ All data access uses the unified database schema.
 Collection status is automatically included in responses.
 """
 
-from mtgsim.db.session import close_db, init_db
+from mtgdb.session import close_db, init_db
 
 from .cards import cards_data
 from .decks import decks_data

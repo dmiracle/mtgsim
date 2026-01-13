@@ -2,7 +2,7 @@
 
 import typer
 
-from mtgsim.config import DB_PATH
+from mtgdb.config import DB_PATH
 
 db_app = typer.Typer(help="Database operations")
 
@@ -16,7 +16,7 @@ def db_init():
     """
     import sqlite3
 
-    from mtgsim.db.session import init_db
+    from mtgdb.session import init_db
 
     init_db()
     typer.echo(f"Database initialized at {DB_PATH}")
@@ -53,7 +53,7 @@ def db_sync(
 
     By default syncs all data. Use flags to sync specific data types.
     """
-    from mtgsim.config import (
+    from mtgdb.config import (
         ALL_DECK_FILES_DIR,
         ALL_DECK_FILES_URL,
         ALL_PRICES_URL,
@@ -62,9 +62,9 @@ def db_sync(
         MTGJSON_DIR,
         ensure_dirs,
     )
-    from mtgsim.db.session import init_db
-    from mtgsim.sync import sync_all, sync_cards, sync_decks, sync_keywords, sync_prices, sync_sets
-    from mtgsim.sync.download import download_and_extract_tar_xz, download_and_extract_xz
+    from mtgdb.session import init_db
+    from mtgdb.sync import sync_all, sync_cards, sync_decks, sync_keywords, sync_prices, sync_sets
+    from mtgdb.sync.download import download_and_extract_tar_xz, download_and_extract_xz
 
     try:
         if cards_only or sets_only or prices_only or decks_only or keywords_only:
@@ -170,7 +170,7 @@ def db_reset(
         DB_PATH.unlink()
         typer.echo(f"Deleted {DB_PATH}")
 
-    from mtgsim.db.session import init_db
+    from mtgdb.session import init_db
 
     init_db()
     typer.echo(f"Database re-initialized at {DB_PATH}")

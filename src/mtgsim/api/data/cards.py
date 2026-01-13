@@ -2,8 +2,8 @@
 
 from sqlmodel import func, select
 
-from mtgsim.db.models import MJCard, MJCardIdentifier, MJCardPrice, MJDeck, MJDeckCard, MJSet, UserCard
-from mtgsim.db.session import get_session
+from mtgdb.models import MJCard, MJCardIdentifier, MJCardPrice, MJDeck, MJDeckCard, MJSet, UserCard
+from mtgdb.session import get_session
 
 from .helpers import build_image_url, card_to_api_dict
 

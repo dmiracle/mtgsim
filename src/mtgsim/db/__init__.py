@@ -1,10 +1,33 @@
-"""Database models and session management."""
+"""Database models and session management.
 
+Primary models and session are in the mtgdb package.
+This module re-exports them and provides legacy compatibility.
+"""
+
+# Re-export from mtgdb package (primary API)
+from mtgdb.config import DB_PATH
+from mtgdb.models import (
+    MJCard,
+    MJCardIdentifier,
+    MJCardLegality,
+    MJCardPrice,
+    MJDeck,
+    MJDeckCard,
+    MJKeyword,
+    MJSet,
+    UserCard,
+    UserDeck,
+    UserDeckCard,
+)
+from mtgdb.session import close_db, get_engine, get_session, init_db
+
+# Legacy path aliases (all point to unified DB)
 from mtgsim.config import DOMAIN_DB_PATH
 from mtgsim.config import MERGED_DB_PATH as ALL_SETS_DB_PATH  # Legacy alias
 from mtgsim.config import MERGED_DB_PATH as REFERENCE_DB_PATH
 from mtgsim.config import USER_DB_PATH as DATABASE_PATH
 
+# Legacy models (kept for backwards compatibility)
 from .deck_models import Deck, DeckCard, DeckList
 
 # New domain database models and session management
@@ -55,7 +78,29 @@ from .session_legacy import get_engine, get_session, init_db, init_deck_db
 from .set_models import SetCardDB, SetDB, get_sets_engine, init_sets_db
 
 __all__ = [
+    # mtgdb re-exports (primary API)
+    "DB_PATH",
+    "MJCard",
+    "MJCardIdentifier",
+    "MJCardLegality",
+    "MJCardPrice",
+    "MJDeck",
+    "MJDeckCard",
+    "MJKeyword",
+    "MJSet",
+    "UserCard",
+    "UserDeck",
+    "UserDeckCard",
+    "get_engine",
+    "get_session",
+    "init_db",
+    "close_db",
+    # Legacy path aliases
     "ALL_SETS_DB_PATH",
+    "DATABASE_PATH",
+    "DOMAIN_DB_PATH",
+    "REFERENCE_DB_PATH",
+    # Legacy models
     "AllPrintingsMetadata",
     "CardColorLink",
     "CardDB",
@@ -63,20 +108,14 @@ __all__ = [
     "CardSubtypeLink",
     "CardSupertypeLink",
     "CardTypeLink",
-    "DATABASE_PATH",
-    "DOMAIN_DB_PATH",
     "Deck",
     "DeckCard",
     "DeckList",
     "Format",
     "Keyword",
-    "REFERENCE_DB_PATH",
     "SetCardDB",
     "SetDB",
-    "get_engine",
-    "get_session",
     "get_sets_engine",
-    "init_db",
     "init_deck_db",
     "init_sets_db",
     # Domain database exports

@@ -2,7 +2,7 @@
 
 from sqlmodel import func, select
 
-from mtgsim.db.models import (
+from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
     MJCardPrice,
@@ -12,7 +12,7 @@ from mtgsim.db.models import (
     UserDeck,
     UserDeckCard,
 )
-from mtgsim.db.session import get_session
+from mtgdb.session import get_session
 
 from .helpers import build_image_url, deck_card_to_api_dict, deck_to_api_dict
 
