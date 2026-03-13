@@ -32,7 +32,6 @@ def card_to_api_dict(
     mj_card,
     identifier=None,
     user_card=None,
-    prices: dict | None = None,
     set_name: str | None = None,
 ) -> dict:
     """Convert MJCard + optional joins to API response dict."""
@@ -87,13 +86,11 @@ def card_to_api_dict(
         "layout": mj_card.layout,
         "border_color": mj_card.border_color,
         "frame_version": mj_card.frame_version,
-        "has_foil": mj_card.has_foil,
-        "has_non_foil": mj_card.has_non_foil,
+        "finishes": mj_card.finishes or [],
         "is_reprint": mj_card.is_reprint,
         "is_reserved": mj_card.is_reserved,
         "is_promo": mj_card.is_promo,
         "image_url": build_image_url(scryfall_id),
-        "prices": prices,
         "owns": owns,
         "wants": wants,
         "total_owned": total_owned,

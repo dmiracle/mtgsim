@@ -1,11 +1,14 @@
 """Cards data access layer using unified database schema."""
 
+import logging
+
+from mtgdb.models import MJCard, MJCardIdentifier, MJCardLegality, MJCardPrice, MJDeck, MJDeckCard, MJSet, UserCard
+from mtgdb.session import get_session
 from sqlmodel import func, select
 
-from mtgdb.models import MJCard, MJCardIdentifier, MJCardPrice, MJDeck, MJDeckCard, MJSet, UserCard
-from mtgdb.session import get_session
-
 from .helpers import build_image_url, card_to_api_dict
+
+logger = logging.getLogger("mtgsim.api.data.cards")
 
 
 class CardsData:
@@ -43,6 +46,7 @@ class CardsData:
 
         Returns: (list of cards, total count)
         """
+        logger.debug(f"search_cards: q={q} set_code={set_code} rarity={rarity} card_type={card_type} colors={colors}")
         with get_session() as session:
             # Base query with LEFT JOINs
             query = (
@@ -116,6 +120,7 @@ class CardsData:
             results = session.exec(query).all()
 
             # Convert to API format
+            logger.debug(f"search_cards: query returned {len(results)} results, total={total}")
             cards = []
             for mj_card, identifier, user_card in results:
                 cards.append(card_to_api_dict(mj_card, identifier, user_card))
@@ -123,7 +128,7 @@ class CardsData:
             return cards, total
 
     def get_card(self, uuid: str) -> dict | None:
-        """Get single card with collection status and prices."""
+        """Get single card with collection status, prices, and legalities."""
         with get_session() as session:
             query = (
                 select(MJCard, MJCardIdentifier, UserCard)
@@ -144,27 +149,37 @@ class CardsData:
                 set_query = select(MJSet.name).where(MJSet.code == mj_card.set_code)
                 set_name = session.exec(set_query).first()
 
-            # Get prices
-            prices = self._get_card_prices(session, uuid)
+            # Get legalities
+            legalities = self._get_card_legalities(session, uuid)
 
-            return card_to_api_dict(mj_card, identifier, user_card, prices, set_name)
+            # Get prices as structured entries
+            all_prices = self._get_card_price_entries(session, uuid)
 
-    def _get_card_prices(self, session, uuid: str) -> dict | None:
-        """Get prices for a card."""
+            card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name)
+            card_dict["legalities"] = legalities
+            card_dict["all_prices"] = all_prices
+            return card_dict
+
+    def _get_card_legalities(self, session, uuid: str) -> dict[str, str]:
+        """Get format legalities for a card."""
+        query = select(MJCardLegality).where(MJCardLegality.card_uuid == uuid)
+        results = session.exec(query).all()
+        return {r.format: r.status for r in results}
+
+    def _get_card_price_entries(self, session, uuid: str) -> list[dict]:
+        """Get all price entries for a card."""
         query = select(MJCardPrice).where(MJCardPrice.card_uuid == uuid)
         results = session.exec(query).all()
-
-        if not results:
-            return None
-
-        prices = {}
-        for price in results:
-            provider = price.provider
-            if provider not in prices:
-                prices[provider] = {}
-            prices[provider][price.finish] = price.price
-
-        return prices
+        return [
+            {
+                "provider": p.provider,
+                "finish": p.finish,
+                "listing_type": p.listing_type,
+                "price": p.price,
+            }
+            for p in results
+            if p.price
+        ]
 
     def get_cards_by_name(self, name: str) -> list[dict]:
         """Get all printings of a card by exact name."""
@@ -243,34 +258,27 @@ class CardsData:
     def get_other_printings(self, uuid: str) -> list[dict]:
         """Get other printings of the same card."""
         with get_session() as session:
-            # Get the card name
             card_query = select(MJCard.name).where(MJCard.uuid == uuid)
             card_name = session.exec(card_query).first()
 
             if not card_name:
                 return []
 
-            # Find other printings
             query = (
-                select(MJCard, MJCardIdentifier, UserCard)
+                select(MJCard, MJCardIdentifier, UserCard, MJSet.name)
                 .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
                 .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
+                .outerjoin(MJSet, MJCard.set_code == MJSet.code)
                 .where((MJCard.name == card_name) & (MJCard.uuid != uuid))
                 .order_by(MJCard.set_code)
+                .limit(50)
             )
 
             results = session.exec(query).all()
 
             printings = []
-            for mj_card, identifier, user_card in results:
-                # Get set name
-                set_name = None
-                if mj_card.set_code:
-                    set_query = select(MJSet.name).where(MJSet.code == mj_card.set_code)
-                    set_name = session.exec(set_query).first()
-
+            for mj_card, identifier, user_card, set_name in results:
                 total_owned = (user_card.quantity_owned or 0) + (user_card.quantity_owned_foil or 0) if user_card else 0
-
                 printings.append(
                     {
                         "uuid": mj_card.uuid,

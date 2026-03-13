@@ -16,6 +16,7 @@ dependencies = [
     "typer>=0.20.0",
     "uvicorn>=0.34.0",
     "llmex",
+    "rapidfuzz>=3.14.3",
 ]
 
 [tool.uv.workspace]
@@ -56,7 +57,7 @@ llmex = { path = "../llmex" }
 
 [project.scripts]
 mtgsim = "mtgsim:main"
-mtgsim-api = "mtgsim.api.cli:main"
+mtgsim-api = "mtgsim.api.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.8.19,<0.9.0"]

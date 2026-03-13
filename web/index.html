@@ -861,6 +861,206 @@
         .pagination span {
             color: #888;
         }
+
+        /* Card Detail View */
+        .card-detail-layout {
+            display: flex;
+            gap: 32px;
+            align-items: flex-start;
+        }
+        .card-detail-left {
+            flex-shrink: 0;
+            width: 320px;
+        }
+        .card-detail-left img {
+            width: 100%;
+            border-radius: 12px;
+        }
+        .card-detail-right {
+            flex: 1;
+            min-width: 0;
+        }
+        .card-detail-header {
+            margin-bottom: 16px;
+        }
+        .card-detail-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .card-detail-header .card-mana-cost {
+            font-size: 1.1rem;
+        }
+        .card-detail-type-line {
+            color: #ccc;
+            font-size: 1rem;
+            margin-top: 4px;
+        }
+        .card-detail-stats-row {
+            display: flex;
+            gap: 16px;
+            margin: 8px 0;
+        }
+        .card-detail-stat {
+            background: #16213e;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .card-detail-section {
+            margin-top: 20px;
+        }
+        .card-detail-section h3 {
+            color: #e94560;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 4px;
+        }
+        .card-detail-oracle {
+            background: #16213e;
+            padding: 12px 16px;
+            border-radius: 8px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .card-detail-flavor {
+            background: #16213e;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-style: italic;
+            color: #aaa;
+            border-left: 3px solid #0f3460;
+            margin-top: 8px;
+        }
+        .card-detail-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px;
+        }
+        .card-detail-meta-item {
+            display: flex;
+            flex-direction: column;
+            background: #16213e;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .card-detail-meta-item .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #888;
+            letter-spacing: 0.5px;
+        }
+        .card-detail-meta-item .value {
+            font-size: 0.9rem;
+            margin-top: 2px;
+        }
+        .legalities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 4px;
+        }
+        .legality-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: #16213e;
+            font-size: 0.85rem;
+        }
+        .legality-item .format-name {
+            text-transform: capitalize;
+        }
+        .legality-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+        .legality-badge.legal { background: #1b5e20; color: #a5d6a7; }
+        .legality-badge.restricted { background: #e65100; color: #ffcc80; }
+        .legality-badge.banned { background: #b71c1c; color: #ef9a9a; }
+        .legality-badge.not-legal { background: #333; color: #666; }
+        .prices-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .prices-table th {
+            text-align: left;
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #888;
+            border-bottom: 1px solid #0f3460;
+        }
+        .prices-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #1a1a2e;
+            font-size: 0.9rem;
+        }
+        .prices-table td:last-child {
+            text-align: right;
+            font-weight: 600;
+            color: #4caf50;
+        }
+        .printings-row {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0 8px;
+        }
+        .printing-thumb {
+            flex-shrink: 0;
+            width: 100px;
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.15s;
+        }
+        .printing-thumb:hover {
+            transform: scale(1.05);
+        }
+        .printing-thumb img {
+            width: 100%;
+            border-radius: 6px;
+        }
+        .printing-thumb .printing-label {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-top: 4px;
+        }
+        .printing-thumb .owned-indicator {
+            color: #4caf50;
+            font-size: 0.7rem;
+        }
+        .card-detail-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            transition: color 0.15s;
+        }
+        .card-detail-back:hover { color: #e94560; }
+        .keywords-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .keyword-tag {
+            background: #0f3460;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
@@ -942,7 +1142,10 @@
                     <option value="card_count">Cards (Least)</option>
                 </select>
             </div>
-            <div class="deck-count" id="deckCount">Loading...</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="deck-count" id="deckCount">Loading...</div>
+                <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;" onclick="showImportDeckModal()">Import MTGA Deck</button>
+            </div>
             <div class="deck-list" id="deckList">
                 <div class="loading">Loading decks...</div>
             </div>
@@ -1059,6 +1262,7 @@
         </div>
     </div>
 
+    <script src="/web/card-detail.js"></script>
     <script>
         // API Base URL
         const API_BASE = '/api';
@@ -1084,14 +1288,20 @@
         // API Client Functions
         // ========================================
 
-        async function api(endpoint, params = {}) {
+        async function api(endpoint, params = {}, method = 'GET') {
             const url = new URL(API_BASE + endpoint, window.location.origin);
-            Object.entries(params).forEach(([key, value]) => {
-                if (value !== null && value !== undefined && value !== '') {
-                    url.searchParams.set(key, value);
-                }
-            });
-            const response = await fetch(url);
+            const options = { method };
+            if (method === 'GET') {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined && value !== '') {
+                        url.searchParams.set(key, value);
+                    }
+                });
+            } else {
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = JSON.stringify(params);
+            }
+            const response = await fetch(url, options);
             if (!response.ok) {
                 throw new Error(`API error: ${response.status}`);
             }
@@ -1658,15 +1868,7 @@
         }
 
         async function showPriceCard(uuid) {
-            const mainContent = document.getElementById('mainContent');
-            mainContent.innerHTML = '<div class="loading">Loading card...</div>';
-
-            try {
-                const cardData = await api(`/cards/${uuid}`);
-                renderPriceCardView(cardData);
-            } catch (error) {
-                mainContent.innerHTML = '<div class="loading">Error loading card</div>';
-            }
+            showCardDetail(uuid);
         }
 
         function renderPriceCardView(card) {
@@ -1915,14 +2117,16 @@
 
             let priceHtml = price ? `<span class="price-paper">${formatPrice(price)}</span>` : '<span class="price-none">No price</span>';
 
+            const clickable = card.uuid ? `onclick="showCardDetail('${card.uuid}')" style="cursor:pointer"` : '';
+
             return `
                 <div class="card">
                     ${imageUrl
-                        ? `<img class="card-image" src="${imageUrl}" alt="${card.name}" loading="lazy" onerror="this.style.display='none'">`
-                        : `<div class="card-image-placeholder">No image</div>`
+                        ? `<img class="card-image" src="${imageUrl}" alt="${card.name}" loading="lazy" onerror="this.style.display='none'" ${clickable}>`
+                        : `<div class="card-image-placeholder" ${clickable}>No image</div>`
                     }
                     <div class="card-header">
-                        <span class="card-name">${card.name}</span>
+                        <span class="card-name" ${clickable}>${card.name}</span>
                         <span class="card-mana">${card.mana_cost || card.manaCost || ''}</span>
                     </div>
                     <div class="card-type">${card.type || ''}</div>
@@ -2194,6 +2398,123 @@
         // ========================================
 
         document.getElementById('search').addEventListener('input', debounce(applyFilters, 300));
+
+        // ========================================
+        // Deck Import
+        // ========================================
+
+        function showImportDeckModal() {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="card-detail-back" onclick="switchTab('decks')">&#8592; Back to Decks</div>
+                <div style="max-width:600px;margin:0 auto;">
+                    <h2 style="margin-bottom:16px;">Import MTGA Deck</h2>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Deck Name</label>
+                        <input type="text" id="importDeckName" placeholder="My Deck" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Paste MTGA deck export or drop a .txt file</label>
+                        <textarea id="importDeckText" rows="16" placeholder="Deck\n4 Lightning Bolt (2ED) 162\n4 Chain Lightning (LEG) 137\n...\n\nSideboard\n3 Smash to Smithereens (ORI) 163"
+                            style="width:100%;padding:10px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-family:monospace;font-size:0.85rem;resize:vertical;"
+                            ondragover="event.preventDefault();this.style.borderColor='#4cc9f0'"
+                            ondragleave="this.style.borderColor='#1a1a2e'"
+                            ondrop="handleDeckFileDrop(event)"></textarea>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <button class="raw-btn" style="padding:10px 20px;font-size:0.9rem;background:#4cc9f0;color:#0a0a23;" onclick="submitDeckImport()">Import</button>
+                        <label class="raw-btn" style="padding:10px 20px;font-size:0.9rem;cursor:pointer;">
+                            Browse File
+                            <input type="file" accept=".txt,.dec,.dek" style="display:none;" onchange="handleDeckFileSelect(event)">
+                        </label>
+                        <span id="importStatus" style="font-size:0.85rem;color:#aaa;"></span>
+                    </div>
+                    <div id="importResult" style="margin-top:16px;"></div>
+                </div>
+            `;
+        }
+
+        function handleDeckFileDrop(event) {
+            event.preventDefault();
+            event.target.style.borderColor = '#1a1a2e';
+            const file = event.dataTransfer.files[0];
+            if (file) {
+                file.text().then(text => {
+                    document.getElementById('importDeckText').value = text;
+                    if (!document.getElementById('importDeckName').value) {
+                        document.getElementById('importDeckName').value = file.name.replace(/\.\w+$/, '');
+                    }
+                });
+            }
+        }
+
+        function handleDeckFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                file.text().then(text => {
+                    document.getElementById('importDeckText').value = text;
+                    if (!document.getElementById('importDeckName').value) {
+                        document.getElementById('importDeckName').value = file.name.replace(/\.\w+$/, '');
+                    }
+                });
+            }
+        }
+
+        async function submitDeckImport() {
+            const name = document.getElementById('importDeckName').value.trim();
+            const text = document.getElementById('importDeckText').value.trim();
+            const status = document.getElementById('importStatus');
+            const resultDiv = document.getElementById('importResult');
+
+            if (!name) { status.textContent = 'Deck name is required'; return; }
+            if (!text) { status.textContent = 'Paste deck text first'; return; }
+
+            status.textContent = 'Importing...';
+            resultDiv.innerHTML = '';
+
+            const result = await api('/decks/import', { text, name }, 'POST');
+
+            status.textContent = '';
+            const cards = result.resolved || [];
+            const exact = cards.filter(c => c.match_type === 'exact');
+            const fuzzy = cards.filter(c => c.match_type === 'fuzzy');
+            const created = cards.filter(c => c.match_type === 'created');
+
+            let html = `<div style="padding:12px;background:#16213e;border-radius:8px;">`;
+            html += `<div style="color:#4cc9f0;font-weight:600;margin-bottom:8px;">Deck imported: ${escapeHtml(result.deck_name)}</div>`;
+            html += `<div style="font-size:0.85rem;color:#aaa;">Total cards: ${result.total_cards} | Exact: ${exact.length} | Fuzzy: ${fuzzy.length} | Created: ${created.length}</div>`;
+
+            if (fuzzy.length > 0) {
+                html += `<div style="margin-top:8px;font-size:0.85rem;color:#f4a261;">Fuzzy matches:</div><ul style="margin:4px 0 0 16px;font-size:0.8rem;color:#e0e0e0;">`;
+                for (const c of fuzzy) {
+                    html += `<li>${escapeHtml(c.name)} → ${escapeHtml(c.matched_name)} (${Math.round(c.match_score)}%)</li>`;
+                }
+                html += `</ul>`;
+            }
+
+            if (created.length > 0) {
+                html += `<div style="margin-top:8px;font-size:0.85rem;color:#e63946;">Not in database (placeholders created):</div><ul style="margin:4px 0 0 16px;font-size:0.8rem;color:#e0e0e0;">`;
+                for (const c of created) {
+                    html += `<li>${c.count}x ${escapeHtml(c.name)}</li>`;
+                }
+                html += `</ul>`;
+            }
+
+            if (result.legality && result.legality.length > 0) {
+                html += `<div style="margin-top:12px;"><div style="font-size:0.85rem;color:#aaa;margin-bottom:6px;">Format Legality</div>`;
+                html += `<div class="legalities-grid">`;
+                for (const lr of result.legality) {
+                    const cls = lr.legal ? 'legal' : 'banned';
+                    const label = lr.legal ? 'Legal' : 'Not Legal';
+                    html += `<div class="legality-item"><span class="format-name">${lr.format}</span><span class="legality-badge ${cls}" ${lr.reason ? `title="${escapeHtml(lr.reason)}"` : ''}>${label}</span></div>`;
+                }
+                html += `</div></div>`;
+            }
+
+            html += `<div style="margin-top:12px;"><button class="raw-btn" style="padding:6px 14px;font-size:0.85rem;" onclick="loadDeck('${result.deck_id}');">View Deck</button></div>`;
+            html += `</div>`;
+            resultDiv.innerHTML = html;
+        }
 
         // Load initial data
         loadDecks();

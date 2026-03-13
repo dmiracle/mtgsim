@@ -1,0 +1,21 @@
+Deck
+4 Lightning Bolt (2ED) 162
+4 Chain Lightning (LEG) 137
+4 Rift Bolt (TSP) 176
+4 Lava Spike (CHK) 178
+4 Monastery Swiftspear (KTK) 118
+4 Goblin Guide (ZEN) 126
+4 Eidolon of the Great Revel (JOU) 94
+2 Searing Blaze (WWK) 90
+4 Skullcrack (GTC) 106
+2 Shard Volley (MOR) 103
+4 Inspiring Vantage (KLD) 246
+20 Mountain (UST) 215
+
+Sideboard
+3 Smash to Smithereens (ORI) 163
+2 Exquisite Firecraft (ORI) 143
+3 Path to Exile (CON) 15
+2 Rest in Peace (RTR) 18
+2 Kor Firewalker (WWK) 11
+3 Deflecting Palm (KTK) 173

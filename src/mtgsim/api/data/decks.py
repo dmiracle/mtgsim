@@ -1,6 +1,6 @@
 """Decks data access layer using unified database schema."""
 
-from sqlmodel import func, select
+import logging
 
 from mtgdb.models import (
     MJCard,
@@ -13,8 +13,11 @@ from mtgdb.models import (
     UserDeckCard,
 )
 from mtgdb.session import get_session
+from sqlmodel import func, select
 
 from .helpers import build_image_url, deck_card_to_api_dict, deck_to_api_dict
+
+logger = logging.getLogger("mtgsim.api.data.decks")
 
 
 class DecksData:
@@ -34,57 +37,37 @@ class DecksData:
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
-        """
-        List decks with filtering and pagination.
-
-        Args:
-            q: Text search in name
-            set_code: Filter by set code
-            deck_type: Filter by deck type
-            source: Filter by source ("precon" or "user", None for all)
-            colors: Filter by colors
-            card_count_min: Minimum total card count
-            card_count_max: Maximum total card count
-            sort: Sort field (name, release_date, code, card_count)
-            order: Sort order (asc, desc)
-            page: Page number (1-indexed)
-            limit: Results per page
-
-        Returns: (list of decks, total count)
-        """
-        decks = []
-        total = 0
+        """List decks with filtering and pagination."""
+        logger.debug(f"list_decks: q={q} set_code={set_code} deck_type={deck_type} source={source} sort={sort}")
 
         with get_session() as session:
-            # Get precon decks
-            if source is None or source == "precon":
-                precon_decks, precon_total = self._list_precon_decks(
-                    session, q, set_code, deck_type, colors, card_count_min, card_count_max, sort, order
+            if source == "user":
+                decks, total = self._list_user_decks(session, q, card_count_min, card_count_max, sort, order)
+                offset = (page - 1) * limit
+                decks = decks[offset : offset + limit]
+            elif source == "precon":
+                decks, total = self._list_precon_decks(
+                    session, q, set_code, deck_type, colors, card_count_min, card_count_max,
+                    sort, order, page, limit,
                 )
-                decks.extend(precon_decks)
-                total += precon_total
+            else:
+                # Both sources
+                precon_decks, precon_total = self._list_precon_decks(
+                    session, q, set_code, deck_type, colors, card_count_min, card_count_max,
+                    sort, order, page, limit,
+                )
+                user_decks, user_total = self._list_user_decks(
+                    session, q, card_count_min, card_count_max, sort, order,
+                )
+                # Prepend user decks on first page
+                if page == 1:
+                    decks = user_decks + precon_decks
+                else:
+                    decks = precon_decks
+                total = precon_total + user_total
 
-            # Get user decks
-            if source is None or source == "user":
-                user_decks, user_total = self._list_user_decks(session, q, card_count_min, card_count_max, sort, order)
-                decks.extend(user_decks)
-                total += user_total
-
-        # Sort combined results
-        sort_key_map = {
-            "name": lambda x: x.get("name") or "",
-            "release_date": lambda x: x.get("release_date") or "",
-            "code": lambda x: x.get("code") or "",
-            "card_count": lambda x: x.get("card_count") or 0,
-        }
-        sort_key = sort_key_map.get(sort, sort_key_map["name"])
-        decks.sort(key=sort_key, reverse=(order == "desc"))
-
-        # Apply pagination
-        offset = (page - 1) * limit
-        paginated = decks[offset : offset + limit]
-
-        return paginated, total
+        logger.debug(f"list_decks: {len(decks)} decks, total={total}")
+        return decks, total
 
     def _list_precon_decks(
         self,
@@ -97,48 +80,126 @@ class DecksData:
         card_count_max: int | None,
         sort: str,
         order: str,
+        page: int = 1,
+        limit: int = 50,
     ) -> tuple[list[dict], int]:
-        """List preconstructed decks from MTGJSON."""
+        """List preconstructed decks from MTGJSON with DB-level pagination."""
+        logger.debug(f"_list_precon_decks: q={q} set_code={set_code} deck_type={deck_type}")
         query = select(MJDeck)
 
         if q:
             query = query.where((MJDeck.name.contains(q)) | (MJDeck.file_name.contains(q)))
-
         if set_code:
             query = query.where(MJDeck.code == set_code)
-
         if deck_type:
             query = query.where(MJDeck.type == deck_type)
-
         if card_count_min is not None:
             query = query.where((MJDeck.main_board_count + MJDeck.side_board_count) >= card_count_min)
-
         if card_count_max is not None:
             query = query.where((MJDeck.main_board_count + MJDeck.side_board_count) <= card_count_max)
 
-        # Count
+        # Count total
         count_query = select(func.count()).select_from(query.subquery())
         total = session.exec(count_query).one()
 
-        # Execute
+        # Sort at DB level
+        sort_map = {
+            "name": MJDeck.name,
+            "release_date": MJDeck.release_date,
+            "code": MJDeck.code,
+            "card_count": MJDeck.main_board_count + MJDeck.side_board_count,
+        }
+        sort_field = sort_map.get(sort, MJDeck.name)
+        query = query.order_by(sort_field.desc() if order == "desc" else sort_field.asc())
+
+        # Paginate at DB level
+        offset = (page - 1) * limit
+        query = query.offset(offset).limit(limit)
+
         results = session.exec(query).all()
+
+        # Batch-fetch colors and prices for just this page of decks
+        deck_uuids = [d.uuid for d in results]
+        colors_map = self._get_batch_deck_colors(session, deck_uuids)
+        price_map = self._get_batch_deck_prices(session, deck_uuids)
 
         decks = []
         for deck in results:
-            deck_colors = self._get_deck_colors(session, deck.uuid)
-            price = self._calculate_deck_price(session, deck.uuid)
+            deck_colors = colors_map.get(deck.uuid, [])
 
-            # Filter by colors if specified
-            if colors:
-                if not all(c in deck_colors for c in colors):
-                    total -= 1
-                    continue
+            if colors and not all(c in deck_colors for c in colors):
+                total -= 1
+                continue
 
-            deck_dict = deck_to_api_dict(deck, deck_colors, price)
+            deck_dict = deck_to_api_dict(deck, deck_colors, price_map.get(deck.uuid))
             deck_dict["source"] = "precon"
             decks.append(deck_dict)
 
         return decks, total
+
+    def _get_batch_deck_colors(self, session, deck_uuids: list[str]) -> dict[str, list[str]]:
+        """Get colors for multiple decks in a single query."""
+        if not deck_uuids:
+            return {}
+
+        query = (
+            select(MJDeckCard.deck_uuid, MJDeckCard.colors)
+            .where(MJDeckCard.deck_uuid.in_(deck_uuids))
+            .distinct()
+        )
+        results = session.exec(query).all()
+
+        deck_colors: dict[str, set[str]] = {}
+        for deck_uuid, color_list in results:
+            if color_list:
+                deck_colors.setdefault(deck_uuid, set()).update(color_list)
+
+        wubrg = ["W", "U", "B", "R", "G"]
+        return {
+            uuid: sorted(c, key=lambda x: wubrg.index(x) if x in wubrg else 99)
+            for uuid, c in deck_colors.items()
+        }
+
+    def _get_batch_deck_prices(self, session, deck_uuids: list[str]) -> dict[str, float | None]:
+        """Get total deck prices for multiple decks in batch."""
+        if not deck_uuids:
+            return {}
+
+        # Get all deck cards with their counts
+        cards_query = (
+            select(MJDeckCard.deck_uuid, MJDeckCard.card_uuid, MJDeckCard.count)
+            .where(
+                MJDeckCard.deck_uuid.in_(deck_uuids),
+                MJDeckCard.board.in_(["mainBoard", "sideBoard"]),
+            )
+        )
+        deck_cards = session.exec(cards_query).all()
+
+        # Collect all unique card UUIDs
+        all_card_uuids = list({card_uuid for _, card_uuid, _ in deck_cards if card_uuid})
+
+        if not all_card_uuids:
+            return {}
+
+        # Single query for all prices
+        price_query = (
+            select(MJCardPrice.card_uuid, MJCardPrice.price)
+            .where(
+                MJCardPrice.card_uuid.in_(all_card_uuids),
+                MJCardPrice.provider == "tcgplayer",
+                MJCardPrice.listing_type == "retail",
+                MJCardPrice.finish == "normal",
+            )
+        )
+        price_map = dict(session.exec(price_query).all())
+
+        # Calculate per-deck totals
+        deck_totals: dict[str, float] = {}
+        for deck_uuid, card_uuid, count in deck_cards:
+            if card_uuid and card_uuid in price_map:
+                deck_totals[deck_uuid] = deck_totals.get(deck_uuid, 0.0) + price_map[card_uuid] * count
+
+        return {uuid: round(total, 2) for uuid, total in deck_totals.items()}
 
     def _list_user_decks(
         self,
