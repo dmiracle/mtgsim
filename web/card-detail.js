@@ -148,7 +148,7 @@ function renderMetaGrid(card) {
     const items = [];
     const add = (label, value) => { if (value) items.push({ label, value }); };
 
-    add('Set', `${renderSetCode(card.set_code)} ${escapeHtml(card.set_name || card.set_code || '')}`);
+    add('Set', `<a href="#" onclick="switchTab('sets'); loadSet('${card.set_code}'); return false;" style="color:#4cc9f0;text-decoration:none;cursor:pointer;">${renderSetCode(card.set_code)} ${escapeHtml(card.set_name || card.set_code || '')}</a>`);
     add('Rarity', capitalize(card.rarity));
     add('Number', card.number);
     add('Artist', card.artist);

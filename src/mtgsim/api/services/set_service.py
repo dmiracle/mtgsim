@@ -1,6 +1,9 @@
 """Set service - handles set data access and processing."""
 
+import logging
+
 from mtgsim.api.data import sets_data
+from mtgsim.api.data.keywords import keywords_data
 from mtgsim.api.models.common import KeywordCounts, Pagination
 from mtgsim.api.models.deck import PriceBySource
 from mtgsim.api.models.set import (
@@ -16,6 +19,8 @@ from mtgsim.api.models.set import (
     SetStats,
     SetSummary,
 )
+
+logger = logging.getLogger("mtgsim.api.services.set")
 
 
 class SetService:
@@ -33,6 +38,7 @@ class SetService:
         limit: int = 50,
     ) -> SetListResponse:
         """List and filter sets with pagination."""
+        logger.debug(f"list_sets: q={q} set_type={set_type} block={block} sort={sort} page={page}")
         sets, total = sets_data.list_sets(
             q=q,
             set_type=set_type,
@@ -44,6 +50,7 @@ class SetService:
             limit=limit,
         )
 
+        logger.debug(f"list_sets: got {len(sets)} sets, total={total}")
         data = []
         for s in sets:
             cs = s.get("collection_stats", {})
@@ -95,6 +102,7 @@ class SetService:
         card_limit: int = 50,
     ) -> SetDetail | None:
         """Get full set details including cards and statistics."""
+        logger.debug(f"get_set: code={code} rarity={rarity} color={color} card_type={card_type}")
         set_meta = sets_data.get_set(code)
         if not set_meta:
             return None
@@ -147,11 +155,7 @@ class SetService:
                     by_source=PriceBySource(),
                 ),
                 price_histogram=[],
-                keywords=KeywordCounts(
-                    ability_words={},
-                    keyword_abilities={},
-                    keyword_actions={},
-                ),
+                keywords=KeywordCounts(**keywords_data.categorize_keyword_freq(stats_data.get("keyword_freq", {}))),
                 text_by_color=ColorWordFrequencies(
                     W=[],
                     U=[],

@@ -334,7 +334,7 @@ def import_mtga_deck(text: str, name: str) -> ImportResult:
             detected_format = lr.format
             break
 
-    deck = decks_data.create_user_deck(name=name, format=detected_format)
+    deck = decks_data.create_user_deck(name=name, format=detected_format, source="import")
     deck_id = deck["id"]
 
     for card in resolved:

@@ -1,9 +1,8 @@
 """Keywords data access layer."""
 
-from sqlmodel import func, select
-
 from mtgdb.models import MJKeyword
 from mtgdb.session import get_session
+from sqlmodel import func, select
 
 
 class KeywordsData:
@@ -47,7 +46,29 @@ class KeywordsData:
         with get_session() as session:
             query = select(MJKeyword.type, func.count()).group_by(MJKeyword.type)
             results = session.exec(query).all()
-            return {kw_type: count for kw_type, count in results}
+            return dict(results)
+
+    def categorize_keyword_freq(self, keyword_freq: dict[str, int]) -> dict:
+        """Categorize keyword frequencies into ability_words, keyword_abilities, keyword_actions."""
+        if not keyword_freq:
+            return {"ability_words": {}, "keyword_abilities": {}, "keyword_actions": {}}
+
+        with get_session() as session:
+            query = select(MJKeyword.name, MJKeyword.type).where(MJKeyword.name.in_(list(keyword_freq.keys())))
+            type_map = dict(session.exec(query).all())
+
+        result = {"ability_words": {}, "keyword_abilities": {}, "keyword_actions": {}}
+        category_map = {
+            "abilityWords": "ability_words",
+            "keywordAbilities": "keyword_abilities",
+            "keywordActions": "keyword_actions",
+        }
+        for kw, count in keyword_freq.items():
+            kw_type = type_map.get(kw)
+            category = category_map.get(kw_type, "keyword_abilities")
+            result[category][kw] = count
+
+        return result
 
 
 # Singleton instance

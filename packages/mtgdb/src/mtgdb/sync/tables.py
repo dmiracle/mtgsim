@@ -27,16 +27,22 @@ BATCH_SIZE = 10000
 
 
 def _parse_json_array(value) -> list:
-    """Parse a JSON array string, or return empty list."""
+    """Parse a JSON array string or comma-separated string, or return empty list."""
     if value is None:
         return []
     if isinstance(value, list):
         return value
     if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError:
+        if not value.strip():
             return []
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+            return [parsed]
+        except json.JSONDecodeError:
+            # MTGJSON stores some arrays as comma-separated strings (e.g. "R,G")
+            return [v.strip() for v in value.split(",") if v.strip()]
     return []
 
 
@@ -127,7 +133,7 @@ def _sync_cards_table(conn, engine):
                    power, toughness, loyalty, defense, rarity, number, artist,
                    layout, borderColor, frameVersion, flavorText,
                    colors, colorIdentity, types, subtypes, supertypes, keywords,
-                   hasFoil, hasNonFoil, isReprint, isReserved, isPromo
+                   finishes, isReprint, isReserved, isPromo
             FROM cards
         """)
 
@@ -159,8 +165,7 @@ def _sync_cards_table(conn, engine):
                     subtypes=_parse_json_array(row["subtypes"]),
                     supertypes=_parse_json_array(row["supertypes"]),
                     keywords=_parse_json_array(row["keywords"]),
-                    has_foil=bool(row["hasFoil"]),
-                    has_non_foil=bool(row["hasNonFoil"]),
+                    finishes=_parse_json_array(row["finishes"]),
                     is_reprint=bool(row["isReprint"]),
                     is_reserved=bool(row["isReserved"]),
                     is_promo=bool(row["isPromo"]),
@@ -268,8 +273,8 @@ def sync_prices(source_db: Path):
         session.commit()
 
         cursor = conn.execute("""
-            SELECT uuid, priceProvider, providerListing, cardFinish, currency, date, price
-            FROM cardPrices
+            SELECT uuid, provider, priceType, finish, currency, date, price
+            FROM prices
             WHERE price IS NOT NULL
         """)
 
@@ -279,9 +284,9 @@ def sync_prices(source_db: Path):
                 session.add(
                     MJCardPrice(
                         card_uuid=row["uuid"],
-                        provider=row["priceProvider"],
-                        listing_type=row["providerListing"],
-                        finish=row["cardFinish"],
+                        provider=row["provider"],
+                        listing_type=row["priceType"],
+                        finish=row["finish"],
                         currency=row["currency"] or "USD",
                         price=float(row["price"]),
                         updated_at=datetime.fromisoformat(row["date"]) if row["date"] else None,

@@ -32,11 +32,12 @@
             height: 100vh;
             overflow: hidden;
         }
-        #decksTab, #pricesTab, #setsTab {
+        #decksTab, #pricesTab, #setsTab, #draftTab {
             display: flex;
             flex-direction: column;
             flex: 1;
             min-height: 0;
+            overflow-y: auto;
         }
         .sidebar h1 {
             padding: 20px;
@@ -1061,6 +1062,160 @@
             font-size: 0.8rem;
             color: #ccc;
         }
+
+        /* Draft tab styles */
+        .draft-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .draft-controls select, .draft-controls input {
+            width: 100%;
+            padding: 8px;
+            background: #16213e;
+            border: 1px solid #0f3460;
+            color: #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        .draft-controls button {
+            padding: 10px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .draft-controls button:hover { background: #d63851; }
+        .draft-controls button:disabled { background: #555; cursor: not-allowed; }
+        .booster-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 12px;
+            padding: 16px;
+        }
+        .booster-card {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .booster-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+        }
+        .booster-card img {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+        .booster-card .card-slot {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: rgba(0,0,0,0.7);
+            color: #ccc;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .booster-card.foil-card {
+            box-shadow: 0 0 12px rgba(200, 150, 255, 0.4);
+        }
+        .booster-card.foil-card::after {
+            content: 'FOIL';
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: linear-gradient(135deg, #c084fc, #60a5fa, #34d399);
+            color: white;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .booster-card-fallback {
+            background: #16213e;
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-height: 240px;
+            justify-content: center;
+        }
+        .booster-card-fallback .card-name {
+            font-weight: 600;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+        .booster-card-fallback .card-type {
+            font-size: 0.75rem;
+            color: #888;
+        }
+        .booster-card-fallback .card-rarity {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .booster-pack-header {
+            padding: 16px 16px 0;
+        }
+        .booster-pack-header h2 {
+            margin: 0 0 4px;
+            color: #e0e0e0;
+        }
+        .booster-pack-header .pack-info {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        .pack-history {
+            margin-top: 12px;
+            border-top: 1px solid #0f3460;
+            padding-top: 8px;
+        }
+        .pack-history-title {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+        .pack-history-item {
+            padding: 6px 8px;
+            font-size: 0.8rem;
+            color: #aaa;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .pack-history-item:hover {
+            background: #16213e;
+            color: #e0e0e0;
+        }
+        .pack-history-item.active {
+            background: #0f3460;
+            color: #4cc9f0;
+        }
+        .wordcloud-container {
+            width: 100%;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .wordcloud-container svg text {
+            cursor: default;
+            transition: opacity 0.15s;
+        }
+        .wordcloud-container svg text:hover {
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -1070,6 +1225,7 @@
             <button class="tab-btn active" data-tab="decks" onclick="switchTab('decks')">Decks</button>
             <button class="tab-btn" data-tab="prices" onclick="switchTab('prices')">Prices</button>
             <button class="tab-btn" data-tab="sets" onclick="switchTab('sets')">Sets</button>
+            <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">Draft</button>
         </div>
         <div id="decksTab">
             <div class="search-box">
@@ -1088,6 +1244,16 @@
                     <option value="brawl">Brawl</option>
                     <option value="historic">Historic</option>
                     <option value="pauper">Pauper</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Source</label>
+                <select id="sourceFilter" onchange="applyFilters()">
+                    <option value="">All sources</option>
+                    <option value="precon">Preconstructed</option>
+                    <option value="user">User created</option>
+                    <option value="import">Imported</option>
+                    <option value="test">Test</option>
                 </select>
             </div>
             <div class="filter-box">
@@ -1230,6 +1396,42 @@
                 <button onclick="changeSetPage(1)" id="setNextBtn">Next</button>
             </div>
         </div>
+        <div id="draftTab" style="display: none;">
+            <div class="draft-controls">
+                <div class="filter-box">
+                    <label>Set</label>
+                    <input type="text" id="draftSetSearch" placeholder="Search sets..." list="draftSetList" oninput="filterDraftSets()">
+                    <datalist id="draftSetList"></datalist>
+                    <select id="draftSetSelect" style="margin-top:4px;">
+                        <option value="">Select a set...</option>
+                    </select>
+                </div>
+                <div class="filter-box">
+                    <label>Booster Type</label>
+                    <select id="draftBoosterType">
+                        <option value="">Auto-detect</option>
+                        <option value="play">Play Booster</option>
+                        <option value="draft">Draft Booster</option>
+                    </select>
+                </div>
+                <div class="filter-box">
+                    <label>Packs</label>
+                    <select id="draftPackCount">
+                        <option value="1">1 pack</option>
+                        <option value="3">3 packs</option>
+                        <option value="6" selected>6 packs (sealed)</option>
+                        <option value="12">12 packs</option>
+                        <option value="24">24 packs (box)</option>
+                        <option value="36">36 packs (box)</option>
+                    </select>
+                </div>
+                <button onclick="openBoosterPacks()" id="openPacksBtn">Open Packs</button>
+            </div>
+            <div class="pack-history" id="packHistory" style="display:none;">
+                <div class="pack-history-title">Opened Packs</div>
+                <div id="packHistoryList"></div>
+            </div>
+        </div>
     </div>
     <div class="main-content" id="mainContent">
         <div class="loading">Loading...</div>
@@ -1358,11 +1560,14 @@
             document.getElementById('decksTab').style.display = tab === 'decks' ? 'flex' : 'none';
             document.getElementById('pricesTab').style.display = tab === 'prices' ? 'flex' : 'none';
             document.getElementById('setsTab').style.display = tab === 'sets' ? 'flex' : 'none';
+            document.getElementById('draftTab').style.display = tab === 'draft' ? 'flex' : 'none';
 
             if (tab === 'prices') {
                 showPriceExplorer();
             } else if (tab === 'sets') {
                 showSetsExplorer();
+            } else if (tab === 'draft') {
+                showDraftTab();
             } else {
                 showHomeScreen();
             }
@@ -1376,6 +1581,7 @@
             try {
                 const query = document.getElementById('search').value;
                 const format = document.getElementById('formatFilter').value;
+                const source = document.getElementById('sourceFilter').value;
                 const set = document.getElementById('setFilter').value;
                 const cardCountFilter = document.getElementById('cardCountFilter').value;
                 const priceRange = document.getElementById('deckPriceFilter').value;
@@ -1405,6 +1611,7 @@
                 const data = await api('/decks', {
                     q: query,
                     format,
+                    source,
                     set,
                     colors: selectedColors,
                     card_count_min: cardCountMin,
@@ -1552,6 +1759,12 @@
             if (stats.price_histogram) {
                 renderHistogram(stats.price_histogram, '#price-histogram');
             }
+            if (stats.keywords?.keyword_abilities) {
+                renderWordCloud(stats.keywords.keyword_abilities, '#deck-kw-abilities');
+            }
+            if (stats.keywords?.keyword_actions) {
+                renderWordCloud(stats.keywords.keyword_actions, '#deck-kw-actions');
+            }
         }
 
         function renderDeckStats(stats, legality, price) {
@@ -1636,6 +1849,18 @@
                             `).join('') : ''}
                         </div>
                     </div>
+
+                    ${stats.keywords?.keyword_abilities && Object.keys(stats.keywords.keyword_abilities).length > 0 ? `
+                    <div class="stat-card stat-card-2col">
+                        <h4>Keyword Abilities</h4>
+                        <div class="wordcloud-container" id="deck-kw-abilities"></div>
+                    </div>` : ''}
+
+                    ${stats.keywords?.keyword_actions && Object.keys(stats.keywords.keyword_actions).length > 0 ? `
+                    <div class="stat-card stat-card-2col">
+                        <h4>Keyword Actions</h4>
+                        <div class="wordcloud-container" id="deck-kw-actions"></div>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -1765,6 +1990,18 @@
                             <div class="stat-row"><span>${rarity}</span><span>${count}</span></div>
                         `).join('') : ''}
                     </div>
+
+                    ${stats.keywords?.keyword_abilities && Object.keys(stats.keywords.keyword_abilities).length > 0 ? `
+                    <div class="stat-card">
+                        <h4>Keyword Abilities</h4>
+                        <div class="wordcloud-container" id="set-kw-abilities"></div>
+                    </div>` : ''}
+
+                    ${stats.keywords?.keyword_actions && Object.keys(stats.keywords.keyword_actions).length > 0 ? `
+                    <div class="stat-card">
+                        <h4>Keyword Actions</h4>
+                        <div class="wordcloud-container" id="set-kw-actions"></div>
+                    </div>` : ''}
                 </div>
 
                 <h3 style="margin: 20px 0 10px; color: #e94560;">Cards (${cards.length})</h3>
@@ -1772,6 +2009,14 @@
                     ${cards.map(card => renderCard(card)).join('')}
                 </div>
             `;
+
+            // Render wordclouds after innerHTML is set
+            if (stats.keywords?.keyword_abilities) {
+                renderWordCloud(stats.keywords.keyword_abilities, '#set-kw-abilities');
+            }
+            if (stats.keywords?.keyword_actions) {
+                renderWordCloud(stats.keywords.keyword_actions, '#set-kw-actions');
+            }
         }
 
         function showSetRaw() {
@@ -1937,6 +2182,40 @@
         function showPriceExplorer() {
             searchPrices();
             showPriceExplorerHome();
+            populatePriceSetFilter();
+        }
+
+        async function populatePriceSetFilter() {
+            const select = document.getElementById('priceSetFilter');
+            if (select.options.length > 1) return;
+            try {
+                const data = await api('/sets', { limit: 100, sort: 'release_date', order: 'desc' });
+                const sets = data.data || [];
+                for (const s of sets) {
+                    const opt = document.createElement('option');
+                    opt.value = s.code;
+                    opt.textContent = `${s.name} (${s.code})`;
+                    select.appendChild(opt);
+                }
+                // Fetch remaining pages
+                if (sets.length === 100) {
+                    let page = 2;
+                    while (true) {
+                        const more = await api('/sets', { limit: 100, sort: 'release_date', order: 'desc', page });
+                        const moreSets = more.data || [];
+                        for (const s of moreSets) {
+                            const opt = document.createElement('option');
+                            opt.value = s.code;
+                            opt.textContent = `${s.name} (${s.code})`;
+                            select.appendChild(opt);
+                        }
+                        if (moreSets.length < 100) break;
+                        page++;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load price set filter:', err);
+            }
         }
 
         async function showPriceExplorerHome() {
@@ -2231,6 +2510,65 @@
                 .style('font-size', '10px');
         }
 
+        function renderWordCloud(freqMap, selector) {
+            const container = d3.select(selector);
+            if (!container.node()) return;
+            container.selectAll('*').remove();
+
+            const entries = Object.entries(freqMap).filter(([_, v]) => v > 0);
+            if (entries.length === 0) return;
+
+            const width = container.node().getBoundingClientRect().width || 400;
+            const height = Math.max(160, Math.min(250, entries.length * 12));
+
+            const maxCount = Math.max(...entries.map(([_, v]) => v));
+            const minCount = Math.min(...entries.map(([_, v]) => v));
+            const sizeScale = d3.scaleLinear()
+                .domain([minCount, Math.max(maxCount, minCount + 1)])
+                .range([12, 32]);
+
+            const colors = ['#4cc9f0', '#f4a261', '#e94560', '#4ade80', '#c084fc', '#60a5fa', '#f472b6'];
+
+            const words = entries.map(([word, count], i) => ({
+                text: word,
+                size: sizeScale(count),
+                count: count,
+                color: colors[i % colors.length],
+            }));
+
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(words)
+                .padding(4)
+                .rotate(() => 0)
+                .fontSize(d => d.size)
+                .on('end', draw);
+
+            layout.start();
+
+            function draw(placed) {
+                const svg = container.append('svg')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .style('overflow', 'hidden');
+
+                svg.append('g')
+                    .attr('transform', `translate(${width / 2},${height / 2})`)
+                    .selectAll('text')
+                    .data(placed)
+                    .join('text')
+                    .style('font-size', d => d.size + 'px')
+                    .style('font-family', 'sans-serif')
+                    .style('font-weight', '600')
+                    .style('fill', d => d.color)
+                    .attr('text-anchor', 'middle')
+                    .attr('transform', d => `translate(${d.x},${d.y})`)
+                    .text(d => d.text)
+                    .append('title')
+                    .text(d => `${d.text}: ${d.count}`);
+            }
+        }
+
         // ========================================
         // Pagination
         // ========================================
@@ -2514,6 +2852,177 @@
             html += `<div style="margin-top:12px;"><button class="raw-btn" style="padding:6px 14px;font-size:0.85rem;" onclick="loadDeck('${result.deck_id}');">View Deck</button></div>`;
             html += `</div>`;
             resultDiv.innerHTML = html;
+        }
+
+        // ========================================
+        // Draft Tab
+        // ========================================
+
+        let draftSetsLoaded = false;
+        let draftSetsData = [];
+        let draftOpenedPacks = [];
+        let draftCurrentPackIndex = -1;
+
+        async function showDraftTab() {
+            if (!draftSetsLoaded) {
+                await loadDraftSets();
+            }
+            const mainContent = document.getElementById('mainContent');
+            if (draftOpenedPacks.length === 0) {
+                mainContent.innerHTML = `
+                    <div class="home-screen">
+                        <div class="home-header">
+                            <h2>Draft Simulator</h2>
+                            <p>Select a set and open booster packs</p>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        async function loadDraftSets() {
+            try {
+                let page = 1;
+                let allSets = [];
+                while (true) {
+                    const data = await api('/sets', { limit: 100, sort: 'release_date', order: 'desc', page });
+                    const sets = data.data || [];
+                    allSets = allSets.concat(sets);
+                    if (sets.length < 100) break;
+                    page++;
+                }
+                draftSetsData = allSets;
+                populateDraftSetSelect(draftSetsData);
+                draftSetsLoaded = true;
+            } catch (err) {
+                console.error('Failed to load draft sets:', err);
+            }
+        }
+
+        function populateDraftSetSelect(sets) {
+            const select = document.getElementById('draftSetSelect');
+            const datalist = document.getElementById('draftSetList');
+            select.innerHTML = '<option value="">Select a set...</option>';
+            datalist.innerHTML = '';
+            for (const s of sets) {
+                const opt = document.createElement('option');
+                opt.value = s.code;
+                opt.textContent = `${s.name} (${s.code})`;
+                select.appendChild(opt);
+                const dlOpt = document.createElement('option');
+                dlOpt.value = `${s.name} (${s.code})`;
+                datalist.appendChild(dlOpt);
+            }
+        }
+
+        function filterDraftSets() {
+            const query = document.getElementById('draftSetSearch').value.toLowerCase();
+            if (!query) {
+                populateDraftSetSelect(draftSetsData);
+                return;
+            }
+            const filtered = draftSetsData.filter(s =>
+                s.name.toLowerCase().includes(query) || s.code.toLowerCase().includes(query)
+            );
+            populateDraftSetSelect(filtered);
+            if (filtered.length === 1) {
+                document.getElementById('draftSetSelect').value = filtered[0].code;
+            }
+        }
+
+        async function openBoosterPacks() {
+            const setCode = document.getElementById('draftSetSelect').value;
+            if (!setCode) {
+                alert('Please select a set first.');
+                return;
+            }
+            const boosterType = document.getElementById('draftBoosterType').value || undefined;
+            const count = parseInt(document.getElementById('draftPackCount').value);
+            const btn = document.getElementById('openPacksBtn');
+            btn.disabled = true;
+            btn.textContent = 'Opening...';
+
+            try {
+                let packs;
+                if (count === 1) {
+                    const pack = await api(`/boosters/${setCode}`, boosterType ? { type: boosterType } : {});
+                    packs = [pack];
+                } else {
+                    const params = { count };
+                    if (boosterType) params.type = boosterType;
+                    packs = await api(`/boosters/${setCode}/batch`, params);
+                }
+
+                draftOpenedPacks = packs;
+                draftCurrentPackIndex = 0;
+                renderPackHistory();
+                renderBoosterPack(0);
+            } catch (err) {
+                console.error('Failed to open packs:', err);
+                const mainContent = document.getElementById('mainContent');
+                mainContent.innerHTML = `<div style="padding:20px;color:#e94560;">Failed to open packs: ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Open Packs';
+            }
+        }
+
+        function renderPackHistory() {
+            const historyDiv = document.getElementById('packHistory');
+            const listDiv = document.getElementById('packHistoryList');
+            if (draftOpenedPacks.length === 0) {
+                historyDiv.style.display = 'none';
+                return;
+            }
+            historyDiv.style.display = 'block';
+            listDiv.innerHTML = '';
+            for (let i = 0; i < draftOpenedPacks.length; i++) {
+                const pack = draftOpenedPacks[i];
+                const rares = pack.cards.filter(c => c.rarity === 'mythic' || c.rarity === 'rare');
+                const rareName = rares.length > 0 ? rares[0].name : '';
+                const div = document.createElement('div');
+                div.className = 'pack-history-item' + (i === draftCurrentPackIndex ? ' active' : '');
+                div.textContent = `Pack ${i + 1}${rareName ? ': ' + rareName : ''}`;
+                div.onclick = () => {
+                    draftCurrentPackIndex = i;
+                    renderPackHistory();
+                    renderBoosterPack(i);
+                };
+                listDiv.appendChild(div);
+            }
+        }
+
+        function renderBoosterPack(index) {
+            const pack = draftOpenedPacks[index];
+            const mainContent = document.getElementById('mainContent');
+            const rarityColors = { common: '#aaa', uncommon: '#4cc9f0', rare: '#f4a261', mythic: '#e94560' };
+
+            let html = `<div class="booster-pack-header">
+                <h2>${escapeHtml(pack.set_name)} <span style="color:#888;font-weight:400;">${pack.booster_type} booster</span></h2>
+                <div class="pack-info">Pack ${index + 1} of ${draftOpenedPacks.length} &mdash; ${pack.cards.length} cards</div>
+            </div>`;
+            html += '<div class="booster-grid">';
+
+            for (const card of pack.cards) {
+                const foilClass = card.is_foil ? ' foil-card' : '';
+                const rarityColor = rarityColors[card.rarity] || '#aaa';
+
+                if (card.image_url) {
+                    html += `<div class="booster-card${foilClass}" onclick="showCardDetail('${card.uuid}')">
+                        <div class="card-slot" style="color:${rarityColor}">${card.slot}</div>
+                        <img src="${card.image_url}" alt="${escapeHtml(card.name)}" loading="lazy">
+                    </div>`;
+                } else {
+                    html += `<div class="booster-card-fallback${foilClass}">
+                        <div class="card-name">${escapeHtml(card.name)}</div>
+                        <div class="card-type">${escapeHtml(card.type_line || '')}</div>
+                        <div class="card-rarity" style="color:${rarityColor}">${card.rarity}${card.is_foil ? ' FOIL' : ''}</div>
+                        <div style="font-size:0.7rem;color:#666;margin-top:4px;">${card.slot}</div>
+                    </div>`;
+                }
+            }
+
+            html += '</div>';
+            mainContent.innerHTML = html;
         }
 
         // Load initial data

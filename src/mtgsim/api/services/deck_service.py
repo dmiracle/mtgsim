@@ -3,6 +3,7 @@
 import logging
 
 from mtgsim.api.data import decks_data
+from mtgsim.api.data.keywords import keywords_data
 from mtgsim.api.models.common import KeywordCounts, Pagination
 from mtgsim.api.models.deck import (
     DeckCard,
@@ -160,12 +161,8 @@ class DeckService:
                 type_distribution=stats.get("type_distribution", {}),
                 rarity_distribution=stats.get("rarity_distribution", {}),
                 color_distribution=stats.get("color_distribution", {}),
-                price_histogram=[],
-                keywords=KeywordCounts(
-                    ability_words={},
-                    keyword_abilities={},
-                    keyword_actions={},
-                ),
+                price_histogram=stats.get("price_histogram", []),
+                keywords=KeywordCounts(**keywords_data.categorize_keyword_freq(stats.get("keyword_freq", {}))),
             ),
         )
 

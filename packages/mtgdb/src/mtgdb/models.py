@@ -58,8 +58,7 @@ class MJCard(SQLModel, table=True):
     keywords: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Flags
-    has_foil: bool = False
-    has_non_foil: bool = False
+    finishes: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     is_reprint: bool = False
     is_reserved: bool = False
     is_promo: bool = False
@@ -257,6 +256,7 @@ class UserDeck(SQLModel, table=True):
     description: str | None = None
 
     format: str | None = None  # standard, modern, commander, etc.
+    source: str = Field(default="user", index=True)  # user, import, test, ...
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

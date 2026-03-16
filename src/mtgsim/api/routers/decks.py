@@ -24,7 +24,7 @@ async def list_decks(
     card_count_max: int | None = Query(None, ge=0, description="Maximum card count"),
     price_min: float | None = Query(None, ge=0, description="Minimum deck price"),
     price_max: float | None = Query(None, ge=0, description="Maximum deck price"),
-    source: str | None = Query(None, pattern="^(precon|user)$", description="Deck source (precon or user)"),
+    source: str | None = Query(None, description="Deck source (precon, user, import, test, ...)"),
     sort: str = Query("name", description="Sort field"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),

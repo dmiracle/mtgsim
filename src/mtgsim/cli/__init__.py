@@ -1,5 +1,6 @@
 import typer
 
+from .booster_commands import booster_app
 from .card_commands import card, extract
 from .db_commands import db_app
 from .deck_commands import deck_app
@@ -9,6 +10,7 @@ from .mtgjson_commands import mtgjson_app
 app = typer.Typer(help="MTG card simulator CLI")
 
 # Add sub-apps
+app.add_typer(booster_app, name="booster")
 app.add_typer(db_app, name="db")
 app.add_typer(deck_app, name="deck")
 app.add_typer(domain_app, name="domain")

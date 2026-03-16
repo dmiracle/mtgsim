@@ -40,24 +40,57 @@ class DecksData:
         """List decks with filtering and pagination."""
         logger.debug(f"list_decks: q={q} set_code={set_code} deck_type={deck_type} source={source} sort={sort}")
 
+        is_user_source = source and source != "precon"
+
         with get_session() as session:
-            if source == "user":
-                decks, total = self._list_user_decks(session, q, card_count_min, card_count_max, sort, order)
+            if is_user_source:
+                decks, total = self._list_user_decks(
+                    session,
+                    q,
+                    card_count_min,
+                    card_count_max,
+                    sort,
+                    order,
+                    source=source,
+                )
                 offset = (page - 1) * limit
                 decks = decks[offset : offset + limit]
             elif source == "precon":
                 decks, total = self._list_precon_decks(
-                    session, q, set_code, deck_type, colors, card_count_min, card_count_max,
-                    sort, order, page, limit,
+                    session,
+                    q,
+                    set_code,
+                    deck_type,
+                    colors,
+                    card_count_min,
+                    card_count_max,
+                    sort,
+                    order,
+                    page,
+                    limit,
                 )
             else:
-                # Both sources
+                # All sources
                 precon_decks, precon_total = self._list_precon_decks(
-                    session, q, set_code, deck_type, colors, card_count_min, card_count_max,
-                    sort, order, page, limit,
+                    session,
+                    q,
+                    set_code,
+                    deck_type,
+                    colors,
+                    card_count_min,
+                    card_count_max,
+                    sort,
+                    order,
+                    page,
+                    limit,
                 )
                 user_decks, user_total = self._list_user_decks(
-                    session, q, card_count_min, card_count_max, sort, order,
+                    session,
+                    q,
+                    card_count_min,
+                    card_count_max,
+                    sort,
+                    order,
                 )
                 # Prepend user decks on first page
                 if page == 1:
@@ -142,11 +175,7 @@ class DecksData:
         if not deck_uuids:
             return {}
 
-        query = (
-            select(MJDeckCard.deck_uuid, MJDeckCard.colors)
-            .where(MJDeckCard.deck_uuid.in_(deck_uuids))
-            .distinct()
-        )
+        query = select(MJDeckCard.deck_uuid, MJDeckCard.colors).where(MJDeckCard.deck_uuid.in_(deck_uuids)).distinct()
         results = session.exec(query).all()
 
         deck_colors: dict[str, set[str]] = {}
@@ -155,10 +184,7 @@ class DecksData:
                 deck_colors.setdefault(deck_uuid, set()).update(color_list)
 
         wubrg = ["W", "U", "B", "R", "G"]
-        return {
-            uuid: sorted(c, key=lambda x: wubrg.index(x) if x in wubrg else 99)
-            for uuid, c in deck_colors.items()
-        }
+        return {uuid: sorted(c, key=lambda x: wubrg.index(x) if x in wubrg else 99) for uuid, c in deck_colors.items()}
 
     def _get_batch_deck_prices(self, session, deck_uuids: list[str]) -> dict[str, float | None]:
         """Get total deck prices for multiple decks in batch."""
@@ -166,12 +192,9 @@ class DecksData:
             return {}
 
         # Get all deck cards with their counts
-        cards_query = (
-            select(MJDeckCard.deck_uuid, MJDeckCard.card_uuid, MJDeckCard.count)
-            .where(
-                MJDeckCard.deck_uuid.in_(deck_uuids),
-                MJDeckCard.board.in_(["mainBoard", "sideBoard"]),
-            )
+        cards_query = select(MJDeckCard.deck_uuid, MJDeckCard.card_uuid, MJDeckCard.count).where(
+            MJDeckCard.deck_uuid.in_(deck_uuids),
+            MJDeckCard.board.in_(["mainBoard", "sideBoard"]),
         )
         deck_cards = session.exec(cards_query).all()
 
@@ -182,14 +205,11 @@ class DecksData:
             return {}
 
         # Single query for all prices
-        price_query = (
-            select(MJCardPrice.card_uuid, MJCardPrice.price)
-            .where(
-                MJCardPrice.card_uuid.in_(all_card_uuids),
-                MJCardPrice.provider == "tcgplayer",
-                MJCardPrice.listing_type == "retail",
-                MJCardPrice.finish == "normal",
-            )
+        price_query = select(MJCardPrice.card_uuid, MJCardPrice.price).where(
+            MJCardPrice.card_uuid.in_(all_card_uuids),
+            MJCardPrice.provider == "tcgplayer",
+            MJCardPrice.listing_type == "retail",
+            MJCardPrice.finish == "normal",
         )
         price_map = dict(session.exec(price_query).all())
 
@@ -209,12 +229,15 @@ class DecksData:
         card_count_max: int | None,
         sort: str,
         order: str,
+        source: str | None = None,
     ) -> tuple[list[dict], int]:
         """List user-created decks."""
         query = select(UserDeck)
 
         if q:
             query = query.where(UserDeck.name.contains(q))
+        if source:
+            query = query.where(UserDeck.source == source)
 
         # Count
         count_query = select(func.count()).select_from(query.subquery())
@@ -222,23 +245,34 @@ class DecksData:
 
         # Execute
         results = session.exec(query).all()
+        deck_ids = [d.id for d in results]
+
+        # Batch: card counts per deck
+        card_count_map = {}
+        if deck_ids:
+            count_query = (
+                select(UserDeckCard.deck_id, func.sum(UserDeckCard.count))
+                .where(UserDeckCard.deck_id.in_(deck_ids))
+                .group_by(UserDeckCard.deck_id)
+            )
+            card_count_map = dict(session.exec(count_query).all())
+
+        # Batch: colors per deck
+        colors_map = self._get_batch_user_deck_colors(session, deck_ids)
+
+        # Batch: prices per deck
+        price_map = self._get_batch_user_deck_prices(session, deck_ids)
 
         decks = []
         for deck in results:
-            # Count cards in deck
-            card_count_query = select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck.id)
-            card_count = session.exec(card_count_query).first() or 0
+            card_count = card_count_map.get(deck.id, 0)
 
-            # Filter by card count
             if card_count_min is not None and card_count < card_count_min:
                 total -= 1
                 continue
             if card_count_max is not None and card_count > card_count_max:
                 total -= 1
                 continue
-
-            # Get colors
-            colors = self._get_user_deck_colors(session, deck.id)
 
             decks.append(
                 {
@@ -247,10 +281,11 @@ class DecksData:
                     "description": deck.description,
                     "format": deck.format,
                     "card_count": card_count,
-                    "colors": colors,
+                    "colors": colors_map.get(deck.id, []),
+                    "price": price_map.get(deck.id),
                     "created_at": deck.created_at.isoformat() if deck.created_at else None,
                     "updated_at": deck.updated_at.isoformat() if deck.updated_at else None,
-                    "source": "user",
+                    "source": deck.source,
                 }
             )
 
@@ -287,6 +322,59 @@ class DecksData:
 
         order = ["W", "U", "B", "R", "G"]
         return sorted(colors, key=lambda c: order.index(c) if c in order else 99)
+
+    def _get_batch_user_deck_colors(self, session, deck_ids: list[int]) -> dict[int, list[str]]:
+        """Get colors for multiple user decks in a single query."""
+        if not deck_ids:
+            return {}
+
+        query = (
+            select(UserDeckCard.deck_id, MJCard.color_identity)
+            .join(MJCard, UserDeckCard.card_uuid == MJCard.uuid)
+            .where(UserDeckCard.deck_id.in_(deck_ids))
+            .distinct()
+        )
+        results = session.exec(query).all()
+
+        deck_colors: dict[int, set[str]] = {}
+        for deck_id, color_list in results:
+            if color_list:
+                deck_colors.setdefault(deck_id, set()).update(color_list)
+
+        wubrg = ["W", "U", "B", "R", "G"]
+        return {did: sorted(c, key=lambda x: wubrg.index(x) if x in wubrg else 99) for did, c in deck_colors.items()}
+
+    def _get_batch_user_deck_prices(self, session, deck_ids: list[int]) -> dict[int, float | None]:
+        """Get total prices for multiple user decks in batch."""
+        if not deck_ids:
+            return {}
+
+        # Get all user deck cards with counts
+        cards_query = select(UserDeckCard.deck_id, UserDeckCard.card_uuid, UserDeckCard.count).where(
+            UserDeckCard.deck_id.in_(deck_ids)
+        )
+        deck_cards = session.exec(cards_query).all()
+
+        all_card_uuids = list({card_uuid for _, card_uuid, _ in deck_cards if card_uuid})
+        if not all_card_uuids:
+            return {}
+
+        # Single query for all prices
+        price_query = select(MJCardPrice.card_uuid, MJCardPrice.price).where(
+            MJCardPrice.card_uuid.in_(all_card_uuids),
+            MJCardPrice.provider == "tcgplayer",
+            MJCardPrice.listing_type == "retail",
+            MJCardPrice.finish == "normal",
+        )
+        price_map = dict(session.exec(price_query).all())
+
+        # Calculate per-deck totals
+        deck_totals: dict[int, float] = {}
+        for deck_id, card_uuid, count in deck_cards:
+            if card_uuid and card_uuid in price_map:
+                deck_totals[deck_id] = deck_totals.get(deck_id, 0.0) + price_map[card_uuid] * count
+
+        return {did: round(total, 2) for did, total in deck_totals.items()}
 
     def _calculate_deck_price(self, session, deck_uuid: str) -> float | None:
         """Calculate total deck price from card prices."""
@@ -400,13 +488,14 @@ class DecksData:
             # Colors
             colors = self._get_user_deck_colors(session, deck.id)
 
-            # Calculate stats
+            # Calculate stats and price from card data
             all_cards = main_board + side_board
-            stats = {
-                "total_cards": sum(c["count"] for c in all_cards),
-                "unique_cards": len(all_cards),
-                "mana_curve": self._calculate_mana_curve(main_board),
-            }
+            total_price = 0.0
+            for c in all_cards:
+                if c.get("price"):
+                    total_price += c["price"] * c.get("count", 1)
+
+            stats = self._calculate_user_deck_stats(main_board, side_board)
 
             return {
                 "id": deck.id,
@@ -420,9 +509,10 @@ class DecksData:
                 "main_board": main_board,
                 "side_board": side_board,
                 "stats": stats,
+                "price": round(total_price, 2) if total_price > 0 else None,
                 "created_at": deck.created_at.isoformat() if deck.created_at else None,
                 "updated_at": deck.updated_at.isoformat() if deck.updated_at else None,
-                "source": "user",
+                "source": deck.source,
             }
 
     def _get_deck_cards(self, session, deck_uuid: str, board: str) -> list[dict]:
@@ -492,7 +582,7 @@ class DecksData:
         if not results:
             return []
 
-        # Get ownership
+        # Get ownership and prices
         uuids = [r[1].uuid for r in results]
         ownership_query = select(UserCard.card_uuid, UserCard.quantity_owned, UserCard.quantity_owned_foil).where(
             UserCard.card_uuid.in_(uuids)
@@ -500,6 +590,17 @@ class DecksData:
         ownership_map = {}
         for card_uuid, owned, owned_foil in session.exec(ownership_query).all():
             ownership_map[card_uuid] = (owned or 0) + (owned_foil or 0)
+
+        price_map = {}
+        if uuids:
+            price_query = select(MJCardPrice.card_uuid, MJCardPrice.price).where(
+                MJCardPrice.card_uuid.in_(uuids),
+                MJCardPrice.provider == "tcgplayer",
+                MJCardPrice.listing_type == "retail",
+                MJCardPrice.finish == "normal",
+            )
+            for card_uuid, price in session.exec(price_query).all():
+                price_map[card_uuid] = price
 
         cards = []
         for deck_card, mj_card, identifier in results:
@@ -514,9 +615,13 @@ class DecksData:
                     "board": deck_card.board,
                     "mana_cost": mj_card.mana_cost,
                     "mana_value": mj_card.mana_value,
-                    "colors": mj_card.colors or [],
+                    "type": mj_card.type_line or "",
                     "types": mj_card.types or [],
+                    "colors": mj_card.colors or [],
+                    "rarity": mj_card.rarity or "",
+                    "keywords": mj_card.keywords or [],
                     "image_url": build_image_url(identifier.scryfall_id if identifier else None),
+                    "price": price_map.get(mj_card.uuid),
                     "is_foil": deck_card.is_foil,
                     "owns_enough": owned_count >= count,
                     "owned_count": owned_count,
@@ -567,12 +672,24 @@ class DecksData:
                     if c in color_dist:
                         color_dist[c] += card.count
 
+        # Keyword frequencies (need to join MJCard for keywords)
+        card_uuids = [c.card_uuid for c in main_cards if c.card_uuid]
+        keyword_freq = {}
+        if card_uuids:
+            kw_query = select(MJCard.uuid, MJCard.keywords).where(MJCard.uuid.in_(card_uuids))
+            kw_results = session.exec(kw_query).all()
+            kw_map = {uuid: keywords or [] for uuid, keywords in kw_results}
+            for card in main_cards:
+                for kw in kw_map.get(card.card_uuid, []):
+                    keyword_freq[kw] = keyword_freq.get(kw, 0) + card.count
+
         return {
             "total_cards": total_cards,
             "unique_cards": unique_cards,
             "mana_curve": mana_curve,
             "type_distribution": type_dist,
             "color_distribution": color_dist,
+            "keyword_freq": keyword_freq,
         }
 
     def _calculate_mana_curve(self, cards: list[dict]) -> dict:
@@ -590,6 +707,74 @@ class DecksData:
             mana_curve[key] = mana_curve.get(key, 0) + count
         return mana_curve
 
+    def _calculate_user_deck_stats(self, main_board: list[dict], side_board: list[dict]) -> dict:
+        """Calculate statistics for a user deck from card dicts."""
+        all_cards = main_board + side_board
+
+        # Type distribution (main board only)
+        type_dist = {}
+        for card in main_board:
+            for t in card.get("types") or []:
+                type_dist[t] = type_dist.get(t, 0) + card.get("count", 1)
+            # Fallback: parse type_line if types is empty
+            if not card.get("types") and card.get("type"):
+                for t in ["Creature", "Instant", "Sorcery", "Enchantment", "Artifact", "Planeswalker", "Land"]:
+                    if t in (card.get("type") or ""):
+                        type_dist[t] = type_dist.get(t, 0) + card.get("count", 1)
+
+        # Rarity distribution
+        rarity_dist = {}
+        for card in main_board:
+            r = card.get("rarity")
+            if r:
+                rarity_dist[r] = rarity_dist.get(r, 0) + card.get("count", 1)
+
+        # Color distribution (main board only)
+        color_dist = {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "C": 0}
+        for card in main_board:
+            colors = card.get("colors") or []
+            if not colors:
+                color_dist["C"] += card.get("count", 1)
+            else:
+                for c in colors:
+                    if c in color_dist:
+                        color_dist[c] += card.get("count", 1)
+
+        # Price histogram
+        price_histogram = []
+        price_buckets = [0, 0.5, 1, 2, 5, 10, 25, 50, 100]
+        for i in range(len(price_buckets)):
+            lo = price_buckets[i]
+            hi = price_buckets[i + 1] if i + 1 < len(price_buckets) else None
+            count = 0
+            for card in all_cards:
+                p = card.get("price") or 0
+                if hi is None:
+                    if p >= lo:
+                        count += card.get("count", 1)
+                elif lo <= p < hi:
+                    count += card.get("count", 1)
+            if count > 0:
+                range_str = f"${lo}+" if hi is None else f"${lo}-${hi}"
+                price_histogram.append({"range": range_str, "count": count})
+
+        # Keyword frequencies
+        keyword_freq = {}
+        for card in main_board:
+            for kw in card.get("keywords") or []:
+                keyword_freq[kw] = keyword_freq.get(kw, 0) + card.get("count", 1)
+
+        return {
+            "total_cards": sum(c.get("count", 1) for c in all_cards),
+            "unique_cards": len(all_cards),
+            "mana_curve": self._calculate_mana_curve(main_board),
+            "type_distribution": type_dist,
+            "rarity_distribution": rarity_dist,
+            "color_distribution": color_dist,
+            "price_histogram": price_histogram,
+            "keyword_freq": keyword_freq,
+        }
+
     # User deck management
 
     def create_user_deck(
@@ -597,6 +782,7 @@ class DecksData:
         name: str,
         description: str | None = None,
         format: str | None = None,
+        source: str = "user",
     ) -> dict:
         """Create a new user deck."""
         with get_session() as session:
@@ -604,6 +790,7 @@ class DecksData:
                 name=name,
                 description=description,
                 format=format,
+                source=source,
             )
             session.add(deck)
             session.commit()
@@ -617,7 +804,7 @@ class DecksData:
                 "card_count": 0,
                 "colors": [],
                 "created_at": deck.created_at.isoformat() if deck.created_at else None,
-                "source": "user",
+                "source": deck.source,
             }
 
     def update_user_deck(

@@ -90,10 +90,15 @@ class SetsData:
             # Convert to API format with collection stats
             sets = []
             for mj_set in results:
-                collection_stats = stats_map.get(mj_set.code, {
-                    "total_cards": 0, "owned_cards": 0,
-                    "owned_percentage": 0, "wanted_cards": 0,
-                })
+                collection_stats = stats_map.get(
+                    mj_set.code,
+                    {
+                        "total_cards": 0,
+                        "owned_cards": 0,
+                        "owned_percentage": 0,
+                        "wanted_cards": 0,
+                    },
+                )
 
                 # Filter by has_owned_cards if specified
                 if has_owned_cards is True and collection_stats["owned_cards"] == 0:
@@ -361,11 +366,18 @@ class SetsData:
                     key = str(int(mv))
                 mana_curve[key] = mana_curve.get(key, 0) + 1
 
+            # Keyword frequencies
+            keyword_freq = {}
+            for card in cards:
+                for kw in card.keywords or []:
+                    keyword_freq[kw] = keyword_freq.get(kw, 0) + 1
+
             return {
                 "rarity_count": rarity_count,
                 "color_distribution": color_count,
                 "type_distribution": type_count,
                 "mana_curve": mana_curve,
+                "keyword_freq": keyword_freq,
             }
 
     def get_available_types(self) -> list[str]:
