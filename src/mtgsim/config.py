@@ -8,16 +8,9 @@ from pathlib import Path
 
 # Re-export from mtgdb for backwards compatibility
 from mtgdb.config import (
-    ALL_DECK_FILES_DIR,
-    ALL_DECK_FILES_URL,
-    ALL_PRICES_URL,
-    ALL_PRINTINGS_URL,
     DB_PATH,
-    KEYWORDS_URL,
-    MTGDB_HOME as MTGSIM_HOME,
     MTGJSON_BASE_URL,
     MTGJSON_DIR,
-    REFERENCE_DIR,
     ensure_dirs,
 )
 
