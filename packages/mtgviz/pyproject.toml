@@ -8,8 +8,12 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "matplotlib>=3.10.8",
+    "memray",
+    "numpy>=2.4.1",
     "pillow",
     "pytesseract",
+    "rich",
     "typer",
 ]
 

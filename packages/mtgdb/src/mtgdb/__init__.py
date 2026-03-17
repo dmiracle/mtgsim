@@ -7,6 +7,7 @@ This package provides:
 """
 
 from mtgdb.config import DB_PATH, MTGJSON_DIR
+from mtgdb.embeddings.models import MJCardEmbedding
 from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
@@ -26,6 +27,7 @@ __all__ = [
     "DB_PATH",
     "MTGJSON_DIR",
     "MJCard",
+    "MJCardEmbedding",
     "MJCardIdentifier",
     "MJCardLegality",
     "MJCardPrice",

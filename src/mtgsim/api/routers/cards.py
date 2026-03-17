@@ -1,10 +1,14 @@
 """Card API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from mtgsim.api.models.card import CardDetail, CardListResponse
 from mtgsim.api.services.card_service import card_service
+
+logger = logging.getLogger("mtgsim.api.routers.cards")
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -49,6 +53,7 @@ async def search_cards(
     """
     color_list = list(colors.upper()) if colors else None
 
+    logger.debug(f"search_cards: q={q} set={set} rarity={rarity} type={type} colors={color_list}")
     return await card_service.search_cards(
         q=q,
         set_code=set,
@@ -79,9 +84,11 @@ async def get_card(uuid: str) -> CardDetail:
     - Other printings
     - Collection status (owns, wants, quantities)
     """
+    logger.debug(f"get_card: uuid={uuid}")
     card = await card_service.get_card(uuid)
     if card is None:
         raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+    logger.debug(f"get_card: found '{card.name}' ({card.set_code})")
     return card
 
 

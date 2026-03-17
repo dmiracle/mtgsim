@@ -1,9 +1,13 @@
 """Set API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 
 from mtgsim.api.models.set import SetDetail, SetListResponse
 from mtgsim.api.services.set_service import set_service
+
+logger = logging.getLogger("mtgsim.api.routers.sets")
 
 router = APIRouter(prefix="/sets", tags=["sets"])
 
@@ -29,6 +33,7 @@ async def list_sets(
     - **sort**: Sort by name, release_date, size
     - **order**: Sort order (asc, desc)
     """
+    logger.debug(f"list_sets: q={q} type={type} block={block} sort={sort} order={order} page={page} limit={limit}")
     return await set_service.list_sets(
         q=q,
         set_type=type,
@@ -60,6 +65,7 @@ async def get_set(
     - Statistics (rarity breakdown, keywords)
     - Paginated card list (filterable by rarity, color, type, ownership)
     """
+    logger.debug(f"get_set: code={code} rarity={rarity} color={color} type={type} card_page={card_page}")
     set_data = await set_service.get_set(
         code=code,
         rarity=rarity,

@@ -1,9 +1,12 @@
 """Prices data access layer using unified database schema."""
 
-from sqlmodel import func, select
+import logging
 
 from mtgdb.models import MJCard, MJCardPrice
 from mtgdb.session import get_session
+from sqlmodel import func, select
+
+logger = logging.getLogger("mtgsim.api.data.prices")
 
 
 class PricesData:
@@ -98,6 +101,7 @@ class PricesData:
 
         Returns: (list of price summaries, total count)
         """
+        logger.debug(f"search_by_price: q={q} set={set_code} rarity={rarity} range=[{price_min},{price_max}]")
         with get_session() as session:
             # Join cards with prices
             query = (
@@ -153,6 +157,7 @@ class PricesData:
             # Execute
             results = session.exec(query).all()
 
+            logger.debug(f"search_by_price: query returned {len(results)} results, total={total}")
             cards = []
             for card, price in results:
                 cards.append(

@@ -1,9 +1,13 @@
 """Stats service - handles aggregate statistics using real reference data."""
 
+import logging
+
 from pydantic import BaseModel
 
 from mtgsim.api.models.common import HistogramBucket
 from mtgsim.reference import ref_db
+
+logger = logging.getLogger("mtgsim.api.services.stats")
 
 
 class RecentSet(BaseModel):
@@ -51,6 +55,7 @@ class StatsService:
 
     async def get_home_stats(self) -> HomeStats:
         """Get aggregate statistics for home screen from real data."""
+        logger.debug("get_home_stats: computing aggregate stats")
         total_decks = self._get_total_decks()
         total_sets = self._get_total_sets()
         total_cards = self._get_total_cards()
@@ -108,7 +113,7 @@ class StatsService:
         """Count cards that have price data."""
         if not ref_db.has_prices():
             return 0
-        cursor = ref_db.prices.execute("SELECT COUNT(DISTINCT uuid) FROM cardPrices")
+        cursor = ref_db.prices.execute("SELECT COUNT(DISTINCT uuid) FROM prices")
         row = cursor.fetchone()
         return row[0] if row else 0
 
@@ -142,10 +147,10 @@ class StatsService:
                     ELSE '$100+'
                 END as price_range,
                 COUNT(DISTINCT uuid) as count
-            FROM cardPrices
-            WHERE priceProvider = 'tcgplayer'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
+            FROM prices
+            WHERE provider = 'tcgplayer'
+              AND priceType = 'retail'
+              AND finish = 'normal'
               AND currency = 'USD'
             GROUP BY price_range
             ORDER BY MIN(price)
@@ -178,10 +183,10 @@ class StatsService:
         # Get top prices
         cursor = ref_db.prices.execute("""
             SELECT uuid, price
-            FROM cardPrices
-            WHERE priceProvider = 'tcgplayer'
-              AND providerListing = 'retail'
-              AND cardFinish = 'normal'
+            FROM prices
+            WHERE provider = 'tcgplayer'
+              AND priceType = 'retail'
+              AND finish = 'normal'
               AND currency = 'USD'
             ORDER BY price DESC
             LIMIT 20

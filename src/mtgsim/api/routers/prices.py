@@ -1,9 +1,13 @@
 """Price API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 
 from mtgsim.api.models.price import PriceDetail, PriceListResponse
 from mtgsim.api.services.price_service import price_service
+
+logger = logging.getLogger("mtgsim.api.routers.prices")
 
 router = APIRouter(prefix="/prices", tags=["prices"])
 
@@ -20,19 +24,9 @@ async def search_prices(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
 ) -> PriceListResponse:
-    """
-    Search price data with filters.
-
-    - **q**: Search card names
-    - **set**: Filter by set code
-    - **rarity**: Filter by rarity
-    - **price_min/price_max**: Filter by price range
-    - **sort**: Sort by price source (tcgplayer, cardkingdom, etc.) or average_usd
-    - **order**: Sort order (asc, desc)
-
-    Returns cards with prices from all sources and calculated average USD price.
-    """
-    return await price_service.search_prices(
+    """Search price data with filters."""
+    logger.debug(f"search_prices: q={q} set={set} rarity={rarity} range=[{price_min},{price_max}] sort={sort}")
+    result = await price_service.search_prices(
         q=q,
         set_code=set,
         rarity=rarity,
@@ -43,20 +37,14 @@ async def search_prices(
         page=page,
         limit=limit,
     )
+    logger.debug(f"search_prices: returning {len(result.data)} results, total={result.pagination.total}")
+    return result
 
 
 @router.get("/{uuid}", response_model=PriceDetail)
 async def get_price(uuid: str) -> PriceDetail:
-    """
-    Get detailed price data for a card.
-
-    Returns comprehensive price information:
-    - Paper prices (TCGplayer, Card Kingdom, Cardsphere, Cardmarket)
-    - MTGO prices (Cardhoarder)
-    - Retail and buylist prices
-    - Normal and foil variants
-    - Price history (if available)
-    """
+    """Get detailed price data for a card."""
+    logger.debug(f"get_price: uuid={uuid}")
     price = await price_service.get_price(uuid)
     if price is None:
         raise HTTPException(status_code=404, detail=f"Price data not found: {uuid}")

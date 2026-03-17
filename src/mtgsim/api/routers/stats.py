@@ -1,12 +1,14 @@
 """Statistics API endpoints."""
 
 import json
+import logging
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from mtgdb.config import MTGDB_HOME
 
 from mtgsim.api.services.stats_service import DeckAggregateStats, HomeStats, stats_service
-from mtgdb.config import MTGDB_HOME
+
+logger = logging.getLogger("mtgsim.api.routers.stats")
 
 router = APIRouter(prefix="/stats", tags=["statistics"])
 
@@ -23,7 +25,10 @@ async def get_home_stats() -> HomeStats:
     - Recent sets
     - Most expensive cards
     """
-    return await stats_service.get_home_stats()
+    logger.debug("get_home_stats: fetching aggregate statistics")
+    result = await stats_service.get_home_stats()
+    logger.debug(f"get_home_stats: {result.total_decks} decks, {result.total_sets} sets, {result.total_cards} cards")
+    return result
 
 
 @router.get("/decks", response_model=DeckAggregateStats)
@@ -39,6 +44,7 @@ async def get_deck_stats() -> DeckAggregateStats:
     - Average deck price
     - Average deck size
     """
+    logger.debug("get_deck_stats: fetching deck aggregate stats")
     return await stats_service.get_deck_stats()
 
 

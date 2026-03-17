@@ -139,10 +139,7 @@ class CardService:
             image_url=card.get("image_url"),
             legalities=card.get("legalities", {}),
             all_prices=[CardPriceEntry(**p) for p in card.get("all_prices", [])],
-            appears_in_decks=[
-                CardAppearance(file=a["file"], name=a["name"], count=a["count"])
-                for a in appearances
-            ],
+            appears_in_decks=[CardAppearance(file=a["file"], name=a["name"], count=a["count"]) for a in appearances],
             other_printings=[
                 CardPrinting(
                     set_code=p["set_code"],

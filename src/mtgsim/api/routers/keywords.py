@@ -1,9 +1,13 @@
 """Keywords/Glossary API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from mtgsim.api.data import keywords_data
+
+logger = logging.getLogger("mtgsim.api.routers.keywords")
 
 
 class KeywordDefinition(BaseModel):
@@ -63,6 +67,7 @@ async def get_keywords() -> KeywordsResponse:
     - **keyword_abilities**: Keywords with specific rules meaning (flying, trample, etc.)
     - **keyword_actions**: Keywords that represent game actions (destroy, exile, etc.)
     """
+    logger.debug("get_keywords: fetching all keyword categories")
     all_keywords = keywords_data.get_all_keywords()
 
     return KeywordsResponse(

@@ -38,6 +38,7 @@ def get_engine(db_path: Path | None = None) -> Engine:
 def init_db(db_path: Path | None = None) -> Engine:
     """Initialize database with all tables."""
     # Import models to ensure they're registered with SQLModel
+    import mtgdb.embeddings.models  # noqa: F401
     import mtgdb.models  # noqa: F401
 
     engine = get_engine(db_path)
