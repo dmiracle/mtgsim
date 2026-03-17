@@ -214,6 +214,7 @@ class SetsData:
         wants: bool | None = None,
         sort: str = "number",
         order: str = "asc",
+        unique: bool = False,
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
@@ -229,6 +230,16 @@ class SetsData:
                 .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
                 .where(MJCard.set_code == code)
             )
+
+            # Unique filter: keep only the lowest collector number per card name
+            if unique:
+                min_uuid_subq = (
+                    select(func.min(MJCard.uuid).label("min_uuid"))
+                    .where(MJCard.set_code == code)
+                    .group_by(MJCard.name)
+                    .subquery()
+                )
+                query = query.where(MJCard.uuid.in_(select(min_uuid_subq.c.min_uuid)))
 
             # Rarity filter
             if rarity:

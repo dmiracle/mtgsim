@@ -56,6 +56,7 @@ async def get_set(
     wants: bool | None = Query(None, description="Filter by want status"),
     sort: str = Query("number", description="Sort field (name, number, mana_value, rarity)"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
+    unique: bool = Query(False, description="Show only one printing per card name"),
     card_page: int = Query(1, ge=1, description="Card page number"),
     card_limit: int = Query(50, ge=1, le=100, description="Cards per page"),
 ) -> SetDetail:
@@ -77,6 +78,7 @@ async def get_set(
         wants=wants,
         sort=sort,
         order=order,
+        unique=unique,
         card_page=card_page,
         card_limit=card_limit,
     )

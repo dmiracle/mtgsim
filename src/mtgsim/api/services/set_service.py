@@ -100,6 +100,7 @@ class SetService:
         wants: bool | None = None,
         sort: str = "number",
         order: str = "asc",
+        unique: bool = False,
         card_page: int = 1,
         card_limit: int = 50,
     ) -> SetDetail | None:
@@ -119,6 +120,7 @@ class SetService:
             wants=wants,
             sort=sort,
             order=order,
+            unique=unique,
             page=card_page,
             limit=card_limit,
         )

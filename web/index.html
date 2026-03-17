@@ -2169,6 +2169,7 @@
             if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
             if (opts.sort) params.sort = opts.sort;
             if (opts.order) params.order = opts.order;
+            if (opts.unique) params.unique = true;
 
             try {
                 const setData = await api(`/sets/${code}`, params);
@@ -2281,6 +2282,9 @@
                         <option value="rarity">Rarity</option>
                         <option value="rarity-desc">Rarity (desc)</option>
                     </select>
+                    <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:#ccc;cursor:pointer;">
+                        <input type="checkbox" id="setCardUnique" onchange="applySetCardFilters()"> Unique
+                    </label>
                     <span id="setCardCount" style="color:#888;font-size:0.85rem;margin-left:auto;">${cardPagination.total || cards.length} cards</span>
                 </div>
                 <div class="cards-grid" id="setCardsGrid">
@@ -2319,6 +2323,7 @@
                 color: document.getElementById('setCardColor')?.value || '',
                 type: document.getElementById('setCardType')?.value || '',
                 owns: document.getElementById('setCardOwns')?.value || '',
+                unique: document.getElementById('setCardUnique')?.checked || false,
                 sort,
                 order,
                 _cardsOnly: true,
