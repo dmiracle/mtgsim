@@ -18,6 +18,7 @@ from mtgdb.models import (
     MJKeyword,
     MJSet,
     UserCard,
+    UserCardRating,
     UserDeck,
     UserDeckCard,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "MJKeyword",
     "MJSet",
     "UserCard",
+    "UserCardRating",
     "UserDeck",
     "UserDeckCard",
     "get_engine",

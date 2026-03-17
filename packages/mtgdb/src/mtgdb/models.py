@@ -246,6 +246,31 @@ class UserCard(SQLModel, table=True):
         return self.quantity_wanted + self.quantity_wanted_foil
 
 
+class UserCardRating(SQLModel, table=True):
+    """User's quadrant theory rating for a card.
+
+    Rates cards on a 1-5 scale across four game states:
+    - Developing: building your board (early game, playing on curve)
+    - Ahead: you have board advantage
+    - Behind: opponent has board advantage
+    - Parity: board is stalled, neither player is ahead
+    """
+
+    __tablename__ = "user_card_rating"
+
+    id: int | None = Field(default=None, primary_key=True)
+    card_uuid: str = Field(foreign_key="mj_card.uuid", index=True, unique=True)
+
+    developing: float | None = None  # 1.0 - 5.0
+    ahead: float | None = None
+    behind: float | None = None
+    parity: float | None = None
+
+    notes: str | None = None
+
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserDeck(SQLModel, table=True):
     """User-created deck."""
 

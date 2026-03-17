@@ -1,8 +1,19 @@
 """Cards data access layer using unified database schema."""
 
 import logging
+from datetime import datetime
 
-from mtgdb.models import MJCard, MJCardIdentifier, MJCardLegality, MJCardPrice, MJDeck, MJDeckCard, MJSet, UserCard
+from mtgdb.models import (
+    MJCard,
+    MJCardIdentifier,
+    MJCardLegality,
+    MJCardPrice,
+    MJDeck,
+    MJDeckCard,
+    MJSet,
+    UserCard,
+    UserCardRating,
+)
 from mtgdb.session import get_session
 from sqlmodel import func, select
 
@@ -155,9 +166,21 @@ class CardsData:
             # Get prices as structured entries
             all_prices = self._get_card_price_entries(session, uuid)
 
+            # Get quadrant ratings
+            rating_query = select(UserCardRating).where(UserCardRating.card_uuid == uuid)
+            rating = session.exec(rating_query).first()
+
             card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name)
             card_dict["legalities"] = legalities
             card_dict["all_prices"] = all_prices
+            if rating:
+                card_dict["quadrant_rating"] = {
+                    "developing": rating.developing,
+                    "ahead": rating.ahead,
+                    "behind": rating.behind,
+                    "parity": rating.parity,
+                    "notes": rating.notes,
+                }
             return card_dict
 
     def _get_card_legalities(self, session, uuid: str) -> dict[str, str]:
@@ -381,6 +404,72 @@ class CardsData:
                 "unique_owned": unique_owned,
                 "total_wanted": total_wanted,
                 "unique_wanted": unique_wanted,
+            }
+
+    def set_quadrant_rating(
+        self,
+        card_uuid: str,
+        developing: float | None = None,
+        ahead: float | None = None,
+        behind: float | None = None,
+        parity: float | None = None,
+        notes: str | None = None,
+    ) -> dict | None:
+        """Set or update quadrant theory rating for a card."""
+        with get_session() as session:
+            # Verify card exists
+            card = session.exec(select(MJCard.uuid).where(MJCard.uuid == card_uuid)).first()
+            if not card:
+                return None
+
+            rating = session.exec(select(UserCardRating).where(UserCardRating.card_uuid == card_uuid)).first()
+
+            if rating:
+                if developing is not None:
+                    rating.developing = developing
+                if ahead is not None:
+                    rating.ahead = ahead
+                if behind is not None:
+                    rating.behind = behind
+                if parity is not None:
+                    rating.parity = parity
+                if notes is not None:
+                    rating.notes = notes
+                rating.updated_at = datetime.utcnow()
+            else:
+                rating = UserCardRating(
+                    card_uuid=card_uuid,
+                    developing=developing,
+                    ahead=ahead,
+                    behind=behind,
+                    parity=parity,
+                    notes=notes,
+                )
+                session.add(rating)
+
+            session.commit()
+            session.refresh(rating)
+
+            return {
+                "developing": rating.developing,
+                "ahead": rating.ahead,
+                "behind": rating.behind,
+                "parity": rating.parity,
+                "notes": rating.notes,
+            }
+
+    def get_quadrant_rating(self, card_uuid: str) -> dict | None:
+        """Get quadrant theory rating for a card."""
+        with get_session() as session:
+            rating = session.exec(select(UserCardRating).where(UserCardRating.card_uuid == card_uuid)).first()
+            if not rating:
+                return None
+            return {
+                "developing": rating.developing,
+                "ahead": rating.ahead,
+                "behind": rating.behind,
+                "parity": rating.parity,
+                "notes": rating.notes,
             }
 
 

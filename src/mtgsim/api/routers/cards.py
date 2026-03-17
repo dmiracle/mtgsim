@@ -21,6 +21,22 @@ class CollectionResponse(BaseModel):
     card: dict | None = None
 
 
+class QuadrantRatingRequest(BaseModel):
+    developing: float | None = None
+    ahead: float | None = None
+    behind: float | None = None
+    parity: float | None = None
+    notes: str | None = None
+
+
+class QuadrantRatingResponse(BaseModel):
+    developing: float | None = None
+    ahead: float | None = None
+    behind: float | None = None
+    parity: float | None = None
+    notes: str | None = None
+
+
 @router.get("", response_model=CardListResponse)
 async def search_cards(
     q: str | None = Query(None, description="Search by card name"),
@@ -127,16 +143,39 @@ async def add_card_to_collection(
 
 @router.delete("/{uuid}/collection", response_model=CollectionResponse)
 async def remove_card_from_collection(uuid: str) -> CollectionResponse:
-    """
-    Remove a card from user's collection.
-
-    - **uuid**: The UUID of the card to remove from collection
-
-    Returns success/failure status and details about the operation.
-    """
+    """Remove a card from user's collection."""
     result = await card_service.remove_card_from_collection(uuid)
 
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
 
     return CollectionResponse(**result)
+
+
+@router.put("/{uuid}/rating", response_model=QuadrantRatingResponse)
+async def set_quadrant_rating(uuid: str, req: QuadrantRatingRequest) -> QuadrantRatingResponse:
+    """Set quadrant theory rating for a card (developing, ahead, behind, parity)."""
+    from mtgsim.api.data import cards_data
+
+    result = cards_data.set_quadrant_rating(
+        card_uuid=uuid,
+        developing=req.developing,
+        ahead=req.ahead,
+        behind=req.behind,
+        parity=req.parity,
+        notes=req.notes,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+    return QuadrantRatingResponse(**result)
+
+
+@router.get("/{uuid}/rating", response_model=QuadrantRatingResponse)
+async def get_quadrant_rating(uuid: str) -> QuadrantRatingResponse:
+    """Get quadrant theory rating for a card."""
+    from mtgsim.api.data import cards_data
+
+    result = cards_data.get_quadrant_rating(uuid)
+    if result is None:
+        return QuadrantRatingResponse()
+    return QuadrantRatingResponse(**result)

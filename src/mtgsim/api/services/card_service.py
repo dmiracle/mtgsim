@@ -10,6 +10,7 @@ from mtgsim.api.models.card import (
     CardPriceEntry,
     CardPrinting,
     CardSummary,
+    QuadrantRating,
 )
 from mtgsim.api.models.common import CollectionDetail, Pagination
 
@@ -158,6 +159,7 @@ class CardService:
             total_owned=card.get("total_owned", 0),
             total_wanted=card.get("total_wanted", 0),
             collection=collection_detail,
+            quadrant_rating=QuadrantRating(**card["quadrant_rating"]) if card.get("quadrant_rating") else None,
         )
 
     async def get_card_by_name(self, name: str) -> list[CardSummary]:

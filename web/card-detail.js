@@ -38,6 +38,7 @@ function renderCardDetailView(card) {
     const printingsHtml = renderOtherPrintings(card.other_printings);
     const decksHtml = renderDeckAppearances(card.appears_in_decks);
     const collectionHtml = renderCollectionStatus(card);
+    const quadrantHtml = renderQuadrantRating(card);
 
     mainContent.innerHTML = `
         <div class="card-detail-back" onclick="goBackFromCard()">&#8592; Back</div>
@@ -68,6 +69,7 @@ function renderCardDetailView(card) {
                     </div>
                 ` : ''}
 
+                ${quadrantHtml}
                 ${keywordsHtml}
                 ${metaHtml}
                 ${legalitiesHtml}
@@ -309,6 +311,102 @@ async function addToCollection(uuid) {
         showCardDetail(uuid); // refresh
     } catch (e) {
         // silently fail
+    }
+}
+
+// ========================================
+// Quadrant Theory Rating
+// ========================================
+
+const QUADRANT_LABELS = {
+    developing: { name: 'Developing', desc: 'Building your board', color: '#4cc9f0' },
+    ahead: { name: 'Ahead', desc: 'You have board advantage', color: '#06d6a0' },
+    behind: { name: 'Behind', desc: 'Opponent has advantage', color: '#e63946' },
+    parity: { name: 'Parity', desc: 'Board is stalled', color: '#f4a261' },
+};
+
+function renderQuadrantRating(card) {
+    const r = card.quadrant_rating || {};
+    const quadrants = ['developing', 'ahead', 'behind', 'parity'];
+
+    const slidersHtml = quadrants.map(q => {
+        const label = QUADRANT_LABELS[q];
+        const val = r[q] || 0;
+        const displayVal = val ? val.toFixed(1) : '—';
+        return `
+            <div class="quadrant-row">
+                <div class="quadrant-label">
+                    <span class="quadrant-name" style="color:${label.color}">${label.name}</span>
+                    <span class="quadrant-desc">${label.desc}</span>
+                </div>
+                <div class="quadrant-slider-wrap">
+                    <input type="range" class="quadrant-slider" id="quadrant-${q}"
+                        min="0" max="5" step="0.5" value="${val}"
+                        style="--slider-color:${label.color}"
+                        oninput="updateQuadrantDisplay('${q}', this.value)">
+                    <span class="quadrant-value" id="quadrant-val-${q}">${displayVal}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const notesVal = r.notes ? escapeHtml(r.notes) : '';
+
+    return `
+        <div class="card-detail-section">
+            <h3>Quadrant Rating</h3>
+            <div class="quadrant-container" data-uuid="${card.uuid}">
+                ${slidersHtml}
+                <div class="quadrant-notes-row">
+                    <input type="text" class="quadrant-notes" id="quadrant-notes"
+                        placeholder="Rating notes..." value="${notesVal}"
+                        onchange="saveQuadrantRating('${card.uuid}')">
+                </div>
+                <div class="quadrant-save-row">
+                    <button class="add-to-deck-btn" style="padding:4px 14px;font-size:0.8rem;"
+                        onclick="saveQuadrantRating('${card.uuid}')">Save Rating</button>
+                    <span class="quadrant-status" id="quadrant-status"></span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function updateQuadrantDisplay(quadrant, value) {
+    const el = document.getElementById(`quadrant-val-${quadrant}`);
+    if (el) {
+        el.textContent = parseFloat(value) === 0 ? '—' : parseFloat(value).toFixed(1);
+    }
+}
+
+async function saveQuadrantRating(uuid) {
+    const statusEl = document.getElementById('quadrant-status');
+    const data = {};
+
+    for (const q of ['developing', 'ahead', 'behind', 'parity']) {
+        const slider = document.getElementById(`quadrant-${q}`);
+        if (slider) {
+            const val = parseFloat(slider.value);
+            data[q] = val === 0 ? null : val;
+        }
+    }
+
+    const notesInput = document.getElementById('quadrant-notes');
+    if (notesInput && notesInput.value.trim()) {
+        data.notes = notesInput.value.trim();
+    }
+
+    statusEl.textContent = 'Saving...';
+    statusEl.style.color = '#aaa';
+
+    try {
+        await api(`/cards/${uuid}/rating`, data, 'PUT');
+        statusEl.textContent = 'Saved';
+        statusEl.style.color = '#06d6a0';
+        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    } catch (e) {
+        statusEl.textContent = 'Error saving';
+        statusEl.style.color = '#e63946';
     }
 }
 
