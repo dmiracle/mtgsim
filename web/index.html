@@ -346,6 +346,61 @@
             font-size: 0.7rem;
             flex-shrink: 0;
         }
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #0f3460;
+        }
+        .add-to-deck-btn {
+            background: transparent;
+            border: 1px solid #4cc9f0;
+            color: #4cc9f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .add-to-deck-btn:hover {
+            background: #4cc9f0;
+            color: #0a0a23;
+        }
+        .card-uuid-inline {
+            font-size: 0.6rem;
+            font-family: monospace;
+            color: #555;
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .card-uuid-inline:hover {
+            color: #aaa;
+        }
+        .deck-picker-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            transition: background 0.15s;
+        }
+        .deck-picker-item:hover {
+            background: #1a1a2e;
+        }
+        .deck-picker-item .deck-picker-name {
+            color: #e0e0e0;
+        }
+        .deck-picker-item .deck-picker-meta {
+            font-size: 0.75rem;
+            color: #666;
+        }
         .mana-symbol {
             width: 18px;
             height: 18px;
@@ -1308,9 +1363,12 @@
                     <option value="card_count">Cards (Least)</option>
                 </select>
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
                 <div class="deck-count" id="deckCount">Loading...</div>
-                <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;" onclick="showImportDeckModal()">Import MTGA Deck</button>
+                <div style="display:flex;gap:4px;">
+                    <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;background:#4cc9f0;color:#0a0a23;" onclick="showCreateDeckModal()">+ New Deck</button>
+                    <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;" onclick="showImportDeckModal()">Import</button>
+                </div>
             </div>
             <div class="deck-list" id="deckList">
                 <div class="loading">Loading decks...</div>
@@ -1449,6 +1507,67 @@
                 <input type="text" id="glossarySearch" placeholder="Search terms..." oninput="filterGlossary()">
             </div>
             <div class="glossary-body" id="glossaryBody"></div>
+        </div>
+    </div>
+
+    <!-- Deck Picker Modal -->
+    <div class="modal" id="deckPickerModal" onclick="closeDeckPicker(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;">
+            <div class="modal-header">
+                <h3 id="deckPickerTitle">Add to Deck</h3>
+                <button class="modal-close" onclick="closeDeckPicker()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+                <div id="deckPickerCardInfo" style="margin-bottom:12px;font-size:0.85rem;color:#aaa;"></div>
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <select id="deckPickerBoard" style="flex:1;padding:6px 8px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.85rem;">
+                        <option value="main">Main Board</option>
+                        <option value="side">Sideboard</option>
+                        <option value="commander">Commander</option>
+                    </select>
+                    <input type="number" id="deckPickerCount" value="1" min="1" max="99" style="width:60px;padding:6px 8px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.85rem;text-align:center;">
+                </div>
+                <div id="deckPickerList" style="max-height:300px;overflow-y:auto;"></div>
+                <div style="margin-top:12px;border-top:1px solid #1a1a2e;padding-top:12px;">
+                    <button class="raw-btn" style="width:100%;padding:8px;font-size:0.85rem;background:#16213e;border:1px solid #4cc9f0;color:#4cc9f0;" onclick="quickCreateDeckFromPicker()">+ Create New Deck</button>
+                </div>
+                <div id="deckPickerStatus" style="margin-top:8px;font-size:0.85rem;text-align:center;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Deck Modal -->
+    <div class="modal" id="createDeckModal" onclick="closeCreateDeckModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>Create New Deck</h3>
+                <button class="modal-close" onclick="closeCreateDeckModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Deck Name</label>
+                    <input type="text" id="createDeckName" placeholder="My Deck" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Format</label>
+                    <select id="createDeckFormat" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                        <option value="">None</option>
+                        <option value="standard">Standard</option>
+                        <option value="pioneer">Pioneer</option>
+                        <option value="modern">Modern</option>
+                        <option value="legacy">Legacy</option>
+                        <option value="vintage">Vintage</option>
+                        <option value="commander">Commander</option>
+                        <option value="pauper">Pauper</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Description (optional)</label>
+                    <input type="text" id="createDeckDesc" placeholder="" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                </div>
+                <button class="raw-btn" style="width:100%;padding:10px;font-size:0.9rem;background:#4cc9f0;color:#0a0a23;" onclick="submitCreateDeck()">Create Deck</button>
+                <div id="createDeckStatus" style="margin-top:8px;font-size:0.85rem;text-align:center;color:#aaa;"></div>
+            </div>
         </div>
     </div>
 
@@ -2428,9 +2547,9 @@
                         <div class="card-price">${priceHtml}</div>
                     </div>
                     ${card.uuid ? `
-                        <div class="card-uuid" onclick="copyUuid('${card.uuid}')" title="Click to copy UUID">
-                            <span class="uuid-text">${card.uuid}</span>
-                            <span class="uuid-copy">Copy</span>
+                        <div class="card-actions">
+                            <button class="add-to-deck-btn" onclick="event.stopPropagation();showDeckPicker('${card.uuid}','${escapeHtml(card.name).replace(/'/g, "\\'")}')" title="Add to deck">+ Deck</button>
+                            <span class="card-uuid-inline" onclick="copyUuid('${card.uuid}')" title="Click to copy UUID">${card.uuid.substring(0,8)}...</span>
                         </div>
                     ` : ''}
                 </div>
@@ -2852,6 +2971,126 @@
             html += `<div style="margin-top:12px;"><button class="raw-btn" style="padding:6px 14px;font-size:0.85rem;" onclick="loadDeck('${result.deck_id}');">View Deck</button></div>`;
             html += `</div>`;
             resultDiv.innerHTML = html;
+        }
+
+        // ========================================
+        // Deck Management (Create, Add Card)
+        // ========================================
+
+        let deckPickerCardUuid = null;
+        let deckPickerCardName = '';
+        let userDecksCache = null;
+
+        async function loadUserDecks() {
+            try {
+                userDecksCache = await api('/decks/user/list');
+            } catch (e) {
+                userDecksCache = [];
+            }
+            return userDecksCache;
+        }
+
+        async function showDeckPicker(cardUuid, cardName) {
+            deckPickerCardUuid = cardUuid;
+            deckPickerCardName = cardName;
+            document.getElementById('deckPickerCardInfo').textContent = `Adding: ${cardName}`;
+            document.getElementById('deckPickerCount').value = 1;
+            document.getElementById('deckPickerBoard').value = 'main';
+            document.getElementById('deckPickerStatus').textContent = '';
+
+            const decks = await loadUserDecks();
+            const listEl = document.getElementById('deckPickerList');
+
+            if (decks.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:#666;padding:20px;font-size:0.85rem;">No decks yet. Create one below.</div>';
+            } else {
+                listEl.innerHTML = decks.map(d => `
+                    <div class="deck-picker-item" onclick="addCardToDeck(${d.id}, '${d.name.replace(/'/g, "\\'")}')">
+                        <span class="deck-picker-name">${escapeHtml(d.name)}</span>
+                        <span class="deck-picker-meta">${d.card_count} cards${d.format ? ' · ' + d.format : ''}</span>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('deckPickerModal').classList.add('active');
+        }
+
+        function closeDeckPicker(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('deckPickerModal').classList.remove('active');
+        }
+
+        async function addCardToDeck(deckId, deckName) {
+            const count = parseInt(document.getElementById('deckPickerCount').value) || 1;
+            const board = document.getElementById('deckPickerBoard').value;
+            const statusEl = document.getElementById('deckPickerStatus');
+
+            statusEl.textContent = 'Adding...';
+            statusEl.style.color = '#aaa';
+
+            try {
+                await api(`/decks/${deckId}/cards`, {
+                    card_uuid: deckPickerCardUuid,
+                    count,
+                    board,
+                }, 'POST');
+                statusEl.textContent = `Added ${count}x ${deckPickerCardName} to ${deckName}`;
+                statusEl.style.color = '#4cc9f0';
+                userDecksCache = null; // invalidate cache
+                setTimeout(() => closeDeckPicker(), 1200);
+            } catch (e) {
+                statusEl.textContent = 'Error adding card';
+                statusEl.style.color = '#e63946';
+            }
+        }
+
+        async function quickCreateDeckFromPicker() {
+            const name = prompt('Deck name:');
+            if (!name) return;
+
+            try {
+                const deck = await api('/decks/create', { name }, 'POST');
+                userDecksCache = null;
+                await addCardToDeck(deck.id, deck.name);
+                await showDeckPicker(deckPickerCardUuid, deckPickerCardName);
+            } catch (e) {
+                document.getElementById('deckPickerStatus').textContent = 'Error creating deck';
+                document.getElementById('deckPickerStatus').style.color = '#e63946';
+            }
+        }
+
+        function showCreateDeckModal() {
+            document.getElementById('createDeckName').value = '';
+            document.getElementById('createDeckFormat').value = '';
+            document.getElementById('createDeckDesc').value = '';
+            document.getElementById('createDeckStatus').textContent = '';
+            document.getElementById('createDeckModal').classList.add('active');
+        }
+
+        function closeCreateDeckModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('createDeckModal').classList.remove('active');
+        }
+
+        async function submitCreateDeck() {
+            const name = document.getElementById('createDeckName').value.trim();
+            const format = document.getElementById('createDeckFormat').value || null;
+            const description = document.getElementById('createDeckDesc').value.trim() || null;
+            const statusEl = document.getElementById('createDeckStatus');
+
+            if (!name) { statusEl.textContent = 'Name is required'; return; }
+
+            statusEl.textContent = 'Creating...';
+
+            try {
+                const deck = await api('/decks/create', { name, format, description }, 'POST');
+                userDecksCache = null;
+                closeCreateDeckModal();
+                loadDeck(String(deck.id));
+                loadDecks(); // refresh sidebar
+            } catch (e) {
+                statusEl.textContent = 'Error creating deck';
+            }
         }
 
         // ========================================

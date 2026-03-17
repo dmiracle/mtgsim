@@ -91,6 +91,27 @@ class DeckImportRequest(BaseModel):
     name: str
 
 
+class DeckCreateRequest(BaseModel):
+    name: str
+    description: str | None = None
+    format: str | None = None
+
+
+class AddCardRequest(BaseModel):
+    card_uuid: str
+    count: int = 1
+    board: str = "main"
+
+
+class UserDeckResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    format: str | None = None
+    source: str = "user"
+    card_count: int = 0
+
+
 @router.post("/import")
 async def import_deck(req: DeckImportRequest) -> dict:
     """Import a deck from MTGA export format. Auto-detects format legality."""
@@ -100,13 +121,77 @@ async def import_deck(req: DeckImportRequest) -> dict:
     return result.model_dump()
 
 
+@router.post("/create")
+async def create_deck(req: DeckCreateRequest) -> UserDeckResponse:
+    """Create a new empty user deck."""
+    deck = await deck_service.create_user_deck(name=req.name, description=req.description, format=req.format)
+    return UserDeckResponse(**deck)
+
+
+@router.get("/user/list")
+async def list_user_decks() -> list[UserDeckResponse]:
+    """List all user-created decks (lightweight, for deck picker)."""
+    result = await deck_service.list_decks(source="user", limit=100)
+    import_result = await deck_service.list_decks(source="import", limit=100)
+    decks = []
+    for d in result.data + import_result.data:
+        fmt = None
+        if d.legality:
+            for f in ["standard", "pioneer", "modern", "legacy", "vintage", "commander"]:
+                if getattr(d.legality, f, False):
+                    fmt = f
+                    break
+        decks.append(
+            UserDeckResponse(
+                id=int(d.file) if d.file.isdigit() else 0,
+                name=d.name,
+                format=fmt,
+                source=d.source or "user",
+                card_count=d.card_count,
+            )
+        )
+    return decks
+
+
+@router.post("/{deck_id}/cards")
+async def add_card_to_deck(deck_id: int, req: AddCardRequest) -> dict:
+    """Add a card to a user deck."""
+    result = await deck_service.add_card_to_deck(
+        deck_id=deck_id,
+        card_uuid=req.card_uuid,
+        count=req.count,
+        board=req.board,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
+    return result
+
+
+@router.delete("/{deck_id}/cards/{card_uuid}")
+async def remove_card_from_deck(
+    deck_id: int,
+    card_uuid: str,
+    board: str | None = Query(None),
+) -> dict:
+    """Remove a card from a user deck."""
+    success = await deck_service.remove_card_from_deck(deck_id=deck_id, card_uuid=card_uuid, board=board)
+    if not success:
+        raise HTTPException(status_code=404, detail="Card not found in deck")
+    return {"status": "removed"}
+
+
+@router.delete("/{deck_id}")
+async def delete_deck(deck_id: int) -> dict:
+    """Delete a user deck."""
+    success = await deck_service.delete_user_deck(deck_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
+    return {"status": "deleted"}
+
+
 @router.get("/{file}/raw")
 async def get_deck_raw(file: str) -> dict:
-    """
-    Get raw deck JSON for developer inspection.
-
-    Returns the deck data in raw format.
-    """
+    """Get raw deck JSON for developer inspection."""
     data = await deck_service.get_deck_raw(file)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {file}")

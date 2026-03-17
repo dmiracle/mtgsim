@@ -57,6 +57,7 @@ function renderCardDetailView(card) {
                     </h2>
                     <div class="card-detail-type-line">${escapeHtml(card.type || '')}</div>
                     ${statsRow}
+                    <button class="add-to-deck-btn" style="margin-top:8px;padding:6px 16px;font-size:0.85rem;" onclick="showDeckPicker('${card.uuid}','${escapeHtml(card.name).replace(/'/g, "\\'")}')">+ Add to Deck</button>
                 </div>
 
                 ${oracleHtml ? `
