@@ -4,6 +4,7 @@ import logging
 
 from mtgdb.models import MJCard, MJCardIdentifier, MJSet, UserCard
 from mtgdb.session import get_session
+from sqlalchemy import Integer, cast
 from sqlmodel import func, select
 
 from .helpers import build_image_url, set_to_api_dict
@@ -231,14 +232,23 @@ class SetsData:
                 .where(MJCard.set_code == code)
             )
 
-            # Unique filter: keep only one printing per card name
+            # Unique filter: keep only the standard art (lowest collector number) per card name
             if unique:
-                min_uuid_subq = (
-                    select(func.min(MJCard.uuid))
+                # Subquery: for each name, find the min number (cast to int)
+                min_num_subq = (
+                    select(
+                        MJCard.name.label("cname"),
+                        func.min(cast(MJCard.number, Integer)).label("min_num"),
+                    )
                     .where(MJCard.set_code == code)
                     .group_by(MJCard.name)
+                    .subquery()
                 )
-                query = query.where(MJCard.uuid.in_(min_uuid_subq))
+                query = query.join(
+                    min_num_subq,
+                    (MJCard.name == min_num_subq.c.cname)
+                    & (cast(MJCard.number, Integer) == min_num_subq.c.min_num),
+                )
 
             # Rarity filter
             if rarity:
