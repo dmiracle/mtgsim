@@ -1,16 +1,22 @@
-"""Synchronization logic for MTGJSON data."""
+"""MTGJSON data synchronization.
 
-from .mtgjson import update_decks, update_keywords, update_references, update_sets
-from .unified import sync_all, sync_cards, sync_decks, sync_prices, sync_sets
+Re-exports from mtgdb.sync package.
+"""
+
+from mtgdb.sync import (
+    sync_all,
+    sync_cards,
+    sync_decks,
+    sync_keywords,
+    sync_prices,
+    sync_sets,
+)
 
 __all__ = [
-    "update_references",
-    "update_decks",
-    "update_sets",
-    "update_keywords",
     "sync_all",
-    "sync_cards",
-    "sync_decks",
-    "sync_prices",
     "sync_sets",
+    "sync_cards",
+    "sync_prices",
+    "sync_decks",
+    "sync_keywords",
 ]

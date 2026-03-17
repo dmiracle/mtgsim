@@ -37,6 +37,71 @@ mtgsim extract path/to/card.jpg
 mtgsim card "Lightning Bolt" --types Instant --mana R --oracle "Deal 3 damage to any target."
 ```
 
+## Project Structure
+
+This project uses a **uv workspace** to organize code into reusable packages:
+
+```
+mtgsim/
+├── pyproject.toml          # Root workspace config
+├── packages/
+│   └── mtgdb/              # Database models and sync
+│       ├── pyproject.toml
+│       └── src/mtgdb/
+│           ├── models.py   # SQLModel models (MJ*, User*)
+│           ├── session.py  # Database engine/session
+│           ├── config.py   # Path configuration
+│           └── sync/       # MTGJSON sync functions
+└── src/mtgsim/             # Main application
+    ├── api/                # FastAPI backend
+    ├── cli/                # Typer CLI
+    ├── db/                 # Re-exports from mtgdb
+    └── sync/               # Re-exports from mtgdb
+```
+
+### Adding New Workspace Packages
+
+1. Create the package directory:
+   ```bash
+   mkdir -p packages/mypackage/src/mypackage
+   ```
+
+2. Create `packages/mypackage/pyproject.toml`:
+   ```toml
+   [project]
+   name = "mypackage"
+   version = "0.1.0"
+   requires-python = ">=3.14"
+   dependencies = []
+
+   [build-system]
+   requires = ["uv_build>=0.8.19,<0.9.0"]
+   build-backend = "uv_build"
+   ```
+
+3. Add to root dependencies if needed:
+   ```toml
+   [project]
+   dependencies = ["mypackage", ...]
+
+   [tool.uv.sources]
+   mypackage = { workspace = true }
+   ```
+
+4. Lock and sync:
+   ```bash
+   uv lock && uv sync
+   ```
+
+### Workspace Commands
+
+```bash
+uv lock                    # Lock entire workspace
+uv sync                    # Install all packages
+uv sync --package mtgdb    # Install specific package
+uv run pytest              # Run tests
+```
+
 ## CLI Commands
 
 - `mtgsim card` - Generate and display ASCII card

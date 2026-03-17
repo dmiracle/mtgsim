@@ -2,8 +2,8 @@
 
 from sqlmodel import func, select
 
-from mtgsim.db.models import MJCard, MJCardPrice
-from mtgsim.db.session import get_session
+from mtgdb.models import MJCard, MJCardPrice
+from mtgdb.session import get_session
 
 
 class PricesData:

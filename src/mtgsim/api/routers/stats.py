@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from mtgsim.api.services.stats_service import DeckAggregateStats, HomeStats, stats_service
-from mtgsim.config import MTGSIM_HOME
+from mtgdb.config import MTGDB_HOME
 
 router = APIRouter(prefix="/stats", tags=["statistics"])
 
@@ -55,7 +55,7 @@ async def get_corpus_wordfreq():
     - unique_words: Number of unique words
     - frequencies: Dict mapping word -> frequency (count/total)
     """
-    wordfreq_path = MTGSIM_HOME / "corpus_wordfreq.json"
+    wordfreq_path = MTGDB_HOME / "corpus_wordfreq.json"
     if not wordfreq_path.exists():
         raise HTTPException(
             status_code=404,

@@ -1,9 +1,14 @@
 """Deck API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from mtgsim.api.models.deck import DeckDetail, DeckListResponse
 from mtgsim.api.services.deck_service import deck_service
+
+logger = logging.getLogger("mtgsim.api.routers.decks")
 
 router = APIRouter(prefix="/decks", tags=["decks"])
 
@@ -19,7 +24,7 @@ async def list_decks(
     card_count_max: int | None = Query(None, ge=0, description="Maximum card count"),
     price_min: float | None = Query(None, ge=0, description="Minimum deck price"),
     price_max: float | None = Query(None, ge=0, description="Maximum deck price"),
-    source: str | None = Query(None, pattern="^(precon|user)$", description="Deck source (precon or user)"),
+    source: str | None = Query(None, description="Deck source (precon, user, import, test, ...)"),
     sort: str = Query("name", description="Sort field"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -41,6 +46,7 @@ async def list_decks(
     """
     color_list = list(colors.upper()) if colors else None
 
+    logger.debug(f"list_decks: q={q} format={format} set={set} type={type} colors={color_list} sort={sort}")
     return await deck_service.list_decks(
         q=q,
         format=format,
@@ -72,10 +78,26 @@ async def get_deck(file: str) -> DeckDetail:
     - All cards (commander, main board, sideboard) with ownership status
     - Statistics (mana curve, type distribution, keywords)
     """
+    logger.debug(f"get_deck: file={file}")
     deck = await deck_service.get_deck(file)
     if deck is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
+    logger.debug(f"get_deck: found deck '{deck.meta.name}' with {len(deck.main_board)} main board cards")
     return deck
+
+
+class DeckImportRequest(BaseModel):
+    text: str
+    name: str
+
+
+@router.post("/import")
+async def import_deck(req: DeckImportRequest) -> dict:
+    """Import a deck from MTGA export format. Auto-detects format legality."""
+    from mtgsim.deck_import import import_mtga_deck
+
+    result = import_mtga_deck(text=req.text, name=req.name)
+    return result.model_dump()
 
 
 @router.get("/{file}/raw")

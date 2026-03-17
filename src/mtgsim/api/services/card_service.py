@@ -1,16 +1,19 @@
 """Card service - handles card data access and processing."""
 
+import logging
+
 from mtgsim.api.data import cards_data
 from mtgsim.api.models.card import (
     CardAppearance,
     CardDetail,
-    CardLegalities,
     CardListResponse,
+    CardPriceEntry,
     CardPrinting,
     CardSummary,
 )
 from mtgsim.api.models.common import CollectionDetail, Pagination
-from mtgsim.api.models.deck import PriceBySource
+
+logger = logging.getLogger("mtgsim.api.services.card")
 
 
 class CardService:
@@ -33,6 +36,7 @@ class CardService:
         wants: bool | None = None,
     ) -> CardListResponse:
         """Search cards with filters."""
+        logger.debug(f"search_cards: q={q} set_code={set_code} rarity={rarity} sort={sort} page={page}")
         cards, total = cards_data.search_cards(
             q=q,
             set_code=set_code,
@@ -47,11 +51,9 @@ class CardService:
             wants=wants,
         )
 
+        logger.debug(f"search_cards: got {len(cards)} cards, total={total}")
         data = []
         for c in cards:
-            prices = c.get("prices") or {}
-            tcg_prices = prices.get("tcgplayer") or {}
-            price = tcg_prices.get("normal")
             data.append(
                 CardSummary(
                     uuid=c["uuid"],
@@ -63,7 +65,6 @@ class CardService:
                     set_code=c.get("set_code", ""),
                     color_identity=c.get("color_identity", []),
                     text=c.get("oracle_text"),
-                    price=price,
                     image_url=c.get("image_url"),
                     owns=c.get("owns", False),
                     wants=c.get("wants", False),
@@ -81,16 +82,10 @@ class CardService:
 
     async def get_card(self, uuid: str) -> CardDetail | None:
         """Get full card details."""
+        logger.debug(f"get_card: uuid={uuid}")
         card = cards_data.get_card(uuid)
         if not card:
             return None
-
-        # Get legalities
-        legalities = card.get("legalities", {}) or {}
-
-        # Get prices from card data
-        prices = card.get("prices", {}) or {}
-        tcg_price = prices.get("tcgplayer", {}).get("normal") if prices else None
 
         # Get appearances in decks
         appearances = cards_data.get_card_appearances(uuid)
@@ -119,6 +114,7 @@ class CardService:
             type=card.get("type", ""),
             types=card.get("types", []),
             subtypes=card.get("subtypes", []),
+            supertypes=card.get("supertypes", []),
             text=card.get("oracle_text", ""),
             flavor_text=card.get("flavor_text", ""),
             rarity=card.get("rarity", ""),
@@ -126,24 +122,25 @@ class CardService:
             set_name=card.get("set_name") or "",
             color_identity=card.get("color_identity", []),
             colors=card.get("colors", []),
+            keywords=card.get("keywords", []),
             power=card.get("power"),
             toughness=card.get("toughness"),
+            loyalty=card.get("loyalty"),
+            defense=card.get("defense"),
+            artist=card.get("artist"),
+            number=card.get("number"),
+            layout=card.get("layout"),
+            finishes=card.get("finishes", []),
+            border_color=card.get("border_color"),
+            frame_version=card.get("frame_version"),
+            is_reprint=card.get("is_reprint", False),
+            is_reserved=card.get("is_reserved", False),
+            is_promo=card.get("is_promo", False),
             image_url=card.get("image_url"),
-            prices=PriceBySource(tcgplayer=tcg_price),
-            legalities=CardLegalities(
-                standard=legalities.get("standard", "Not Legal"),
-                pioneer=legalities.get("pioneer", "Not Legal"),
-                modern=legalities.get("modern", "Not Legal"),
-                legacy=legalities.get("legacy", "Not Legal"),
-                vintage=legalities.get("vintage", "Not Legal"),
-                commander=legalities.get("commander", "Not Legal"),
-            ),
+            legalities=card.get("legalities", {}),
+            all_prices=[CardPriceEntry(**p) for p in card.get("all_prices", [])],
             appears_in_decks=[
-                CardAppearance(
-                    file=a["file"],
-                    name=a["name"],
-                    count=a["count"],
-                )
+                CardAppearance(file=a["file"], name=a["name"], count=a["count"])
                 for a in appearances
             ],
             other_printings=[
@@ -151,6 +148,8 @@ class CardService:
                     set_code=p["set_code"],
                     set_name=p.get("set_name") or "",
                     uuid=p["uuid"],
+                    rarity=p.get("rarity"),
+                    number=p.get("number"),
                     image_url=p.get("image_url"),
                     owns=p.get("owns", False),
                     total_owned=p.get("total_owned", 0),
@@ -177,7 +176,6 @@ class CardService:
                 rarity=c.get("rarity", ""),
                 set_code=c.get("set_code", ""),
                 color_identity=c.get("color_identity", []),
-                price=None,
                 image_url=c.get("image_url"),
                 owns=c.get("owns", False),
                 wants=c.get("wants", False),
@@ -221,10 +219,6 @@ class CardService:
     async def get_collection_stats(self) -> dict:
         """Get collection statistics."""
         return cards_data.get_collection_stats()
-
-    async def get_cards_in_deck(self, deck_file: str) -> list[str]:
-        """Get all card UUIDs in a deck."""
-        return []
 
 
 # Singleton instance

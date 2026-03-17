@@ -3,7 +3,6 @@
 from pydantic import BaseModel
 
 from mtgsim.api.models.common import CollectionDetail, Pagination
-from mtgsim.api.models.deck import PriceBySource
 
 
 class CardSummary(BaseModel):
@@ -33,18 +32,13 @@ class CardListResponse(BaseModel):
     pagination: Pagination
 
 
-class CardLegalities(BaseModel):
-    """Card format legalities."""
+class CardPriceEntry(BaseModel):
+    """Single price entry from a provider."""
 
-    standard: str = "Not Legal"
-    pioneer: str = "Not Legal"
-    modern: str = "Not Legal"
-    legacy: str = "Not Legal"
-    vintage: str = "Not Legal"
-    commander: str = "Not Legal"
-    brawl: str = "Not Legal"
-    historic: str = "Not Legal"
-    pauper: str = "Not Legal"
+    provider: str
+    finish: str
+    listing_type: str
+    price: float
 
 
 class CardAppearance(BaseModel):
@@ -61,6 +55,8 @@ class CardPrinting(BaseModel):
     set_code: str
     set_name: str
     uuid: str
+    rarity: str | None = None
+    number: str | None = None
     image_url: str | None = None
     owns: bool = False
     total_owned: int = 0
@@ -76,6 +72,7 @@ class CardDetail(BaseModel):
     type: str | None = None
     types: list[str] = []
     subtypes: list[str] = []
+    supertypes: list[str] = []
     text: str | None = None
     flavor_text: str | None = None
     rarity: str | None = None
@@ -83,11 +80,23 @@ class CardDetail(BaseModel):
     set_name: str | None = None
     color_identity: list[str] = []
     colors: list[str] = []
+    keywords: list[str] = []
     power: str | None = None
     toughness: str | None = None
+    loyalty: str | None = None
+    defense: str | None = None
+    artist: str | None = None
+    number: str | None = None
+    layout: str | None = None
+    finishes: list[str] = []
+    border_color: str | None = None
+    frame_version: str | None = None
+    is_reprint: bool = False
+    is_reserved: bool = False
+    is_promo: bool = False
     image_url: str | None = None
-    prices: PriceBySource
-    legalities: CardLegalities
+    legalities: dict[str, str] = {}
+    all_prices: list[CardPriceEntry] = []
     appears_in_decks: list[CardAppearance] = []
     other_printings: list[CardPrinting] = []
     owns: bool = False

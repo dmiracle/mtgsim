@@ -1,11 +1,14 @@
 """Sets data access layer using unified database schema."""
 
+import logging
+
+from mtgdb.models import MJCard, MJCardIdentifier, MJSet, UserCard
+from mtgdb.session import get_session
 from sqlmodel import func, select
 
-from mtgsim.db.models import MJCard, MJCardIdentifier, MJSet, UserCard
-from mtgsim.db.session import get_session
-
 from .helpers import build_image_url, set_to_api_dict
+
+logger = logging.getLogger("mtgsim.api.data.sets")
 
 
 class SetsData:
@@ -37,6 +40,7 @@ class SetsData:
 
         Returns: (list of sets, total count)
         """
+        logger.debug(f"list_sets: q={q} set_type={set_type} block={block} sort={sort} page={page}")
         with get_session() as session:
             query = select(MJSet)
 
@@ -77,10 +81,24 @@ class SetsData:
             # Execute
             results = session.exec(query).all()
 
+            logger.debug(f"list_sets: query returned {len(results)} results, total={total}")
+
+            # Batch collection stats for all sets on this page
+            set_codes = [s.code for s in results]
+            stats_map = self._get_batch_collection_stats(session, set_codes)
+
             # Convert to API format with collection stats
             sets = []
             for mj_set in results:
-                collection_stats = self._get_set_collection_stats(session, mj_set.code)
+                collection_stats = stats_map.get(
+                    mj_set.code,
+                    {
+                        "total_cards": 0,
+                        "owned_cards": 0,
+                        "owned_percentage": 0,
+                        "wanted_cards": 0,
+                    },
+                )
 
                 # Filter by has_owned_cards if specified
                 if has_owned_cards is True and collection_stats["owned_cards"] == 0:
@@ -93,6 +111,53 @@ class SetsData:
                 sets.append(set_to_api_dict(mj_set, collection_stats))
 
             return sets, total
+
+    def _get_batch_collection_stats(self, session, set_codes: list[str]) -> dict[str, dict]:
+        """Get collection statistics for multiple sets in batch."""
+        if not set_codes:
+            return {}
+
+        # Total cards per set
+        total_query = (
+            select(MJCard.set_code, func.count(MJCard.uuid))
+            .where(MJCard.set_code.in_(set_codes))
+            .group_by(MJCard.set_code)
+        )
+        totals = dict(session.exec(total_query).all())
+
+        # Owned cards per set
+        owned_query = (
+            select(MJCard.set_code, func.count(MJCard.uuid))
+            .join(UserCard, MJCard.uuid == UserCard.card_uuid)
+            .where(MJCard.set_code.in_(set_codes))
+            .where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+            .group_by(MJCard.set_code)
+        )
+        owned = dict(session.exec(owned_query).all())
+
+        # Wanted cards per set
+        wanted_query = (
+            select(MJCard.set_code, func.count(MJCard.uuid))
+            .join(UserCard, MJCard.uuid == UserCard.card_uuid)
+            .where(MJCard.set_code.in_(set_codes))
+            .where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
+            .group_by(MJCard.set_code)
+        )
+        wanted = dict(session.exec(wanted_query).all())
+
+        result = {}
+        for code in set_codes:
+            total_cards = totals.get(code, 0)
+            owned_cards = owned.get(code, 0)
+            wanted_cards = wanted.get(code, 0)
+            owned_pct = round((owned_cards / total_cards * 100), 1) if total_cards > 0 else 0
+            result[code] = {
+                "total_cards": total_cards,
+                "owned_cards": owned_cards,
+                "owned_percentage": owned_pct,
+                "wanted_cards": wanted_cards,
+            }
+        return result
 
     def _get_set_collection_stats(self, session, set_code: str) -> dict:
         """Get collection statistics for a set."""
@@ -301,11 +366,18 @@ class SetsData:
                     key = str(int(mv))
                 mana_curve[key] = mana_curve.get(key, 0) + 1
 
+            # Keyword frequencies
+            keyword_freq = {}
+            for card in cards:
+                for kw in card.keywords or []:
+                    keyword_freq[kw] = keyword_freq.get(kw, 0) + 1
+
             return {
                 "rarity_count": rarity_count,
                 "color_distribution": color_count,
                 "type_distribution": type_count,
                 "mana_curve": mana_curve,
+                "keyword_freq": keyword_freq,
             }
 
     def get_available_types(self) -> list[str]:

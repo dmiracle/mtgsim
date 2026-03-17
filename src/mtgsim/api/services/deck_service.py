@@ -1,6 +1,9 @@
 """Deck service - handles deck data access and processing."""
 
+import logging
+
 from mtgsim.api.data import decks_data
+from mtgsim.api.data.keywords import keywords_data
 from mtgsim.api.models.common import KeywordCounts, Pagination
 from mtgsim.api.models.deck import (
     DeckCard,
@@ -14,6 +17,8 @@ from mtgsim.api.models.deck import (
     DeckSummary,
     PriceBySource,
 )
+
+logger = logging.getLogger("mtgsim.api.services.deck")
 
 
 class DeckService:
@@ -37,6 +42,7 @@ class DeckService:
         limit: int = 50,
     ) -> DeckListResponse:
         """List and filter decks with pagination."""
+        logger.debug(f"list_decks: q={q} format={format} set_code={set_code} sort={sort} page={page} limit={limit}")
         decks, total = decks_data.list_decks(
             q=q,
             set_code=set_code,
@@ -51,10 +57,11 @@ class DeckService:
             limit=limit,
         )
 
+        logger.debug(f"list_decks: got {len(decks)} decks, total={total}")
         data = []
         for d in decks:
             # Handle both precon and user deck formats
-            file_name = d.get("file") or f"user-deck-{d.get('id')}"
+            file_name = d.get("file") or str(d.get("id"))
             data.append(
                 DeckSummary(
                     file=file_name,
@@ -84,6 +91,7 @@ class DeckService:
 
     async def get_deck(self, file: str) -> DeckDetail | None:
         """Get full deck details including cards and statistics."""
+        logger.debug(f"get_deck: loading file={file}")
         deck = decks_data.get_deck(file)
         if not deck:
             return None
@@ -93,7 +101,7 @@ class DeckService:
         legality = deck.get("legality", {})
 
         # Handle both precon and user deck formats
-        file_name = meta.get("file") or f"user-deck-{deck.get('id')}"
+        file_name = meta.get("file") or str(deck.get("id"))
         source = deck.get("source", "precon")
 
         def make_deck_card(c: dict, board: str | None = None) -> DeckCard:
@@ -153,12 +161,8 @@ class DeckService:
                 type_distribution=stats.get("type_distribution", {}),
                 rarity_distribution=stats.get("rarity_distribution", {}),
                 color_distribution=stats.get("color_distribution", {}),
-                price_histogram=[],
-                keywords=KeywordCounts(
-                    ability_words={},
-                    keyword_abilities={},
-                    keyword_actions={},
-                ),
+                price_histogram=stats.get("price_histogram", []),
+                keywords=KeywordCounts(**keywords_data.categorize_keyword_freq(stats.get("keyword_freq", {}))),
             ),
         )
 

@@ -1,15 +1,20 @@
 """FastAPI application for MTG Webapp REST API."""
 
+import logging
+import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from mtgsim.api.data import close_databases, init_databases
 from mtgsim.api.models.common import ErrorDetail, ErrorResponse
 from mtgsim.api.routers import (
+    boosters_router,
     cards_router,
     decks_router,
     keywords_router,
@@ -19,19 +24,70 @@ from mtgsim.api.routers import (
 )
 from mtgsim.config import get_resources_dir, get_web_dir, get_webapp_dir
 
+# Configure logging based on MTGSIM_DEBUG env var
+DEBUG = os.environ.get("MTGSIM_DEBUG", "0") == "1"
+log_level = logging.DEBUG if DEBUG else logging.INFO
+
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("mtgsim.api")
+
+# Threshold in seconds for warning about slow responses
+SLOW_RESPONSE_THRESHOLD = 1.0
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log request timing and identify slow responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip logging for static files and health checks
+        path = request.url.path
+        if path.startswith(("/web", "/webapp", "/resources")) or path == "/health":
+            return await call_next(request)
+
+        start_time = time.perf_counter()
+        method = request.method
+        query = f"?{request.url.query}" if request.url.query else ""
+
+        logger.debug(f"-> {method} {path}{query}")
+
+        response = await call_next(request)
+
+        duration = time.perf_counter() - start_time
+        duration_ms = duration * 1000
+        status = response.status_code
+
+        if duration >= SLOW_RESPONSE_THRESHOLD:
+            logger.warning(f"SLOW {method} {path}{query} -> {status} ({duration_ms:.0f}ms)")
+        else:
+            logger.info(f"{method} {path}{query} -> {status} ({duration_ms:.0f}ms)")
+
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
     # Startup
-    print("Starting MTG API server...")
+    import time as _time
+
+    t0 = _time.perf_counter()
+    logger.info("Starting MTG API server..." + (" [DEBUG MODE]" if DEBUG else ""))
+    logger.debug(f"Web dir: {get_web_dir()}")
+    logger.debug(f"Resources dir: {get_resources_dir()}")
+    logger.debug(f"Webapp dir: {get_webapp_dir()}")
+    t1 = _time.perf_counter()
     init_databases()
-    print("Database connections initialized")
+    logger.info(f"Database initialized ({(_time.perf_counter() - t1) * 1000:.0f}ms)")
+    logger.info(f"Server ready ({(_time.perf_counter() - t0) * 1000:.0f}ms startup)")
 
     yield
 
     # Shutdown
-    print("Shutting down MTG API server...")
+    logger.info("Shutting down MTG API server...")
     close_databases()
 
 
@@ -67,6 +123,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
 
 
 # Exception handlers
@@ -113,6 +172,7 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
 
 
 # Include routers
+app.include_router(boosters_router, prefix="/api")
 app.include_router(decks_router, prefix="/api")
 app.include_router(sets_router, prefix="/api")
 app.include_router(cards_router, prefix="/api")
