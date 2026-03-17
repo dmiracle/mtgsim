@@ -1003,12 +1003,14 @@
         }
         .quadrant-slider-wrap {
             flex: 1;
+            min-width: 200px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
         .quadrant-slider {
-            flex: 1;
+            width: 100%;
+            min-width: 160px;
             -webkit-appearance: none;
             appearance: none;
             height: 6px;
@@ -2142,14 +2144,40 @@
             loadSets();
         }
 
-        async function loadSet(code) {
+        // Set detail filter state
+        let setCardPage = 1;
+        let setCardTotalPages = 1;
+        let currentSetCode = null;
+
+        async function loadSet(code, opts = {}) {
+            currentSetCode = code;
             const mainContent = document.getElementById('mainContent');
-            mainContent.innerHTML = '<div class="loading">Loading set...</div>';
+
+            // Only show full loading on first load (no opts means fresh load)
+            if (!opts._cardsOnly) {
+                mainContent.innerHTML = '<div class="loading">Loading set...</div>';
+            }
+
+            const params = {
+                card_page: opts.card_page || setCardPage,
+                card_limit: 50,
+            };
+            if (opts.rarity) params.rarity = opts.rarity;
+            if (opts.color) params.color = opts.color;
+            if (opts.type) params.type = opts.type;
+            if (opts.owns !== undefined && opts.owns !== '') params.owns = opts.owns;
+            if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
+            if (opts.sort) params.sort = opts.sort;
+            if (opts.order) params.order = opts.order;
 
             try {
-                const setData = await api(`/sets/${code}`);
+                const setData = await api(`/sets/${code}`, params);
                 currentSet = setData;
-                renderSetView(setData);
+                if (opts._cardsOnly) {
+                    renderSetCards(setData);
+                } else {
+                    renderSetView(setData);
+                }
             } catch (error) {
                 mainContent.innerHTML = '<div class="loading">Error loading set</div>';
             }
@@ -2160,6 +2188,9 @@
             const meta = setData.meta || {};
             const stats = setData.stats || {};
             const cards = setData.cards?.data || [];
+            const cardPagination = setData.cards?.pagination || { page: 1, pages: 1, total: cards.length };
+            setCardPage = cardPagination.page;
+            setCardTotalPages = cardPagination.pages;
 
             const typeLabel = meta.type ? meta.type.charAt(0).toUpperCase() + meta.type.slice(1).replace('_', ' ') : '';
 
@@ -2208,9 +2239,57 @@
                     </div>` : ''}
                 </div>
 
-                <h3 style="margin: 20px 0 10px; color: #e94560;">Cards (${cards.length})</h3>
-                <div class="cards-grid">
+                <div id="setCardFilters" style="margin: 20px 0 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                    <h3 style="margin: 0; color: #e94560;">Cards</h3>
+                    <select id="setCardRarity" onchange="applySetCardFilters()" style="padding:4px 8px;background:#16213e;color:#eee;border:1px solid #333;border-radius:4px;">
+                        <option value="">All rarities</option>
+                        <option value="common">Common</option>
+                        <option value="uncommon">Uncommon</option>
+                        <option value="rare">Rare</option>
+                        <option value="mythic">Mythic</option>
+                        <option value="special">Special</option>
+                    </select>
+                    <select id="setCardColor" onchange="applySetCardFilters()" style="padding:4px 8px;background:#16213e;color:#eee;border:1px solid #333;border-radius:4px;">
+                        <option value="">All colors</option>
+                        <option value="W">White</option>
+                        <option value="U">Blue</option>
+                        <option value="B">Black</option>
+                        <option value="R">Red</option>
+                        <option value="G">Green</option>
+                    </select>
+                    <select id="setCardType" onchange="applySetCardFilters()" style="padding:4px 8px;background:#16213e;color:#eee;border:1px solid #333;border-radius:4px;">
+                        <option value="">All types</option>
+                        <option value="Creature">Creature</option>
+                        <option value="Instant">Instant</option>
+                        <option value="Sorcery">Sorcery</option>
+                        <option value="Enchantment">Enchantment</option>
+                        <option value="Artifact">Artifact</option>
+                        <option value="Planeswalker">Planeswalker</option>
+                        <option value="Land">Land</option>
+                    </select>
+                    <select id="setCardOwns" onchange="applySetCardFilters()" style="padding:4px 8px;background:#16213e;color:#eee;border:1px solid #333;border-radius:4px;">
+                        <option value="">All cards</option>
+                        <option value="true">Owned</option>
+                        <option value="false">Not owned</option>
+                    </select>
+                    <select id="setCardSort" onchange="applySetCardFilters()" style="padding:4px 8px;background:#16213e;color:#eee;border:1px solid #333;border-radius:4px;">
+                        <option value="number">Collector #</option>
+                        <option value="name">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="mana_value">Mana (Low)</option>
+                        <option value="mana_value-desc">Mana (High)</option>
+                        <option value="rarity">Rarity</option>
+                        <option value="rarity-desc">Rarity (desc)</option>
+                    </select>
+                    <span id="setCardCount" style="color:#888;font-size:0.85rem;margin-left:auto;">${cardPagination.total || cards.length} cards</span>
+                </div>
+                <div class="cards-grid" id="setCardsGrid">
                     ${cards.map(card => renderCard(card)).join('')}
+                </div>
+                <div class="pagination" id="setCardPagination" style="${cardPagination.pages > 1 ? '' : 'display:none;'}">
+                    <button onclick="changeSetCardPage(-1)" id="setCardPrevBtn" ${cardPagination.page <= 1 ? 'disabled' : ''}>Prev</button>
+                    <span id="setCardPageInfo">Page ${cardPagination.page} of ${cardPagination.pages}</span>
+                    <button onclick="changeSetCardPage(1)" id="setCardNextBtn" ${cardPagination.page >= cardPagination.pages ? 'disabled' : ''}>Next</button>
                 </div>
             `;
 
@@ -2228,6 +2307,58 @@
             document.getElementById('modalTitle').textContent = currentSet.meta?.name || 'Set JSON';
             document.getElementById('modalJson').innerHTML = renderJson(currentSet);
             document.getElementById('modal').classList.add('active');
+        }
+
+        function getSetCardFilterOpts() {
+            const sortVal = document.getElementById('setCardSort')?.value || 'number';
+            const [sort, order] = sortVal.includes('-desc')
+                ? [sortVal.replace('-desc', ''), 'desc']
+                : [sortVal, 'asc'];
+            return {
+                rarity: document.getElementById('setCardRarity')?.value || '',
+                color: document.getElementById('setCardColor')?.value || '',
+                type: document.getElementById('setCardType')?.value || '',
+                owns: document.getElementById('setCardOwns')?.value || '',
+                sort,
+                order,
+                _cardsOnly: true,
+            };
+        }
+
+        function applySetCardFilters() {
+            if (!currentSetCode) return;
+            setCardPage = 1;
+            const opts = getSetCardFilterOpts();
+            opts.card_page = 1;
+            loadSet(currentSetCode, opts);
+        }
+
+        function changeSetCardPage(delta) {
+            setCardPage = Math.max(1, Math.min(setCardTotalPages, setCardPage + delta));
+            const opts = getSetCardFilterOpts();
+            opts.card_page = setCardPage;
+            loadSet(currentSetCode, opts);
+        }
+
+        function renderSetCards(setData) {
+            const cards = setData.cards?.data || [];
+            const cardPagination = setData.cards?.pagination || { page: 1, pages: 1, total: cards.length };
+            setCardPage = cardPagination.page;
+            setCardTotalPages = cardPagination.pages;
+
+            const grid = document.getElementById('setCardsGrid');
+            if (grid) grid.innerHTML = cards.map(card => renderCard(card)).join('');
+
+            const count = document.getElementById('setCardCount');
+            if (count) count.textContent = `${cardPagination.total} cards`;
+
+            const pag = document.getElementById('setCardPagination');
+            if (pag) {
+                pag.style.display = cardPagination.pages > 1 ? '' : 'none';
+                document.getElementById('setCardPageInfo').textContent = `Page ${cardPagination.page} of ${cardPagination.pages}`;
+                document.getElementById('setCardPrevBtn').disabled = cardPagination.page <= 1;
+                document.getElementById('setCardNextBtn').disabled = cardPagination.page >= cardPagination.pages;
+            }
         }
 
         function showSetsExplorer() {

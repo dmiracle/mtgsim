@@ -331,8 +331,8 @@ function renderQuadrantRating(card) {
 
     const slidersHtml = quadrants.map(q => {
         const label = QUADRANT_LABELS[q];
-        const val = r[q] || 0;
-        const displayVal = val ? val.toFixed(1) : '—';
+        const val = r[q] != null ? r[q] : 0;
+        const displayVal = val.toFixed(1);
         return `
             <div class="quadrant-row">
                 <div class="quadrant-label">
@@ -375,7 +375,7 @@ function renderQuadrantRating(card) {
 function updateQuadrantDisplay(quadrant, value) {
     const el = document.getElementById(`quadrant-val-${quadrant}`);
     if (el) {
-        el.textContent = parseFloat(value) === 0 ? '—' : parseFloat(value).toFixed(1);
+        el.textContent = parseFloat(value).toFixed(1);
     }
 }
 

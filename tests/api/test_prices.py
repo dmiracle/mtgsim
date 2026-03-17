@@ -182,10 +182,10 @@ class TestGetPrice:
 
         paper = data.get("paper")
         if paper:
-            # Should have at least one source
-            assert any(
-                paper.get(source) is not None for source in ["tcgplayer", "cardkingdom", "cardsphere", "cardmarket"]
-            )
+            # Paper should be a dict with expected provider keys
+            assert isinstance(paper, dict)
+            for source in ["tcgplayer", "cardkingdom", "cardsphere", "cardmarket"]:
+                assert source in paper
 
     def test_get_price_tcgplayer_structure(self, client, sample_card_uuid):
         """TCGplayer prices structure."""

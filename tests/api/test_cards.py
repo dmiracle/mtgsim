@@ -179,7 +179,7 @@ class TestGetCard:
 
         assert "uuid" in data
         assert "name" in data
-        assert "prices" in data
+        assert "all_prices" in data
         assert "legalities" in data
 
     def test_get_card_basic_fields(self, client, sample_card_uuid):
@@ -227,9 +227,11 @@ class TestGetCard:
         response = client.get(f"/api/cards/{sample_card_uuid}")
         data = response.json()
 
-        prices = data["prices"]
-        assert "tcgplayer" in prices or prices is not None
-        assert "cardkingdom" in prices or prices is not None
+        all_prices = data["all_prices"]
+        assert isinstance(all_prices, list)
+        if all_prices:
+            assert "provider" in all_prices[0]
+            assert "price" in all_prices[0]
 
     def test_get_card_legalities_structure(self, client, sample_card_uuid):
         """Card legalities have correct structure."""
