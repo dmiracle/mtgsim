@@ -231,15 +231,14 @@ class SetsData:
                 .where(MJCard.set_code == code)
             )
 
-            # Unique filter: keep only the lowest collector number per card name
+            # Unique filter: keep only one printing per card name
             if unique:
                 min_uuid_subq = (
-                    select(func.min(MJCard.uuid).label("min_uuid"))
+                    select(func.min(MJCard.uuid))
                     .where(MJCard.set_code == code)
                     .group_by(MJCard.name)
-                    .subquery()
                 )
-                query = query.where(MJCard.uuid.in_(select(min_uuid_subq.c.min_uuid)))
+                query = query.where(MJCard.uuid.in_(min_uuid_subq))
 
             # Rarity filter
             if rarity:
