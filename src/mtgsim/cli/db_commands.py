@@ -1,7 +1,6 @@
 """Database CLI commands."""
 
 import typer
-
 from mtgdb.config import DB_PATH
 
 db_app = typer.Typer(help="Database operations")

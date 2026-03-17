@@ -1,5 +1,6 @@
 """Price service - handles price data access and calculations."""
 
+import logging
 from datetime import UTC, datetime
 
 from mtgsim.api.data import prices_data
@@ -15,6 +16,8 @@ from mtgsim.api.models.price import (
     RetailBuylistPrices,
     SourcePrices,
 )
+
+logger = logging.getLogger("mtgsim.api.services.price")
 
 
 class PriceService:
@@ -33,17 +36,23 @@ class PriceService:
         limit: int = 50,
     ) -> PriceListResponse:
         """Search price data with filters."""
-        results, total = prices_data.search_prices(
+        logger.debug(f"search_prices: q={q} set={set_code} rarity={rarity} range=[{price_min},{price_max}]")
+
+        # Map sort field: frontend uses "average_usd" but data layer uses "price"
+        data_sort = "price" if sort == "average_usd" else sort
+
+        results, total = prices_data.search_by_price(
             q=q,
             set_code=set_code,
             rarity=rarity,
             price_min=price_min,
             price_max=price_max,
-            sort=sort,
+            sort=data_sort,
             order=order,
             page=page,
             limit=limit,
         )
+        logger.debug(f"search_prices: got {len(results)} results, total={total}")
 
         data = [
             PriceSummary(
@@ -53,18 +62,19 @@ class PriceService:
                 rarity=r["rarity"],
                 image_url=None,
                 prices=PricesBySource(
-                    tcgplayer=r["prices"].get("tcgplayer"),
-                    cardkingdom=r["prices"].get("cardkingdom"),
-                    cardsphere=r["prices"].get("cardsphere"),
-                    cardmarket=r["prices"].get("cardmarket"),
+                    tcgplayer=r.get("price"),
+                    cardkingdom=None,
+                    cardsphere=None,
+                    cardmarket=None,
                     mtgo=None,
                 ),
-                average_usd=r["average_usd"],
+                average_usd=r.get("price"),
             )
             for r in results
         ]
 
         pages = (total + limit - 1) // limit if limit > 0 else 1
+        logger.debug("search_prices: fetching price stats")
         stats = prices_data.get_price_stats()
 
         return PriceListResponse(

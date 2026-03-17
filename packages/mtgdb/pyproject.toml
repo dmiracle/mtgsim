@@ -6,8 +6,15 @@ requires-python = ">=3.14"
 dependencies = [
     "sqlmodel>=0.0.27",
     "requests>=2.31.0",
+    "sqlite-vec>=0.1.6",
+    "sentence-transformers>=3.0",
 ]
 
 [build-system]
 requires = ["uv_build>=0.8.19,<0.9.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+]
