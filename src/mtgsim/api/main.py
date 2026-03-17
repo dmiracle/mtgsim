@@ -183,7 +183,15 @@ app.include_router(keywords_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    """Root endpoint with API information."""
+    """Redirect root to the webapp."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/app")
+
+
+@app.get("/api")
+async def api_root():
+    """API information endpoint."""
     return {
         "name": "MTG Webapp API",
         "version": "0.1.0",
