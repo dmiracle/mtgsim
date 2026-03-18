@@ -4,9 +4,10 @@ import logging
 
 from mtgdb.models import MJCard, MJCardIdentifier, MJSet, UserCard
 from mtgdb.session import get_session
+from sqlalchemy import Integer, cast
 from sqlmodel import func, select
 
-from .helpers import build_image_url, set_to_api_dict
+from .helpers import add_price_join, build_image_url, set_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.sets")
 
@@ -208,12 +209,13 @@ class SetsData:
         self,
         code: str,
         rarity: str | None = None,
-        color: str | None = None,
+        colors: list[str] | None = None,
         card_type: str | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
         sort: str = "number",
         order: str = "asc",
+        unique: bool = False,
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
@@ -229,14 +231,37 @@ class SetsData:
                 .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
                 .where(MJCard.set_code == code)
             )
+            query, price_col = add_price_join(query)
+            query = query.add_columns(price_col)
+
+            # Unique filter: keep only the standard art (lowest collector number) per card name
+            if unique:
+                # Subquery: for each name, find the min number (cast to int)
+                min_num_subq = (
+                    select(
+                        MJCard.name.label("cname"),
+                        func.min(cast(MJCard.number, Integer)).label("min_num"),
+                    )
+                    .where(MJCard.set_code == code)
+                    .group_by(MJCard.name)
+                    .subquery()
+                )
+                query = query.join(
+                    min_num_subq,
+                    (MJCard.name == min_num_subq.c.cname) & (cast(MJCard.number, Integer) == min_num_subq.c.min_num),
+                )
 
             # Rarity filter
             if rarity:
                 query = query.where(MJCard.rarity == rarity)
 
-            # Color filter
-            if color:
-                query = query.where(func.json_extract(MJCard.color_identity, "$").contains(f'"{color}"'))
+            # Color filter (match any of the selected colors)
+            if colors:
+                from sqlalchemy import or_
+
+                query = query.where(
+                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
+                )
 
             # Type filter
             if card_type:
@@ -268,6 +293,7 @@ class SetsData:
                 "number": MJCard.number,
                 "mana_value": MJCard.mana_value,
                 "rarity": MJCard.rarity,
+                "price": price_col,
             }
             sort_field = sort_map.get(sort, MJCard.number)
 
@@ -285,7 +311,7 @@ class SetsData:
 
             # Convert to API format
             cards = []
-            for mj_card, identifier, user_card in results:
+            for mj_card, identifier, user_card, best_price in results:
                 total_owned = 0
                 total_wanted = 0
                 if user_card:
@@ -307,6 +333,7 @@ class SetsData:
                         "number": mj_card.number,
                         "oracle_text": mj_card.oracle_text,
                         "image_url": build_image_url(identifier.scryfall_id if identifier else None),
+                        "price": best_price,
                         "owns": total_owned > 0,
                         "wants": total_wanted > 0,
                         "total_owned": total_owned,

@@ -62,6 +62,16 @@ class CardPrinting(BaseModel):
     total_owned: int = 0
 
 
+class QuadrantRating(BaseModel):
+    """Quadrant theory rating for a card."""
+
+    developing: float | None = None
+    ahead: float | None = None
+    behind: float | None = None
+    parity: float | None = None
+    notes: str | None = None
+
+
 class CardDetail(BaseModel):
     """Full card details."""
 
@@ -104,3 +114,4 @@ class CardDetail(BaseModel):
     total_owned: int = 0
     total_wanted: int = 0
     collection: CollectionDetail | None = None
+    quadrant_rating: QuadrantRating | None = None

@@ -10,6 +10,7 @@ from mtgsim.api.models.card import (
     CardPriceEntry,
     CardPrinting,
     CardSummary,
+    QuadrantRating,
 )
 from mtgsim.api.models.common import CollectionDetail, Pagination
 
@@ -23,9 +24,12 @@ class CardService:
         self,
         q: str | None = None,
         set_code: str | None = None,
+        set_codes: list[str] | None = None,
         rarity: str | None = None,
         card_type: str | None = None,
         colors: list[str] | None = None,
+        format_legal: str | None = None,
+        keywords: list[str] | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
         sort: str = "name",
@@ -34,21 +38,26 @@ class CardService:
         limit: int = 50,
         owns: bool | None = None,
         wants: bool | None = None,
+        unique: bool = False,
     ) -> CardListResponse:
         """Search cards with filters."""
-        logger.debug(f"search_cards: q={q} set_code={set_code} rarity={rarity} sort={sort} page={page}")
+        logger.debug(f"search_cards: q={q} set_code={set_code} format={format_legal} sort={sort} page={page}")
         cards, total = cards_data.search_cards(
             q=q,
             set_code=set_code,
+            set_codes=set_codes,
             rarity=rarity,
             card_type=card_type,
             colors=colors,
+            format_legal=format_legal,
+            keywords=keywords,
             sort=sort,
             order=order,
             page=page,
             limit=limit,
             owns=owns,
             wants=wants,
+            unique=unique,
         )
 
         logger.debug(f"search_cards: got {len(cards)} cards, total={total}")
@@ -65,6 +74,7 @@ class CardService:
                     set_code=c.get("set_code", ""),
                     color_identity=c.get("color_identity", []),
                     text=c.get("oracle_text"),
+                    price=c.get("price"),
                     image_url=c.get("image_url"),
                     owns=c.get("owns", False),
                     wants=c.get("wants", False),
@@ -158,6 +168,7 @@ class CardService:
             total_owned=card.get("total_owned", 0),
             total_wanted=card.get("total_wanted", 0),
             collection=collection_detail,
+            quadrant_rating=QuadrantRating(**card["quadrant_rating"]) if card.get("quadrant_rating") else None,
         )
 
     async def get_card_by_name(self, name: str) -> list[CardSummary]:

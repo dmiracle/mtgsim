@@ -4,101 +4,111 @@
 class TestRootEndpoint:
     """Tests for GET / endpoint."""
 
-    def test_root_returns_200(self, client):
-        """Root endpoint returns 200."""
-        response = client.get("/")
+    def test_root_redirects_to_app(self, client):
+        """Root endpoint redirects to /app."""
+        response = client.get("/", follow_redirects=False)
+        assert response.status_code == 307
+        assert response.headers["location"] == "/app"
+
+
+class TestApiRootEndpoint:
+    """Tests for GET /api endpoint."""
+
+    def test_api_root_returns_200(self, client):
+        """API root endpoint returns 200."""
+        response = client.get("/api")
         assert response.status_code == 200
 
-    def test_root_returns_api_info(self, client):
-        """Root endpoint returns API information."""
-        response = client.get("/")
+    def test_api_root_returns_api_info(self, client):
+        """API root endpoint returns API information."""
+        response = client.get("/api")
         data = response.json()
 
         assert "name" in data
         assert "version" in data
 
-    def test_root_api_name(self, client):
-        """Root endpoint has correct API name."""
-        response = client.get("/")
+    def test_api_root_api_name(self, client):
+        """API root endpoint has correct API name."""
+        response = client.get("/api")
         data = response.json()
 
         assert data["name"] == "MTG Webapp API"
 
-    def test_root_api_version(self, client):
-        """Root endpoint has version."""
-        response = client.get("/")
+    def test_api_root_api_version(self, client):
+        """API root endpoint has version."""
+        response = client.get("/api")
         data = response.json()
 
         assert isinstance(data["version"], str)
         assert len(data["version"]) > 0
 
-    def test_root_has_docs_link(self, client):
-        """Root endpoint has docs link."""
-        response = client.get("/")
+    def test_api_root_has_docs_link(self, client):
+        """API root endpoint has docs link."""
+        response = client.get("/api")
         data = response.json()
 
         assert "docs" in data
         assert data["docs"] == "/docs"
 
-    def test_root_has_openapi_link(self, client):
-        """Root endpoint has OpenAPI link."""
-        response = client.get("/")
+    def test_api_root_has_openapi_link(self, client):
+        """API root endpoint has OpenAPI link."""
+        response = client.get("/api")
         data = response.json()
 
         assert "openapi" in data
         assert data["openapi"] == "/openapi.json"
 
-    def test_root_has_endpoints(self, client):
-        """Root endpoint lists available endpoints."""
-        response = client.get("/")
+    def test_api_root_has_endpoints(self, client):
+        """API root endpoint lists available endpoints."""
+        response = client.get("/api")
         data = response.json()
 
         assert "endpoints" in data
         assert isinstance(data["endpoints"], dict)
 
-    def test_root_endpoints_has_decks(self, client):
+    def test_api_root_endpoints_has_decks(self, client):
         """Endpoints include decks."""
-        response = client.get("/")
+        response = client.get("/api")
         data = response.json()
 
         assert "decks" in data["endpoints"]
         assert data["endpoints"]["decks"] == "/api/decks"
 
-    def test_root_endpoints_has_sets(self, client):
+    def test_api_root_endpoints_has_sets(self, client):
         """Endpoints include sets."""
-        response = client.get("/")
+        response = client.get("/api")
         data = response.json()
 
         assert "sets" in data["endpoints"]
         assert data["endpoints"]["sets"] == "/api/sets"
 
-    def test_root_endpoints_has_cards(self, client):
+    def test_api_root_endpoints_has_cards(self, client):
         """Endpoints include cards."""
-        response = client.get("/")
+        response = client.get("/api")
         data = response.json()
 
         assert "cards" in data["endpoints"]
         assert data["endpoints"]["cards"] == "/api/cards"
 
-    def test_root_endpoints_has_prices(self, client):
+    def test_api_root_endpoints_has_prices(self, client):
         """Endpoints include prices."""
-        response = client.get("/")
+        response = client.get("/api")
         data = response.json()
 
         assert "prices" in data["endpoints"]
         assert data["endpoints"]["prices"] == "/api/prices"
 
-    def test_root_endpoints_has_stats(self, client):
+    def test_api_root_endpoints_has_stats(self, client):
         """Endpoints include stats."""
-        response = client.get("/")
+        response = client.get("/api")
         data = response.json()
 
         assert "stats" in data["endpoints"]
         assert data["endpoints"]["stats"] == "/api/stats/home"
 
-    def test_root_endpoints_has_keywords(self, client):
+    def test_api_root_endpoints_has_keywords(self, client):
         """Endpoints include keywords."""
-        response = client.get("/")
+        response = client.get("/api")
         data = response.json()
 
         assert "keywords" in data["endpoints"]

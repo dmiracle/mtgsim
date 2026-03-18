@@ -32,7 +32,7 @@
             height: 100vh;
             overflow: hidden;
         }
-        #decksTab, #pricesTab, #setsTab, #draftTab {
+        #decksTab, #cardsTab, #pricesTab, #setsTab, #draftTab, #referenceTab {
             display: flex;
             flex-direction: column;
             flex: 1;
@@ -177,6 +177,72 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 15px;
+        }
+        .card-filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            margin: 12px 0 8px;
+        }
+        .card-filter-bar select, .card-filter-bar input[type="text"] {
+            padding: 4px 8px;
+            background: #16213e;
+            color: #eee;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .card-filter-bar label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: #ccc;
+            cursor: pointer;
+        }
+        .card-filter-bar .filter-count {
+            color: #888;
+            font-size: 0.85rem;
+            margin-left: auto;
+        }
+        .color-toggles {
+            display: flex;
+            gap: 2px;
+        }
+        .color-toggle {
+            width: 26px;
+            height: 26px;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.35;
+            transition: opacity 0.15s, border-color 0.15s;
+        }
+        .color-toggle:hover { opacity: 0.7; }
+        .color-toggle.active { opacity: 1; border-color: #e94560; }
+        .color-toggle[data-color="W"] { background: #f9faf4; color: #333; }
+        .color-toggle[data-color="U"] { background: #0e68ab; color: #fff; }
+        .color-toggle[data-color="B"] { background: #2b2b2b; color: #ccc; }
+        .color-toggle[data-color="R"] { background: #d32029; color: #fff; }
+        .color-toggle[data-color="G"] { background: #00733e; color: #fff; }
+        .pin-btn {
+            background: none;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 3px 8px;
+        }
+        .pin-btn.pinned {
+            color: #e94560;
+            border-color: #e94560;
         }
         .card {
             background: #16213e;
@@ -345,6 +411,61 @@
         .uuid-copy {
             font-size: 0.7rem;
             flex-shrink: 0;
+        }
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #0f3460;
+        }
+        .add-to-deck-btn {
+            background: transparent;
+            border: 1px solid #4cc9f0;
+            color: #4cc9f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .add-to-deck-btn:hover {
+            background: #4cc9f0;
+            color: #0a0a23;
+        }
+        .card-uuid-inline {
+            font-size: 0.6rem;
+            font-family: monospace;
+            color: #555;
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .card-uuid-inline:hover {
+            color: #aaa;
+        }
+        .deck-picker-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            transition: background 0.15s;
+        }
+        .deck-picker-item:hover {
+            background: #1a1a2e;
+        }
+        .deck-picker-item .deck-picker-name {
+            color: #e0e0e0;
+        }
+        .deck-picker-item .deck-picker-meta {
+            font-size: 0.75rem;
+            color: #666;
         }
         .mana-symbol {
             width: 18px;
@@ -737,11 +858,31 @@
         .set-code {
             color: #ffd700;
             cursor: pointer;
-            text-decoration: underline;
-            text-decoration-style: dotted;
+            text-decoration: none;
+            position: relative;
         }
         .set-code:hover {
             color: #e94560;
+        }
+        .set-code::after {
+            content: attr(data-set-name);
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            border: 1px solid #333;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .set-code:hover::after {
+            display: block;
         }
         .modal {
             display: none;
@@ -922,6 +1063,90 @@
             border-bottom: 1px solid #0f3460;
             padding-bottom: 4px;
         }
+        .quadrant-container {
+            background: #16213e;
+            padding: 12px 16px;
+            border-radius: 8px;
+        }
+        .quadrant-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px 0;
+        }
+        .quadrant-label {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .quadrant-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .quadrant-desc {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .quadrant-slider-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .quadrant-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+        .quadrant-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--slider-color, #4cc9f0);
+            cursor: pointer;
+        }
+        .quadrant-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--slider-color, #4cc9f0);
+            cursor: pointer;
+            border: none;
+        }
+        .quadrant-value {
+            min-width: 28px;
+            text-align: right;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #e0e0e0;
+            font-family: monospace;
+        }
+        .quadrant-notes-row {
+            margin-top: 8px;
+        }
+        .quadrant-notes {
+            width: 100%;
+            padding: 6px 10px;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 0.8rem;
+        }
+        .quadrant-save-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .quadrant-status {
+            font-size: 0.8rem;
+        }
         .card-detail-oracle {
             background: #16213e;
             padding: 12px 16px;
@@ -1061,6 +1286,52 @@
             border-radius: 12px;
             font-size: 0.8rem;
             color: #ccc;
+            position: relative;
+            cursor: default;
+        }
+        .keyword-tag[data-def]::after {
+            content: attr(data-def);
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            width: 250px;
+            white-space: normal;
+            border: 1px solid #333;
+            z-index: 1000;
+            pointer-events: none;
+            line-height: 1.3;
+        }
+        .keyword-tag[data-def]:hover::after {
+            display: block;
+        }
+        [data-kw-def]::after {
+            content: attr(data-kw-def);
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            width: 250px;
+            white-space: normal;
+            border: 1px solid #333;
+            z-index: 1000;
+            pointer-events: none;
+            line-height: 1.3;
+        }
+        [data-kw-def]:hover::after {
+            display: block;
         }
 
         /* Draft tab styles */
@@ -1216,6 +1487,13 @@
         .wordcloud-container svg text:hover {
             opacity: 0.7;
         }
+        .wordcloud-expanded {
+            flex-direction: column;
+        }
+        .wordcloud-expanded > div {
+            width: 100%;
+            min-width: 100% !important;
+        }
     </style>
 </head>
 <body>
@@ -1223,9 +1501,11 @@
         <h1 onclick="showHomeScreen()">MTG Deck Viewer</h1>
         <div class="tab-bar">
             <button class="tab-btn active" data-tab="decks" onclick="switchTab('decks')">Decks</button>
+            <button class="tab-btn" data-tab="cards" onclick="switchTab('cards')">Cards</button>
             <button class="tab-btn" data-tab="prices" onclick="switchTab('prices')">Prices</button>
             <button class="tab-btn" data-tab="sets" onclick="switchTab('sets')">Sets</button>
             <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">Draft</button>
+            <button class="tab-btn" data-tab="reference" onclick="switchTab('reference')">Reference</button>
         </div>
         <div id="decksTab">
             <div class="search-box">
@@ -1308,9 +1588,12 @@
                     <option value="card_count">Cards (Least)</option>
                 </select>
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
                 <div class="deck-count" id="deckCount">Loading...</div>
-                <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;" onclick="showImportDeckModal()">Import MTGA Deck</button>
+                <div style="display:flex;gap:4px;">
+                    <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;background:#4cc9f0;color:#0a0a23;" onclick="showCreateDeckModal()">+ New Deck</button>
+                    <button class="raw-btn" style="padding:6px 14px;font-size:0.8rem;" onclick="showImportDeckModal()">Import</button>
+                </div>
             </div>
             <div class="deck-list" id="deckList">
                 <div class="loading">Loading decks...</div>
@@ -1357,6 +1640,31 @@
                 <span id="pricePageInfo">Page 1</span>
                 <button onclick="changePricePage(1)" id="priceNextBtn">Next</button>
             </div>
+        </div>
+        <div id="cardsTab" style="display: none;">
+            <div class="search-box">
+                <input type="text" id="cardSearch" placeholder="Search cards..." oninput="debounceCardSearch()">
+            </div>
+            <div class="filter-box">
+                <label>Format</label>
+                <select id="cardFormatFilter" onchange="searchCardsBrowse()">
+                    <option value="">All formats</option>
+                    <option value="standard">Standard</option>
+                    <option value="pioneer">Pioneer</option>
+                    <option value="modern">Modern</option>
+                    <option value="legacy">Legacy</option>
+                    <option value="vintage">Vintage</option>
+                    <option value="commander">Commander</option>
+                    <option value="pauper">Pauper</option>
+                    <option value="historic">Historic</option>
+                    <option value="timeless">Timeless</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Sets</label>
+                <input type="text" id="cardSetsFilter" placeholder="DSK,FDN,BLB" onchange="searchCardsBrowse()" style="width:100%;">
+            </div>
+            <div class="deck-count" id="cardBrowseCount">Use filters to browse cards</div>
         </div>
         <div id="setsTab" style="display: none;">
             <div class="search-box">
@@ -1432,6 +1740,23 @@
                 <div id="packHistoryList"></div>
             </div>
         </div>
+        <div id="referenceTab" style="display: none;">
+            <div class="filter-box">
+                <label>Search Keywords</label>
+                <input type="text" id="refSearch" placeholder="Search keywords..." oninput="filterReference()">
+            </div>
+            <div class="filter-box">
+                <label>Category</label>
+                <select id="refCategoryFilter" onchange="filterReference()">
+                    <option value="">All</option>
+                    <option value="Keyword Ability">Keyword Abilities</option>
+                    <option value="Keyword Action">Keyword Actions</option>
+                    <option value="Ability Word">Ability Words</option>
+                </select>
+            </div>
+            <div id="refCount" style="font-size:0.8rem;color:#888;margin-bottom:8px;"></div>
+            <div id="refList"></div>
+        </div>
     </div>
     <div class="main-content" id="mainContent">
         <div class="loading">Loading...</div>
@@ -1452,6 +1777,67 @@
         </div>
     </div>
 
+    <!-- Deck Picker Modal -->
+    <div class="modal" id="deckPickerModal" onclick="closeDeckPicker(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;">
+            <div class="modal-header">
+                <h3 id="deckPickerTitle">Add to Deck</h3>
+                <button class="modal-close" onclick="closeDeckPicker()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+                <div id="deckPickerCardInfo" style="margin-bottom:12px;font-size:0.85rem;color:#aaa;"></div>
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <select id="deckPickerBoard" style="flex:1;padding:6px 8px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.85rem;">
+                        <option value="main">Main Board</option>
+                        <option value="side">Sideboard</option>
+                        <option value="commander">Commander</option>
+                    </select>
+                    <input type="number" id="deckPickerCount" value="1" min="1" max="99" style="width:60px;padding:6px 8px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.85rem;text-align:center;">
+                </div>
+                <div id="deckPickerList" style="max-height:300px;overflow-y:auto;"></div>
+                <div style="margin-top:12px;border-top:1px solid #1a1a2e;padding-top:12px;">
+                    <button class="raw-btn" style="width:100%;padding:8px;font-size:0.85rem;background:#16213e;border:1px solid #4cc9f0;color:#4cc9f0;" onclick="quickCreateDeckFromPicker()">+ Create New Deck</button>
+                </div>
+                <div id="deckPickerStatus" style="margin-top:8px;font-size:0.85rem;text-align:center;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Deck Modal -->
+    <div class="modal" id="createDeckModal" onclick="closeCreateDeckModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>Create New Deck</h3>
+                <button class="modal-close" onclick="closeCreateDeckModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Deck Name</label>
+                    <input type="text" id="createDeckName" placeholder="My Deck" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Format</label>
+                    <select id="createDeckFormat" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                        <option value="">None</option>
+                        <option value="standard">Standard</option>
+                        <option value="pioneer">Pioneer</option>
+                        <option value="modern">Modern</option>
+                        <option value="legacy">Legacy</option>
+                        <option value="vintage">Vintage</option>
+                        <option value="commander">Commander</option>
+                        <option value="pauper">Pauper</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem;color:#aaa;display:block;margin-bottom:4px;">Description (optional)</label>
+                    <input type="text" id="createDeckDesc" placeholder="" style="width:100%;padding:8px 12px;background:#16213e;border:1px solid #1a1a2e;border-radius:6px;color:#e0e0e0;font-size:0.9rem;">
+                </div>
+                <button class="raw-btn" style="width:100%;padding:10px;font-size:0.9rem;background:#4cc9f0;color:#0a0a23;" onclick="submitCreateDeck()">Create Deck</button>
+                <div id="createDeckStatus" style="margin-top:8px;font-size:0.85rem;text-align:center;color:#aaa;"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="modal" onclick="closeModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -1464,6 +1850,7 @@
         </div>
     </div>
 
+    <script src="/web/keyword-definitions.js"></script>
     <script src="/web/card-detail.js"></script>
     <script>
         // API Base URL
@@ -1474,6 +1861,8 @@
         let currentSet = null;
         let cardDataMap = {};
         let keywordsData = null;
+        let setNameCache = {};
+        let keywordTypeCache = null; // { keyword_name: 'Keyword Ability' | 'Keyword Action' | 'Ability Word' }
 
         // Pagination state
         let deckPage = 1;
@@ -1510,6 +1899,25 @@
             return response.json();
         }
 
+        async function ensureKeywordTypeCache() {
+            if (keywordTypeCache) return keywordTypeCache;
+            try {
+                const data = await api('/keywords');
+                keywordTypeCache = {};
+                for (const kw of data.keyword_abilities) keywordTypeCache[kw.term] = 'Keyword Ability';
+                for (const kw of data.keyword_actions) keywordTypeCache[kw.term] = 'Keyword Action';
+                for (const kw of data.ability_words) keywordTypeCache[kw.term] = 'Ability Word';
+            } catch (e) {
+                keywordTypeCache = {};
+            }
+            return keywordTypeCache;
+        }
+
+        function getKeywordType(keyword) {
+            if (!keywordTypeCache) return null;
+            return keywordTypeCache[keyword] || null;
+        }
+
         // ========================================
         // Utility Functions
         // ========================================
@@ -1525,7 +1933,11 @@
         function renderSetCode(code, clickable = true) {
             const lowerCode = (code || '').toLowerCase();
             const icon = `<i class="ss ss-${lowerCode}"></i>`;
-            return `${icon} ${code}`;
+            const setName = setNameCache[code] || code;
+            if (clickable) {
+                return `<span class="set-code" data-set-name="${escapeHtml(setName)}" onclick="event.stopPropagation();switchTab('sets');loadSet('${code}')">${icon} ${code}</span>`;
+            }
+            return `<span data-set-name="${escapeHtml(setName)}">${icon} ${code}</span>`;
         }
 
         function copyUuid(uuid) {
@@ -1558,16 +1970,22 @@
                 btn.classList.toggle('active', btn.dataset.tab === tab);
             });
             document.getElementById('decksTab').style.display = tab === 'decks' ? 'flex' : 'none';
+            document.getElementById('cardsTab').style.display = tab === 'cards' ? 'flex' : 'none';
             document.getElementById('pricesTab').style.display = tab === 'prices' ? 'flex' : 'none';
             document.getElementById('setsTab').style.display = tab === 'sets' ? 'flex' : 'none';
             document.getElementById('draftTab').style.display = tab === 'draft' ? 'flex' : 'none';
+            document.getElementById('referenceTab').style.display = tab === 'reference' ? 'flex' : 'none';
 
-            if (tab === 'prices') {
+            if (tab === 'cards') {
+                showCardsBrowser();
+            } else if (tab === 'prices') {
                 showPriceExplorer();
             } else if (tab === 'sets') {
                 showSetsExplorer();
             } else if (tab === 'draft') {
                 showDraftTab();
+            } else if (tab === 'reference') {
+                showReference();
             } else {
                 showHomeScreen();
             }
@@ -1729,31 +2147,18 @@
                 `;
             }
 
-            if (deck.main_board && deck.main_board.length > 0) {
-                const mainCount = deck.main_board.reduce((sum, c) => sum + (c.count || 1), 0);
-                html += `
-                    <div class="section">
-                        <h3>Main Board (${mainCount} cards)</h3>
-                        <div class="cards-grid">
-                            ${deck.main_board.map(card => renderCard(card)).join('')}
-                        </div>
-                    </div>
-                `;
-            }
+            // Store deck cards for client-side filtering
+            window._deckCards = {
+                commander: deck.commander || [],
+                main: deck.main_board || [],
+                side: deck.side_board || [],
+            };
 
-            if (deck.side_board && deck.side_board.length > 0) {
-                const sideCount = deck.side_board.reduce((sum, c) => sum + (c.count || 1), 0);
-                html += `
-                    <div class="section">
-                        <h3>Sideboard (${sideCount} cards)</h3>
-                        <div class="cards-grid">
-                            ${deck.side_board.map(card => renderCard(card)).join('')}
-                        </div>
-                    </div>
-                `;
-            }
+            html += renderCardFilterBar('deckCardFilters', 'applyDeckCardFilters', { showUnique: false });
+            html += '<div id="deckCardsContainer"></div>';
 
             mainContent.innerHTML = html;
+            applyDeckCardFilters();
 
             // Render visualizations
             if (stats.price_histogram) {
@@ -1765,6 +2170,69 @@
             if (stats.keywords?.keyword_actions) {
                 renderWordCloud(stats.keywords.keyword_actions, '#deck-kw-actions');
             }
+            if (stats.keywords?.ability_words) {
+                renderWordCloud(stats.keywords.ability_words, '#deck-kw-ability-words');
+            }
+        }
+
+        function filterDeckCards(cards, filters) {
+            return cards.filter(card => {
+                if (filters.rarity && (card.rarity || '').toLowerCase() !== filters.rarity) return false;
+                if (filters.color) {
+                    const ci = card.color_identity || card.colorIdentity || [];
+                    const selectedColors = filters.color.split('');
+                    if (!selectedColors.some(c => ci.includes(c))) return false;
+                }
+                if (filters.type && !(card.type || '').includes(filters.type)) return false;
+                if (filters.owns === 'true' && !card.owns) return false;
+                if (filters.owns === 'false' && card.owns) return false;
+                return true;
+            });
+        }
+
+        function sortDeckCards(cards, sort, order) {
+            const sorted = [...cards];
+            sorted.sort((a, b) => {
+                let va, vb;
+                if (sort === 'mana_value') { va = a.mana_value || 0; vb = b.mana_value || 0; }
+                else if (sort === 'rarity') { va = a.rarity || ''; vb = b.rarity || ''; }
+                else if (sort === 'price') { va = a.price || 0; vb = b.price || 0; }
+                else { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); }
+                if (va < vb) return order === 'desc' ? 1 : -1;
+                if (va > vb) return order === 'desc' ? -1 : 1;
+                return 0;
+            });
+            return sorted;
+        }
+
+        function applyDeckCardFilters() {
+            if (!window._deckCards) return;
+            const f = getCardFilters('deckCardFilters');
+            const container = document.getElementById('deckCardsContainer');
+            if (!container) return;
+
+            let html = '';
+            const sections = [
+                { key: 'commander', label: 'Commander' },
+                { key: 'main', label: 'Main Board' },
+                { key: 'side', label: 'Sideboard' },
+            ];
+            let totalShown = 0;
+            for (const sec of sections) {
+                let cards = filterDeckCards(window._deckCards[sec.key], f);
+                cards = sortDeckCards(cards, f.sort, f.order);
+                if (cards.length === 0) continue;
+                const count = cards.reduce((sum, c) => sum + (c.count || 1), 0);
+                totalShown += count;
+                html += `
+                    <div class="section">
+                        <h3>${sec.label} (${count} cards)</h3>
+                        <div class="cards-grid">${cards.map(card => renderCard(card)).join('')}</div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+            updateFilterCount('deckCardFilters', totalShown);
         }
 
         function renderDeckStats(stats, legality, price) {
@@ -1861,6 +2329,12 @@
                         <h4>Keyword Actions</h4>
                         <div class="wordcloud-container" id="deck-kw-actions"></div>
                     </div>` : ''}
+
+                    ${stats.keywords?.ability_words && Object.keys(stats.keywords.ability_words).length > 0 ? `
+                    <div class="stat-card stat-card-2col">
+                        <h4>Ability Words</h4>
+                        <div class="wordcloud-container" id="deck-kw-ability-words"></div>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -1870,6 +2344,198 @@
             document.getElementById('modalTitle').textContent = currentDeck.meta?.name || 'Deck JSON';
             document.getElementById('modalJson').innerHTML = renderJson(currentDeck);
             document.getElementById('modal').classList.add('active');
+        }
+
+        // ========================================
+        // Cards Browser Tab
+        // ========================================
+
+        let cardBrowsePage = 1;
+        let cardBrowseTotalPages = 1;
+        let cardSearchDebounce = null;
+
+        let selectedKeywords = [];
+        let pinnedCardUuids = new Set(JSON.parse(localStorage.getItem('pinnedCards') || '[]'));
+
+        function showCardsBrowser() {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <h2 style="color: #e94560;">Card Browser</h2>
+                <div id="cardBrowseKeywords" style="min-height:0; display:flex; gap:16px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:200px;">
+                        <h4 style="color:#e94560; margin:0 0 4px;">Keyword Abilities</h4>
+                        <div class="wordcloud-container" id="cardBrowseKwAbilities" style="min-height:0;"></div>
+                    </div>
+                    <div style="flex:1; min-width:200px;">
+                        <h4 style="color:#e94560; margin:0 0 4px;">Keyword Actions</h4>
+                        <div class="wordcloud-container" id="cardBrowseKwActions" style="min-height:0;"></div>
+                    </div>
+                    <div style="flex:1; min-width:200px;">
+                        <h4 style="color:#e94560; margin:0 0 4px;">Ability Words</h4>
+                        <div class="wordcloud-container" id="cardBrowseKwAbilityWords" style="min-height:0;"></div>
+                    </div>
+                </div>
+                ${renderCardFilterBar('cardBrowseFilters', 'searchCardsBrowse', { showUnique: true })}
+                <div class="cards-grid" id="cardBrowseGrid"></div>
+                <div class="pagination" id="cardBrowsePagination" style="display:none;">
+                    <button onclick="changeCardBrowsePage(-1)" id="cardBrowsePrevBtn">Prev</button>
+                    <span id="cardBrowsePageInfo">Page 1</span>
+                    <button onclick="changeCardBrowsePage(1)" id="cardBrowseNextBtn">Next</button>
+                </div>
+            `;
+            selectedKeywords = [];
+            const format = document.getElementById('cardFormatFilter')?.value;
+            const q = document.getElementById('cardSearch')?.value;
+            if (format || q) {
+                searchCardsBrowse();
+                loadCardBrowseKeywords();
+            }
+        }
+
+        async function loadCardBrowseKeywords() {
+            const format = document.getElementById('cardFormatFilter')?.value || '';
+            const sets = document.getElementById('cardSetsFilter')?.value || '';
+            const f = getCardFilters('cardBrowseFilters');
+            if (!format && !sets && !f.rarity && !f.color && !f.type) return;
+
+            const params = {};
+            if (format) params.format = format;
+            if (sets) params.sets = sets;
+            if (f.rarity) params.rarity = f.rarity;
+            if (f.color) params.colors = f.color;
+            if (f.type) params.type = f.type;
+
+            try {
+                const data = await api('/cards/keyword-frequencies', params);
+                const onKeywordClick = (keywords) => {
+                    selectedKeywords = keywords;
+                    cardBrowsePage = 1;
+                    searchCardsBrowse();
+                };
+                const abilities = data.keyword_abilities || {};
+                const actions = data.keyword_actions || {};
+                const abilityWords = data.ability_words || {};
+                const abilityCount = Object.keys(abilities).length;
+                const actionCount = Object.keys(actions).length;
+                const abilityWordCount = Object.keys(abilityWords).length;
+                if (abilityCount > 0) {
+                    renderClickableWordCloud(abilities, '#cardBrowseKwAbilities', onKeywordClick, selectedKeywords);
+                } else {
+                    document.querySelector('#cardBrowseKwAbilities').innerHTML = '';
+                }
+                if (actionCount > 0) {
+                    renderClickableWordCloud(actions, '#cardBrowseKwActions', onKeywordClick, selectedKeywords);
+                } else {
+                    document.querySelector('#cardBrowseKwActions').innerHTML = '';
+                }
+                if (abilityWordCount > 0) {
+                    renderClickableWordCloud(abilityWords, '#cardBrowseKwAbilityWords', onKeywordClick, selectedKeywords);
+                } else {
+                    document.querySelector('#cardBrowseKwAbilityWords').innerHTML = '';
+                }
+                // Expand wordclouds to full width when there are many keywords
+                const kwContainer = document.getElementById('cardBrowseKeywords');
+                if (kwContainer) {
+                    const totalWords = abilityCount + actionCount + abilityWordCount;
+                    kwContainer.classList.toggle('wordcloud-expanded', totalWords > 40);
+                }
+            } catch (e) {
+                console.error('Error loading keywords:', e);
+            }
+        }
+
+        function togglePinCard(uuid) {
+            if (pinnedCardUuids.has(uuid)) {
+                pinnedCardUuids.delete(uuid);
+            } else {
+                pinnedCardUuids.add(uuid);
+            }
+            localStorage.setItem('pinnedCards', JSON.stringify([...pinnedCardUuids]));
+            // Re-render current grid if in card browse
+            const grid = document.getElementById('cardBrowseGrid');
+            if (grid && window._lastCardBrowseData) {
+                renderCardBrowseGrid(window._lastCardBrowseData);
+            }
+        }
+
+        function debounceCardSearch() {
+            clearTimeout(cardSearchDebounce);
+            cardSearchDebounce = setTimeout(() => searchCardsBrowse(), 300);
+        }
+
+        async function searchCardsBrowse() {
+            const q = document.getElementById('cardSearch')?.value || '';
+            const format = document.getElementById('cardFormatFilter')?.value || '';
+            const sets = document.getElementById('cardSetsFilter')?.value || '';
+            const f = getCardFilters('cardBrowseFilters');
+
+            // Require at least one filter
+            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns && selectedKeywords.length === 0) {
+                document.getElementById('cardBrowseCount').textContent = 'Select a format or enter a search to browse';
+                const grid = document.getElementById('cardBrowseGrid');
+                if (grid) grid.innerHTML = '';
+                document.getElementById('cardBrowsePagination').style.display = 'none';
+                updateFilterCount('cardBrowseFilters', 0);
+                const kwA = document.querySelector('#cardBrowseKwAbilities');
+                const kwB = document.querySelector('#cardBrowseKwActions');
+                if (kwA) kwA.innerHTML = '';
+                if (kwB) kwB.innerHTML = '';
+                return;
+            }
+
+            const params = { page: cardBrowsePage, limit: 50, sort: f.sort, order: f.order };
+            if (q) params.q = q;
+            if (format) params.format = format;
+            if (sets) params.sets = sets;
+            if (f.rarity) params.rarity = f.rarity;
+            if (f.color) params.colors = f.color;
+            if (f.type) params.type = f.type;
+            if (f.owns) params.owns = f.owns;
+            if (f.unique) params.unique = true;
+            if (selectedKeywords.length > 0) params.keywords = selectedKeywords.join(',');
+
+            loadCardBrowseKeywords();
+
+            try {
+                const data = await api('/cards', params);
+                window._lastCardBrowseData = data;
+                renderCardBrowseGrid(data);
+            } catch (error) {
+                console.error('Error searching cards:', error);
+            }
+        }
+
+        function renderCardBrowseGrid(data) {
+            const cards = data.data || [];
+            const pagination = data.pagination || {};
+            cardBrowseTotalPages = pagination.pages || 1;
+            cardBrowsePage = pagination.page || 1;
+
+            document.getElementById('cardBrowseCount').textContent = `${pagination.total || cards.length} cards`;
+            updateFilterCount('cardBrowseFilters', pagination.total || cards.length);
+
+            // Sort pinned cards to top
+            const pinned = cards.filter(c => pinnedCardUuids.has(c.uuid));
+            const unpinned = cards.filter(c => !pinnedCardUuids.has(c.uuid));
+            const sorted = [...pinned, ...unpinned];
+
+            const grid = document.getElementById('cardBrowseGrid');
+            if (grid) grid.innerHTML = sorted.map(card => renderCard(card, { showPin: true })).join('');
+
+            const pag = document.getElementById('cardBrowsePagination');
+            if (pagination.pages > 1) {
+                pag.style.display = '';
+                document.getElementById('cardBrowsePageInfo').textContent = `Page ${pagination.page} of ${pagination.pages}`;
+                document.getElementById('cardBrowsePrevBtn').disabled = pagination.page <= 1;
+                document.getElementById('cardBrowseNextBtn').disabled = pagination.page >= pagination.pages;
+            } else {
+                pag.style.display = 'none';
+            }
+        }
+
+        function changeCardBrowsePage(delta) {
+            cardBrowsePage = Math.max(1, Math.min(cardBrowseTotalPages, cardBrowsePage + delta));
+            searchCardsBrowse();
         }
 
         // ========================================
@@ -1907,6 +2573,8 @@
             const sets = data.data || [];
             const pagination = data.pagination || {};
 
+            for (const s of sets) setNameCache[s.code] = s.name;
+
             setTotalPages = pagination.pages || 1;
             document.getElementById('setCount').textContent = `${pagination.total || sets.length} sets`;
 
@@ -1938,14 +2606,42 @@
             loadSets();
         }
 
-        async function loadSet(code) {
+        // Set detail filter state
+        let setCardPage = 1;
+        let setCardTotalPages = 1;
+        let currentSetCode = null;
+
+        async function loadSet(code, opts = {}) {
+            currentSetCode = code;
             const mainContent = document.getElementById('mainContent');
-            mainContent.innerHTML = '<div class="loading">Loading set...</div>';
+
+            // Only show full loading on first load (no opts means fresh load)
+            if (!opts._cardsOnly) {
+                mainContent.innerHTML = '<div class="loading">Loading set...</div>';
+            }
+
+            const params = {
+                card_page: opts.card_page || setCardPage,
+                card_limit: 50,
+            };
+            if (opts.rarity) params.rarity = opts.rarity;
+            if (opts.color) params.colors = opts.color;
+            if (opts.type) params.type = opts.type;
+            if (opts.owns !== undefined && opts.owns !== '') params.owns = opts.owns;
+            if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
+            if (opts.sort) params.sort = opts.sort;
+            if (opts.order) params.order = opts.order;
+            // Default unique to true on initial load
+            if (opts.unique !== undefined ? opts.unique : true) params.unique = true;
 
             try {
-                const setData = await api(`/sets/${code}`);
+                const setData = await api(`/sets/${code}`, params);
                 currentSet = setData;
-                renderSetView(setData);
+                if (opts._cardsOnly) {
+                    renderSetCards(setData);
+                } else {
+                    renderSetView(setData);
+                }
             } catch (error) {
                 mainContent.innerHTML = '<div class="loading">Error loading set</div>';
             }
@@ -1956,6 +2652,9 @@
             const meta = setData.meta || {};
             const stats = setData.stats || {};
             const cards = setData.cards?.data || [];
+            const cardPagination = setData.cards?.pagination || { page: 1, pages: 1, total: cards.length };
+            setCardPage = cardPagination.page;
+            setCardTotalPages = cardPagination.pages;
 
             const typeLabel = meta.type ? meta.type.charAt(0).toUpperCase() + meta.type.slice(1).replace('_', ' ') : '';
 
@@ -2002,11 +2701,23 @@
                         <h4>Keyword Actions</h4>
                         <div class="wordcloud-container" id="set-kw-actions"></div>
                     </div>` : ''}
+
+                    ${stats.keywords?.ability_words && Object.keys(stats.keywords.ability_words).length > 0 ? `
+                    <div class="stat-card">
+                        <h4>Ability Words</h4>
+                        <div class="wordcloud-container" id="set-kw-ability-words"></div>
+                    </div>` : ''}
                 </div>
 
-                <h3 style="margin: 20px 0 10px; color: #e94560;">Cards (${cards.length})</h3>
-                <div class="cards-grid">
+                <h3 style="margin: 20px 0 4px; color: #e94560;">Cards</h3>
+                ${renderCardFilterBar('setCardFilters', 'applySetCardFilters', { showCollectorSort: true, showUnique: true })}
+                <div class="cards-grid" id="setCardsGrid">
                     ${cards.map(card => renderCard(card)).join('')}
+                </div>
+                <div class="pagination" id="setCardPagination" style="${cardPagination.pages > 1 ? '' : 'display:none;'}">
+                    <button onclick="changeSetCardPage(-1)" id="setCardPrevBtn" ${cardPagination.page <= 1 ? 'disabled' : ''}>Prev</button>
+                    <span id="setCardPageInfo">Page ${cardPagination.page} of ${cardPagination.pages}</span>
+                    <button onclick="changeSetCardPage(1)" id="setCardNextBtn" ${cardPagination.page >= cardPagination.pages ? 'disabled' : ''}>Next</button>
                 </div>
             `;
 
@@ -2017,6 +2728,10 @@
             if (stats.keywords?.keyword_actions) {
                 renderWordCloud(stats.keywords.keyword_actions, '#set-kw-actions');
             }
+            if (stats.keywords?.ability_words) {
+                renderWordCloud(stats.keywords.ability_words, '#set-kw-ability-words');
+            }
+            updateFilterCount('setCardFilters', cardPagination.total);
         }
 
         function showSetRaw() {
@@ -2024,6 +2739,46 @@
             document.getElementById('modalTitle').textContent = currentSet.meta?.name || 'Set JSON';
             document.getElementById('modalJson').innerHTML = renderJson(currentSet);
             document.getElementById('modal').classList.add('active');
+        }
+
+        function getSetCardFilterOpts() {
+            const f = getCardFilters('setCardFilters');
+            return { ...f, _cardsOnly: true };
+        }
+
+        function applySetCardFilters() {
+            if (!currentSetCode) return;
+            setCardPage = 1;
+            const opts = getSetCardFilterOpts();
+            opts.card_page = 1;
+            loadSet(currentSetCode, opts);
+        }
+
+        function changeSetCardPage(delta) {
+            setCardPage = Math.max(1, Math.min(setCardTotalPages, setCardPage + delta));
+            const opts = getSetCardFilterOpts();
+            opts.card_page = setCardPage;
+            loadSet(currentSetCode, opts);
+        }
+
+        function renderSetCards(setData) {
+            const cards = setData.cards?.data || [];
+            const cardPagination = setData.cards?.pagination || { page: 1, pages: 1, total: cards.length };
+            setCardPage = cardPagination.page;
+            setCardTotalPages = cardPagination.pages;
+
+            const grid = document.getElementById('setCardsGrid');
+            if (grid) grid.innerHTML = cards.map(card => renderCard(card)).join('');
+
+            updateFilterCount('setCardFilters', cardPagination.total);
+
+            const pag = document.getElementById('setCardPagination');
+            if (pag) {
+                pag.style.display = cardPagination.pages > 1 ? '' : 'none';
+                document.getElementById('setCardPageInfo').textContent = `Page ${cardPagination.page} of ${cardPagination.pages}`;
+                document.getElementById('setCardPrevBtn').disabled = cardPagination.page <= 1;
+                document.getElementById('setCardNextBtn').disabled = cardPagination.page >= cardPagination.pages;
+            }
         }
 
         function showSetsExplorer() {
@@ -2375,6 +3130,100 @@
         }
 
         // ========================================
+        // Shared Card Filter Bar
+        // ========================================
+
+        // Pinned filters persist across views
+        function renderCardFilterBar(id, onchangeFn, opts = {}) {
+            const pf = {};
+            const selStyle = ''; // uses .card-filter-bar CSS
+            const showCollectorSort = opts.showCollectorSort || false;
+            const showUnique = opts.showUnique !== false;
+
+            return `
+                <div class="card-filter-bar" id="${id}">
+                    <select data-filter="rarity" onchange="${onchangeFn}()">
+                        <option value="" ${!pf.rarity ? 'selected' : ''}>All rarities</option>
+                        <option value="common" ${pf.rarity === 'common' ? 'selected' : ''}>Common</option>
+                        <option value="uncommon" ${pf.rarity === 'uncommon' ? 'selected' : ''}>Uncommon</option>
+                        <option value="rare" ${pf.rarity === 'rare' ? 'selected' : ''}>Rare</option>
+                        <option value="mythic" ${pf.rarity === 'mythic' ? 'selected' : ''}>Mythic</option>
+                    </select>
+                    <div class="color-toggles" data-filter="colors" data-onchange="${onchangeFn}">
+                        <div class="color-toggle" data-color="W" onclick="toggleColor(this, '${onchangeFn}')">W</div>
+                        <div class="color-toggle" data-color="U" onclick="toggleColor(this, '${onchangeFn}')">U</div>
+                        <div class="color-toggle" data-color="B" onclick="toggleColor(this, '${onchangeFn}')">B</div>
+                        <div class="color-toggle" data-color="R" onclick="toggleColor(this, '${onchangeFn}')">R</div>
+                        <div class="color-toggle" data-color="G" onclick="toggleColor(this, '${onchangeFn}')">G</div>
+                    </div>
+                    <select data-filter="type" onchange="${onchangeFn}()">
+                        <option value="" ${!pf.type ? 'selected' : ''}>All types</option>
+                        <option value="Creature" ${pf.type === 'Creature' ? 'selected' : ''}>Creature</option>
+                        <option value="Instant" ${pf.type === 'Instant' ? 'selected' : ''}>Instant</option>
+                        <option value="Sorcery" ${pf.type === 'Sorcery' ? 'selected' : ''}>Sorcery</option>
+                        <option value="Enchantment" ${pf.type === 'Enchantment' ? 'selected' : ''}>Enchantment</option>
+                        <option value="Artifact" ${pf.type === 'Artifact' ? 'selected' : ''}>Artifact</option>
+                        <option value="Planeswalker" ${pf.type === 'Planeswalker' ? 'selected' : ''}>Planeswalker</option>
+                        <option value="Land" ${pf.type === 'Land' ? 'selected' : ''}>Land</option>
+                    </select>
+                    <select data-filter="owns" onchange="${onchangeFn}()">
+                        <option value="" ${!pf.owns ? 'selected' : ''}>All cards</option>
+                        <option value="true" ${pf.owns === 'true' ? 'selected' : ''}>Owned</option>
+                        <option value="false" ${pf.owns === 'false' ? 'selected' : ''}>Not owned</option>
+                    </select>
+                    <select data-filter="sort" onchange="${onchangeFn}()">
+                        ${showCollectorSort ? `<option value="number" ${(pf.sort || (showCollectorSort ? 'number' : 'name')) === 'number' ? 'selected' : ''}>Collector #</option>` : ''}
+                        <option value="name" ${(pf.sort || (showCollectorSort ? 'number' : 'name')) === 'name' ? 'selected' : ''}>Name (A-Z)</option>
+                        <option value="name-desc" ${pf.sort === 'name-desc' ? 'selected' : ''}>Name (Z-A)</option>
+                        <option value="mana_value" ${pf.sort === 'mana_value' ? 'selected' : ''}>Mana (Low)</option>
+                        <option value="mana_value-desc" ${pf.sort === 'mana_value-desc' ? 'selected' : ''}>Mana (High)</option>
+                        <option value="rarity" ${pf.sort === 'rarity' ? 'selected' : ''}>Rarity</option>
+                        <option value="rarity-desc" ${pf.sort === 'rarity-desc' ? 'selected' : ''}>Rarity (desc)</option>
+                        <option value="price" ${pf.sort === 'price' ? 'selected' : ''}>Price (Low)</option>
+                        <option value="price-desc" ${pf.sort === 'price-desc' ? 'selected' : ''}>Price (High)</option>
+                    </select>
+                    ${showUnique ? `<label><input type="checkbox" data-filter="unique" onchange="${onchangeFn}()" ${pf.unique !== false ? 'checked' : ''}> Unique</label>` : ''}
+                    <span class="filter-count" data-filter="count"></span>
+                </div>
+            `;
+        }
+
+        function toggleColor(el, onchangeFn) {
+            el.classList.toggle('active');
+            window[onchangeFn]();
+        }
+
+        function getCardFilters(barId) {
+            const bar = document.getElementById(barId);
+            if (!bar) return {};
+            const get = (name) => bar.querySelector(`[data-filter="${name}"]`)?.value || '';
+            const sortVal = get('sort') || 'name';
+            const [sort, order] = sortVal.includes('-desc')
+                ? [sortVal.replace('-desc', ''), 'desc']
+                : [sortVal, 'asc'];
+            const uniqueEl = bar.querySelector('[data-filter="unique"]');
+            const colorEls = bar.querySelectorAll('.color-toggle.active');
+            const colors = Array.from(colorEls).map(el => el.dataset.color).join('');
+            return {
+                rarity: get('rarity'),
+                color: colors,
+                type: get('type'),
+                owns: get('owns'),
+                sort,
+                order,
+                sortVal,
+                unique: uniqueEl ? uniqueEl.checked : false,
+            };
+        }
+
+        function updateFilterCount(barId, count) {
+            const bar = document.getElementById(barId);
+            if (!bar) return;
+            const el = bar.querySelector('[data-filter="count"]');
+            if (el) el.textContent = `${count} cards`;
+        }
+
+        // ========================================
         // Card Rendering
         // ========================================
 
@@ -2386,20 +3235,21 @@
             return `https://cards.scryfall.io/large/front/${dir1}/${dir2}/${scryfallId}.jpg`;
         }
 
-        function renderCard(card) {
+        function renderCard(card, opts = {}) {
             const cardId = card.uuid || Math.random().toString(36).substr(2, 9);
             cardDataMap[cardId] = card;
             const rarityClass = `rarity-${(card.rarity || 'common').toLowerCase()}`;
             const pt = (card.power && card.toughness) ? `${card.power}/${card.toughness}` : '';
             const imageUrl = card.image_url || getCardImageUrl(card);
             const price = card.price;
+            const isPinned = card.uuid && pinnedCardUuids.has(card.uuid);
 
             let priceHtml = price ? `<span class="price-paper">${formatPrice(price)}</span>` : '<span class="price-none">No price</span>';
 
             const clickable = card.uuid ? `onclick="showCardDetail('${card.uuid}')" style="cursor:pointer"` : '';
 
             return `
-                <div class="card">
+                <div class="card" ${isPinned ? 'style="border-color:#e94560;"' : ''}>
                     ${imageUrl
                         ? `<img class="card-image" src="${imageUrl}" alt="${card.name}" loading="lazy" onerror="this.style.display='none'" ${clickable}>`
                         : `<div class="card-image-placeholder" ${clickable}>No image</div>`
@@ -2428,9 +3278,10 @@
                         <div class="card-price">${priceHtml}</div>
                     </div>
                     ${card.uuid ? `
-                        <div class="card-uuid" onclick="copyUuid('${card.uuid}')" title="Click to copy UUID">
-                            <span class="uuid-text">${card.uuid}</span>
-                            <span class="uuid-copy">Copy</span>
+                        <div class="card-actions">
+                            <button class="pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation();togglePinCard('${card.uuid}')" title="${isPinned ? 'Unpin' : 'Pin to top'}">&#128204;</button>
+                            <button class="add-to-deck-btn" onclick="event.stopPropagation();showDeckPicker('${card.uuid}','${escapeHtml(card.name).replace(/'/g, "\\'")}')" title="Add to deck">+ Deck</button>
+                            <span class="card-uuid-inline" onclick="copyUuid('${card.uuid}')" title="Click to copy UUID">${card.uuid.substring(0,8)}...</span>
                         </div>
                     ` : ''}
                 </div>
@@ -2569,6 +3420,113 @@
             }
         }
 
+        function renderClickableWordCloud(freqMap, selector, onClickFn, activeKeywords) {
+            const container = d3.select(selector);
+            if (!container.node()) return;
+            container.selectAll('*').remove();
+
+            const entries = Object.entries(freqMap).filter(([_, v]) => v > 0);
+            if (entries.length === 0) return;
+
+            const activeSet = new Set(activeKeywords || []);
+
+            const width = container.node().getBoundingClientRect().width || 400;
+            const isExpanded = width > 600;
+            const maxH = isExpanded ? 350 : 220;
+            const height = Math.max(140, Math.min(maxH, entries.length * 8));
+
+            const maxCount = Math.max(...entries.map(([_, v]) => v));
+            const minCount = Math.min(...entries.map(([_, v]) => v));
+            const maxSize = isExpanded ? 36 : 28;
+            const sizeScale = d3.scaleLinear()
+                .domain([minCount, Math.max(maxCount, minCount + 1)])
+                .range([11, maxSize]);
+
+            const colors = ['#4cc9f0', '#f4a261', '#e94560', '#4ade80', '#c084fc', '#60a5fa', '#f472b6'];
+
+            const words = entries.map(([word, count], i) => ({
+                text: word,
+                size: sizeScale(count),
+                count: count,
+                color: colors[i % colors.length],
+                active: activeSet.has(word),
+            }));
+
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(words)
+                .padding(4)
+                .rotate(() => 0)
+                .fontSize(d => d.size)
+                .on('end', draw);
+
+            layout.start();
+
+            function draw(placed) {
+                const svg = container.append('svg')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .style('overflow', 'hidden');
+
+                const tooltip = container.append('div')
+                    .style('position', 'absolute')
+                    .style('display', 'none')
+                    .style('background', '#1a1a2e')
+                    .style('color', '#e0e0e0')
+                    .style('padding', '6px 10px')
+                    .style('border-radius', '6px')
+                    .style('font-size', '0.75rem')
+                    .style('max-width', '260px')
+                    .style('border', '1px solid #333')
+                    .style('z-index', '1000')
+                    .style('pointer-events', 'none')
+                    .style('line-height', '1.3');
+
+                container.style('position', 'relative');
+
+                svg.append('g')
+                    .attr('transform', `translate(${width / 2},${height / 2})`)
+                    .selectAll('text')
+                    .data(placed)
+                    .join('text')
+                    .attr('class', d => 'wc-word' + (d.active ? ' wc-active' : ''))
+                    .style('font-size', d => d.size + 'px')
+                    .style('font-family', 'sans-serif')
+                    .style('font-weight', '600')
+                    .style('fill', d => d.color)
+                    .style('cursor', 'pointer')
+                    .style('opacity', d => d.active ? 1.0 : 0.4)
+                    .attr('text-anchor', 'middle')
+                    .attr('transform', d => `translate(${d.x},${d.y})`)
+                    .text(d => d.text)
+                    .on('mouseenter', function(event, d) {
+                        const def = getKeywordDefinition(d.text);
+                        if (!def) return;
+                        tooltip.html(`<strong>${d.text}</strong> (${d.count})<br>${def}`)
+                            .style('display', 'block');
+                    })
+                    .on('mousemove', function(event) {
+                        const rect = container.node().getBoundingClientRect();
+                        tooltip
+                            .style('left', (event.clientX - rect.left + 10) + 'px')
+                            .style('top', (event.clientY - rect.top - 40) + 'px');
+                    })
+                    .on('mouseleave', function() {
+                        tooltip.style('display', 'none');
+                    })
+                    .on('click', function(event, d) {
+                        const el = d3.select(this);
+                        const isActive = el.classed('wc-active');
+                        el.classed('wc-active', !isActive);
+                        el.style('opacity', isActive ? 0.4 : 1.0);
+                        // Collect active keywords from ALL wordclouds
+                        const active = [];
+                        d3.selectAll('.wc-active').each(function(d) { active.push(d.text); });
+                        onClickFn(active);
+                    });
+            }
+        }
+
         // ========================================
         // Pagination
         // ========================================
@@ -2654,34 +3612,96 @@
             }
         }
 
-        const glossaryTerms = [
-            {term: "Battlefield", def: "The zone where permanents exist.", cat: "Zone"},
-            {term: "Graveyard", def: "A player's discard pile.", cat: "Zone"},
-            {term: "Exile", def: "A zone for cards removed from the game.", cat: "Zone"},
-            {term: "Library", def: "A player's deck.", cat: "Zone"},
-            {term: "Hand", def: "Cards held by a player.", cat: "Zone"},
-            {term: "Stack", def: "Where spells and abilities wait to resolve.", cat: "Zone"},
-            {term: "Creature", def: "A permanent that can attack and block.", cat: "Card Type"},
-            {term: "Instant", def: "A spell that can be cast at any time.", cat: "Card Type"},
-            {term: "Sorcery", def: "A spell that can only be cast during your main phase.", cat: "Card Type"},
-            {term: "Enchantment", def: "A permanent that provides ongoing effects.", cat: "Card Type"},
-            {term: "Artifact", def: "A permanent representing magical items.", cat: "Card Type"},
-            {term: "Land", def: "A permanent that produces mana.", cat: "Card Type"},
-            {term: "Planeswalker", def: "A permanent with loyalty counters.", cat: "Card Type"},
-            {term: "Flying", def: "Can only be blocked by creatures with flying or reach.", cat: "Keyword"},
-            {term: "First Strike", def: "Deals combat damage before creatures without first strike.", cat: "Keyword"},
-            {term: "Deathtouch", def: "Any damage dealt to a creature destroys it.", cat: "Keyword"},
-            {term: "Lifelink", def: "Damage dealt also causes you to gain that much life.", cat: "Keyword"},
-            {term: "Vigilance", def: "Attacking doesn't cause this creature to tap.", cat: "Keyword"},
-            {term: "Trample", def: "Excess combat damage is dealt to the defending player.", cat: "Keyword"},
-            {term: "Haste", def: "Can attack and use tap abilities immediately.", cat: "Keyword"},
-            {term: "Hexproof", def: "Cannot be targeted by opponents.", cat: "Keyword"},
-            {term: "Indestructible", def: "Cannot be destroyed.", cat: "Keyword"},
-            {term: "Standard", def: "Rotating format using recent sets.", cat: "Format"},
-            {term: "Modern", def: "Non-rotating format from 8th Edition forward.", cat: "Format"},
-            {term: "Legacy", def: "Non-rotating format with most cards.", cat: "Format"},
-            {term: "Commander", def: "100-card singleton format with a commander.", cat: "Format"},
-        ];
+        // ========================================
+        // Reference Tab
+        // ========================================
+
+        let referenceData = null;
+
+        async function showReference() {
+            document.getElementById('mainContent').innerHTML =
+                '<div style="padding:40px;color:#555;text-align:center;font-size:1.1rem;">Browse keywords in the sidebar</div>';
+            if (referenceData) {
+                filterReference();
+                return;
+            }
+            const container = document.getElementById('refList');
+            container.innerHTML = '<div class="loading">Loading keywords...</div>';
+            try {
+                const data = await api('/keywords');
+                referenceData = [];
+                for (const kw of data.keyword_abilities) {
+                    const def = getKeywordDefinition(kw.term) || kw.definition || '';
+                    referenceData.push({term: kw.term, def, cat: 'Keyword Ability'});
+                }
+                for (const kw of data.keyword_actions) {
+                    const def = getKeywordDefinition(kw.term) || kw.definition || '';
+                    referenceData.push({term: kw.term, def, cat: 'Keyword Action'});
+                }
+                for (const kw of data.ability_words) {
+                    const def = getKeywordDefinition(kw.term) || kw.definition || '';
+                    referenceData.push({term: kw.term, def, cat: 'Ability Word'});
+                }
+                referenceData.sort((a, b) => a.term.localeCompare(b.term));
+                filterReference();
+            } catch (e) {
+                container.innerHTML = '<div class="loading">Error loading keywords</div>';
+            }
+        }
+
+        function filterReference() {
+            if (!referenceData) return;
+            const query = (document.getElementById('refSearch').value || '').toLowerCase();
+            const cat = document.getElementById('refCategoryFilter').value;
+            const filtered = referenceData.filter(item => {
+                if (cat && item.cat !== cat) return false;
+                if (query && !item.term.toLowerCase().includes(query) && !item.def.toLowerCase().includes(query)) return false;
+                return true;
+            });
+            document.getElementById('refCount').textContent = `${filtered.length} keywords`;
+            renderReferenceList(filtered);
+        }
+
+        function renderReferenceList(items) {
+            const container = document.getElementById('refList');
+            if (items.length === 0) {
+                container.innerHTML = '<div class="loading">No matching keywords</div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="glossary-item">
+                    <div class="glossary-term">${escapeHtml(item.term)} <span class="glossary-category">${item.cat}</span></div>
+                    <div class="glossary-def">${escapeHtml(item.def) || '<span style="color:#555;">No definition available</span>'}</div>
+                </div>
+            `).join('');
+        }
+
+        const glossaryTerms = (() => {
+            const terms = [
+                {term: "Battlefield", def: "The zone where permanents exist.", cat: "Zone"},
+                {term: "Graveyard", def: "A player's discard pile.", cat: "Zone"},
+                {term: "Exile", def: "A zone for cards removed from the game.", cat: "Zone"},
+                {term: "Library", def: "A player's deck.", cat: "Zone"},
+                {term: "Hand", def: "Cards held by a player.", cat: "Zone"},
+                {term: "Stack", def: "Where spells and abilities wait to resolve.", cat: "Zone"},
+                {term: "Creature", def: "A permanent that can attack and block.", cat: "Card Type"},
+                {term: "Instant", def: "A spell that can be cast at any time.", cat: "Card Type"},
+                {term: "Sorcery", def: "A spell that can only be cast during your main phase.", cat: "Card Type"},
+                {term: "Enchantment", def: "A permanent that provides ongoing effects.", cat: "Card Type"},
+                {term: "Artifact", def: "A permanent representing magical items.", cat: "Card Type"},
+                {term: "Land", def: "A permanent that produces mana.", cat: "Card Type"},
+                {term: "Planeswalker", def: "A permanent with loyalty counters.", cat: "Card Type"},
+                {term: "Standard", def: "Rotating format using recent sets.", cat: "Format"},
+                {term: "Modern", def: "Non-rotating format from 8th Edition forward.", cat: "Format"},
+                {term: "Legacy", def: "Non-rotating format with most cards.", cat: "Format"},
+                {term: "Commander", def: "100-card singleton format with a commander.", cat: "Format"},
+            ];
+            for (const [kw, def] of Object.entries(KEYWORD_DEFINITIONS)) {
+                terms.push({term: kw, def: def, cat: "Keyword"});
+            }
+            terms.sort((a, b) => a.term.localeCompare(b.term));
+            return terms;
+        })();
 
         function openGlossary() {
             renderGlossary(glossaryTerms);
@@ -2855,6 +3875,126 @@
         }
 
         // ========================================
+        // Deck Management (Create, Add Card)
+        // ========================================
+
+        let deckPickerCardUuid = null;
+        let deckPickerCardName = '';
+        let userDecksCache = null;
+
+        async function loadUserDecks() {
+            try {
+                userDecksCache = await api('/decks/user/list');
+            } catch (e) {
+                userDecksCache = [];
+            }
+            return userDecksCache;
+        }
+
+        async function showDeckPicker(cardUuid, cardName) {
+            deckPickerCardUuid = cardUuid;
+            deckPickerCardName = cardName;
+            document.getElementById('deckPickerCardInfo').textContent = `Adding: ${cardName}`;
+            document.getElementById('deckPickerCount').value = 1;
+            document.getElementById('deckPickerBoard').value = 'main';
+            document.getElementById('deckPickerStatus').textContent = '';
+
+            const decks = await loadUserDecks();
+            const listEl = document.getElementById('deckPickerList');
+
+            if (decks.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:#666;padding:20px;font-size:0.85rem;">No decks yet. Create one below.</div>';
+            } else {
+                listEl.innerHTML = decks.map(d => `
+                    <div class="deck-picker-item" onclick="addCardToDeck(${d.id}, '${d.name.replace(/'/g, "\\'")}')">
+                        <span class="deck-picker-name">${escapeHtml(d.name)}</span>
+                        <span class="deck-picker-meta">${d.card_count} cards${d.format ? ' · ' + d.format : ''}</span>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('deckPickerModal').classList.add('active');
+        }
+
+        function closeDeckPicker(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('deckPickerModal').classList.remove('active');
+        }
+
+        async function addCardToDeck(deckId, deckName) {
+            const count = parseInt(document.getElementById('deckPickerCount').value) || 1;
+            const board = document.getElementById('deckPickerBoard').value;
+            const statusEl = document.getElementById('deckPickerStatus');
+
+            statusEl.textContent = 'Adding...';
+            statusEl.style.color = '#aaa';
+
+            try {
+                await api(`/decks/${deckId}/cards`, {
+                    card_uuid: deckPickerCardUuid,
+                    count,
+                    board,
+                }, 'POST');
+                statusEl.textContent = `Added ${count}x ${deckPickerCardName} to ${deckName}`;
+                statusEl.style.color = '#4cc9f0';
+                userDecksCache = null; // invalidate cache
+                setTimeout(() => closeDeckPicker(), 1200);
+            } catch (e) {
+                statusEl.textContent = 'Error adding card';
+                statusEl.style.color = '#e63946';
+            }
+        }
+
+        async function quickCreateDeckFromPicker() {
+            const name = prompt('Deck name:');
+            if (!name) return;
+
+            try {
+                const deck = await api('/decks/create', { name }, 'POST');
+                userDecksCache = null;
+                await addCardToDeck(deck.id, deck.name);
+                await showDeckPicker(deckPickerCardUuid, deckPickerCardName);
+            } catch (e) {
+                document.getElementById('deckPickerStatus').textContent = 'Error creating deck';
+                document.getElementById('deckPickerStatus').style.color = '#e63946';
+            }
+        }
+
+        function showCreateDeckModal() {
+            document.getElementById('createDeckName').value = '';
+            document.getElementById('createDeckFormat').value = '';
+            document.getElementById('createDeckDesc').value = '';
+            document.getElementById('createDeckStatus').textContent = '';
+            document.getElementById('createDeckModal').classList.add('active');
+        }
+
+        function closeCreateDeckModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('createDeckModal').classList.remove('active');
+        }
+
+        async function submitCreateDeck() {
+            const name = document.getElementById('createDeckName').value.trim();
+            const format = document.getElementById('createDeckFormat').value || null;
+            const description = document.getElementById('createDeckDesc').value.trim() || null;
+            const statusEl = document.getElementById('createDeckStatus');
+
+            if (!name) { statusEl.textContent = 'Name is required'; return; }
+
+            statusEl.textContent = 'Creating...';
+
+            try {
+                const deck = await api('/decks/create', { name, format, description }, 'POST');
+                userDecksCache = null;
+                closeCreateDeckModal();
+                loadDeck(String(deck.id));
+                loadDecks(); // refresh sidebar
+            } catch (e) {
+                statusEl.textContent = 'Error creating deck';
+            }
+        }
+
+        // ========================================
         // Draft Tab
         // ========================================
 
@@ -3024,6 +4164,19 @@
             html += '</div>';
             mainContent.innerHTML = html;
         }
+
+        // Prefetch set names for tooltips
+        (async () => {
+            try {
+                for (let p = 1; p <= 20; p++) {
+                    const data = await api('/sets', { limit: 100, page: p });
+                    const sets = data.data || [];
+                    if (sets.length === 0) break;
+                    for (const s of sets) setNameCache[s.code] = s.name;
+                    if (sets.length < 100) break;
+                }
+            } catch (e) { /* ignore */ }
+        })();
 
         // Load initial data
         loadDecks();
