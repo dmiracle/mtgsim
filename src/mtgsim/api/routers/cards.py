@@ -46,6 +46,7 @@ async def search_cards(
     type: str | None = Query(None, description="Filter by card type"),
     colors: str | None = Query(None, description="Filter by color identity"),
     format: str | None = Query(None, description="Filter by format legality (standard, modern, etc.)"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
     owns: bool | None = Query(None, description="Filter by ownership"),
@@ -59,6 +60,7 @@ async def search_cards(
     """Search cards with filters."""
     color_list = list(colors.upper()) if colors else None
     set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
 
     logger.debug(f"search_cards: q={q} set={set} format={format} rarity={rarity}")
     return await card_service.search_cards(
@@ -69,6 +71,7 @@ async def search_cards(
         card_type=type,
         colors=color_list,
         format_legal=format,
+        keywords=keyword_list,
         price_min=price_min,
         price_max=price_max,
         owns=owns,
@@ -78,6 +81,29 @@ async def search_cards(
         order=order,
         page=page,
         limit=limit,
+    )
+
+
+@router.get("/keyword-frequencies")
+async def get_keyword_frequencies(
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by multiple set codes (comma-separated)"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    color: str | None = Query(None, description="Filter by color"),
+    type: str | None = Query(None, description="Filter by card type"),
+) -> dict[str, int]:
+    """Get keyword frequencies for filtered cards."""
+    from mtgsim.api.data import cards_data
+
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    return cards_data.get_keyword_frequencies(
+        set_code=set,
+        set_codes=set_code_list,
+        format_legal=format,
+        rarity=rarity,
+        color=color,
+        card_type=type,
     )
 
 

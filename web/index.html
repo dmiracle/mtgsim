@@ -2198,10 +2198,14 @@
         let cardBrowseTotalPages = 1;
         let cardSearchDebounce = null;
 
+        let selectedKeywords = [];
+        let pinnedCardUuids = new Set(JSON.parse(localStorage.getItem('pinnedCards') || '[]'));
+
         function showCardsBrowser() {
             const mainContent = document.getElementById('mainContent');
             mainContent.innerHTML = `
                 <h2 style="color: #e94560;">Card Browser</h2>
+                <div class="wordcloud-container" id="cardBrowseKeywords" style="min-height:0;"></div>
                 ${renderCardFilterBar('cardBrowseFilters', 'searchCardsBrowse', { showUnique: true })}
                 <div class="cards-grid" id="cardBrowseGrid"></div>
                 <div class="pagination" id="cardBrowsePagination" style="display:none;">
@@ -2210,10 +2214,52 @@
                     <button onclick="changeCardBrowsePage(1)" id="cardBrowseNextBtn">Next</button>
                 </div>
             `;
-            // Auto-search if format or search already set
+            selectedKeywords = [];
             const format = document.getElementById('cardFormatFilter')?.value;
             const q = document.getElementById('cardSearch')?.value;
-            if (format || q) searchCardsBrowse();
+            if (format || q) {
+                searchCardsBrowse();
+                loadCardBrowseKeywords();
+            }
+        }
+
+        async function loadCardBrowseKeywords() {
+            const format = document.getElementById('cardFormatFilter')?.value || '';
+            const sets = document.getElementById('cardSetsFilter')?.value || '';
+            const f = getCardFilters('cardBrowseFilters');
+            if (!format && !sets && !f.rarity && !f.color && !f.type) return;
+
+            const params = {};
+            if (format) params.format = format;
+            if (sets) params.sets = sets;
+            if (f.rarity) params.rarity = f.rarity;
+            if (f.color) params.color = f.color;
+            if (f.type) params.type = f.type;
+
+            try {
+                const freq = await api('/cards/keyword-frequencies', params);
+                renderClickableWordCloud(freq, '#cardBrowseKeywords', (keywords) => {
+                    selectedKeywords = keywords;
+                    cardBrowsePage = 1;
+                    searchCardsBrowse();
+                });
+            } catch (e) {
+                console.error('Error loading keywords:', e);
+            }
+        }
+
+        function togglePinCard(uuid) {
+            if (pinnedCardUuids.has(uuid)) {
+                pinnedCardUuids.delete(uuid);
+            } else {
+                pinnedCardUuids.add(uuid);
+            }
+            localStorage.setItem('pinnedCards', JSON.stringify([...pinnedCardUuids]));
+            // Re-render current grid if in card browse
+            const grid = document.getElementById('cardBrowseGrid');
+            if (grid && window._lastCardBrowseData) {
+                renderCardBrowseGrid(window._lastCardBrowseData);
+            }
         }
 
         function debounceCardSearch() {
@@ -2228,7 +2274,7 @@
             const f = getCardFilters('cardBrowseFilters');
 
             // Require at least one filter
-            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns) {
+            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns && selectedKeywords.length === 0) {
                 document.getElementById('cardBrowseCount').textContent = 'Select a format or enter a search to browse';
                 const grid = document.getElementById('cardBrowseGrid');
                 if (grid) grid.innerHTML = '';
@@ -2246,31 +2292,42 @@
             if (f.type) params.type = f.type;
             if (f.owns) params.owns = f.owns;
             if (f.unique) params.unique = true;
+            if (selectedKeywords.length > 0) params.keywords = selectedKeywords.join(',');
 
             try {
                 const data = await api('/cards', params);
-                const cards = data.data || [];
-                const pagination = data.pagination || {};
-                cardBrowseTotalPages = pagination.pages || 1;
-                cardBrowsePage = pagination.page || 1;
-
-                document.getElementById('cardBrowseCount').textContent = `${pagination.total || cards.length} cards`;
-                updateFilterCount('cardBrowseFilters', pagination.total || cards.length);
-
-                const grid = document.getElementById('cardBrowseGrid');
-                if (grid) grid.innerHTML = cards.map(card => renderCard(card)).join('');
-
-                const pag = document.getElementById('cardBrowsePagination');
-                if (pagination.pages > 1) {
-                    pag.style.display = '';
-                    document.getElementById('cardBrowsePageInfo').textContent = `Page ${pagination.page} of ${pagination.pages}`;
-                    document.getElementById('cardBrowsePrevBtn').disabled = pagination.page <= 1;
-                    document.getElementById('cardBrowseNextBtn').disabled = pagination.page >= pagination.pages;
-                } else {
-                    pag.style.display = 'none';
-                }
+                window._lastCardBrowseData = data;
+                renderCardBrowseGrid(data);
             } catch (error) {
                 console.error('Error searching cards:', error);
+            }
+        }
+
+        function renderCardBrowseGrid(data) {
+            const cards = data.data || [];
+            const pagination = data.pagination || {};
+            cardBrowseTotalPages = pagination.pages || 1;
+            cardBrowsePage = pagination.page || 1;
+
+            document.getElementById('cardBrowseCount').textContent = `${pagination.total || cards.length} cards`;
+            updateFilterCount('cardBrowseFilters', pagination.total || cards.length);
+
+            // Sort pinned cards to top
+            const pinned = cards.filter(c => pinnedCardUuids.has(c.uuid));
+            const unpinned = cards.filter(c => !pinnedCardUuids.has(c.uuid));
+            const sorted = [...pinned, ...unpinned];
+
+            const grid = document.getElementById('cardBrowseGrid');
+            if (grid) grid.innerHTML = sorted.map(card => renderCard(card, { showPin: true })).join('');
+
+            const pag = document.getElementById('cardBrowsePagination');
+            if (pagination.pages > 1) {
+                pag.style.display = '';
+                document.getElementById('cardBrowsePageInfo').textContent = `Page ${pagination.page} of ${pagination.pages}`;
+                document.getElementById('cardBrowsePrevBtn').disabled = pagination.page <= 1;
+                document.getElementById('cardBrowseNextBtn').disabled = pagination.page >= pagination.pages;
+            } else {
+                pag.style.display = 'none';
             }
         }
 
@@ -2864,11 +2921,8 @@
         // ========================================
 
         // Pinned filters persist across views
-        let pinnedFilters = JSON.parse(localStorage.getItem('pinnedCardFilters') || 'null');
-
         function renderCardFilterBar(id, onchangeFn, opts = {}) {
-            const pf = pinnedFilters || {};
-            const isPinned = !!pinnedFilters;
+            const pf = {};
             const selStyle = ''; // uses .card-filter-bar CSS
             const showCollectorSort = opts.showCollectorSort || false;
             const showUnique = opts.showUnique !== false;
@@ -2915,7 +2969,6 @@
                         <option value="rarity-desc" ${pf.sort === 'rarity-desc' ? 'selected' : ''}>Rarity (desc)</option>
                     </select>
                     ${showUnique ? `<label><input type="checkbox" data-filter="unique" onchange="${onchangeFn}()" ${pf.unique !== false ? 'checked' : ''}> Unique</label>` : ''}
-                    <button class="pin-btn ${isPinned ? 'pinned' : ''}" onclick="togglePinFilters('${id}')" title="Pin filters across views">${isPinned ? '&#128204; Pinned' : '&#128204; Pin'}</button>
                     <span class="filter-count" data-filter="count"></span>
                 </div>
             `;
@@ -2949,23 +3002,6 @@
             if (el) el.textContent = `${count} cards`;
         }
 
-        function togglePinFilters(barId) {
-            if (pinnedFilters) {
-                pinnedFilters = null;
-                localStorage.removeItem('pinnedCardFilters');
-            } else {
-                const f = getCardFilters(barId);
-                pinnedFilters = { rarity: f.rarity, color: f.color, type: f.type, owns: f.owns, sort: f.sortVal, unique: f.unique };
-                localStorage.setItem('pinnedCardFilters', JSON.stringify(pinnedFilters));
-            }
-            // Update pin button in current bar
-            const btn = document.getElementById(barId)?.querySelector('.pin-btn');
-            if (btn) {
-                btn.classList.toggle('pinned', !!pinnedFilters);
-                btn.innerHTML = pinnedFilters ? '&#128204; Pinned' : '&#128204; Pin';
-            }
-        }
-
         // ========================================
         // Card Rendering
         // ========================================
@@ -2978,20 +3014,21 @@
             return `https://cards.scryfall.io/large/front/${dir1}/${dir2}/${scryfallId}.jpg`;
         }
 
-        function renderCard(card) {
+        function renderCard(card, opts = {}) {
             const cardId = card.uuid || Math.random().toString(36).substr(2, 9);
             cardDataMap[cardId] = card;
             const rarityClass = `rarity-${(card.rarity || 'common').toLowerCase()}`;
             const pt = (card.power && card.toughness) ? `${card.power}/${card.toughness}` : '';
             const imageUrl = card.image_url || getCardImageUrl(card);
             const price = card.price;
+            const isPinned = card.uuid && pinnedCardUuids.has(card.uuid);
 
             let priceHtml = price ? `<span class="price-paper">${formatPrice(price)}</span>` : '<span class="price-none">No price</span>';
 
             const clickable = card.uuid ? `onclick="showCardDetail('${card.uuid}')" style="cursor:pointer"` : '';
 
             return `
-                <div class="card">
+                <div class="card" ${isPinned ? 'style="border-color:#e94560;"' : ''}>
                     ${imageUrl
                         ? `<img class="card-image" src="${imageUrl}" alt="${card.name}" loading="lazy" onerror="this.style.display='none'" ${clickable}>`
                         : `<div class="card-image-placeholder" ${clickable}>No image</div>`
@@ -3021,6 +3058,7 @@
                     </div>
                     ${card.uuid ? `
                         <div class="card-actions">
+                            <button class="pin-btn ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation();togglePinCard('${card.uuid}')" title="${isPinned ? 'Unpin' : 'Pin to top'}">&#128204;</button>
                             <button class="add-to-deck-btn" onclick="event.stopPropagation();showDeckPicker('${card.uuid}','${escapeHtml(card.name).replace(/'/g, "\\'")}')" title="Add to deck">+ Deck</button>
                             <span class="card-uuid-inline" onclick="copyUuid('${card.uuid}')" title="Click to copy UUID">${card.uuid.substring(0,8)}...</span>
                         </div>
@@ -3156,6 +3194,78 @@
                     .attr('text-anchor', 'middle')
                     .attr('transform', d => `translate(${d.x},${d.y})`)
                     .text(d => d.text)
+                    .append('title')
+                    .text(d => `${d.text}: ${d.count}`);
+            }
+        }
+
+        function renderClickableWordCloud(freqMap, selector, onClickFn) {
+            const container = d3.select(selector);
+            if (!container.node()) return;
+            container.selectAll('*').remove();
+
+            const entries = Object.entries(freqMap).filter(([_, v]) => v > 0);
+            if (entries.length === 0) return;
+
+            const width = container.node().getBoundingClientRect().width || 400;
+            const height = Math.max(140, Math.min(220, entries.length * 10));
+
+            const maxCount = Math.max(...entries.map(([_, v]) => v));
+            const minCount = Math.min(...entries.map(([_, v]) => v));
+            const sizeScale = d3.scaleLinear()
+                .domain([minCount, Math.max(maxCount, minCount + 1)])
+                .range([11, 28]);
+
+            const colors = ['#4cc9f0', '#f4a261', '#e94560', '#4ade80', '#c084fc', '#60a5fa', '#f472b6'];
+
+            const words = entries.map(([word, count], i) => ({
+                text: word,
+                size: sizeScale(count),
+                count: count,
+                color: colors[i % colors.length],
+            }));
+
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(words)
+                .padding(4)
+                .rotate(() => 0)
+                .fontSize(d => d.size)
+                .on('end', draw);
+
+            layout.start();
+
+            function draw(placed) {
+                const svg = container.append('svg')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .style('overflow', 'hidden');
+
+                svg.append('g')
+                    .attr('transform', `translate(${width / 2},${height / 2})`)
+                    .selectAll('text')
+                    .data(placed)
+                    .join('text')
+                    .attr('class', 'wc-word')
+                    .style('font-size', d => d.size + 'px')
+                    .style('font-family', 'sans-serif')
+                    .style('font-weight', '600')
+                    .style('fill', d => d.color)
+                    .style('cursor', 'pointer')
+                    .style('opacity', 0.4)
+                    .attr('text-anchor', 'middle')
+                    .attr('transform', d => `translate(${d.x},${d.y})`)
+                    .text(d => d.text)
+                    .on('click', function(event, d) {
+                        const el = d3.select(this);
+                        const isActive = el.classed('wc-active');
+                        el.classed('wc-active', !isActive);
+                        el.style('opacity', isActive ? 0.4 : 1.0);
+                        // Collect all active keywords
+                        const active = [];
+                        container.selectAll('.wc-active').each(function(d) { active.push(d.text); });
+                        onClickFn(active);
+                    })
                     .append('title')
                     .text(d => `${d.text}: ${d.count}`);
             }

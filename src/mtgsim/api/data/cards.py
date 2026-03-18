@@ -34,6 +34,7 @@ class CardsData:
         card_type: str | None = None,
         colors: list[str] | None = None,
         format_legal: str | None = None,
+        keywords: list[str] | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
         unique: bool = False,
@@ -87,6 +88,11 @@ class CardsData:
             if colors:
                 for color in colors:
                     query = query.where(func.json_extract(MJCard.colors, "$").contains(f'"{color}"'))
+
+            # Keyword filter (card must have ALL specified keywords)
+            if keywords:
+                for kw in keywords:
+                    query = query.where(func.json_extract(MJCard.keywords, "$").contains(f'"{kw}"'))
 
             # Ownership filter
             if owns is True:
@@ -156,6 +162,60 @@ class CardsData:
                 cards.append(card_to_api_dict(mj_card, identifier, user_card))
 
             return cards, total
+
+    def get_keyword_frequencies(
+        self,
+        set_code: str | None = None,
+        set_codes: list[str] | None = None,
+        format_legal: str | None = None,
+        rarity: str | None = None,
+        color: str | None = None,
+        card_type: str | None = None,
+    ) -> dict[str, int]:
+        """Get keyword frequencies for a filtered set of cards."""
+        with get_session() as session:
+            query = select(MJCard.keywords).where(MJCard.keywords.is_not(None))
+
+            if format_legal:
+                query = query.join(
+                    MJCardLegality,
+                    (MJCard.uuid == MJCardLegality.card_uuid)
+                    & (MJCardLegality.format == format_legal)
+                    & (MJCardLegality.status == "Legal"),
+                )
+            if set_code:
+                query = query.where(MJCard.set_code == set_code)
+            if set_codes:
+                query = query.where(MJCard.set_code.in_(set_codes))
+            if rarity:
+                query = query.where(MJCard.rarity == rarity)
+            if color:
+                query = query.where(func.json_extract(MJCard.color_identity, "$").contains(f'"{color}"'))
+            if card_type:
+                query = query.where(MJCard.type_line.contains(card_type))
+
+            # Deduplicate by name
+            min_uuid_subq = select(func.min(MJCard.uuid)).group_by(MJCard.name)
+            if set_code:
+                min_uuid_subq = min_uuid_subq.where(MJCard.set_code == set_code)
+            if set_codes:
+                min_uuid_subq = min_uuid_subq.where(MJCard.set_code.in_(set_codes))
+            if format_legal:
+                min_uuid_subq = min_uuid_subq.join(
+                    MJCardLegality,
+                    (MJCard.uuid == MJCardLegality.card_uuid)
+                    & (MJCardLegality.format == format_legal)
+                    & (MJCardLegality.status == "Legal"),
+                )
+            query = query.where(MJCard.uuid.in_(min_uuid_subq))
+
+            results = session.exec(query).all()
+            freq = {}
+            for keywords in results:
+                if isinstance(keywords, list):
+                    for kw in keywords:
+                        freq[kw] = freq.get(kw, 0) + 1
+            return freq
 
     def get_card(self, uuid: str) -> dict | None:
         """Get single card with collection status, prices, and legalities."""
