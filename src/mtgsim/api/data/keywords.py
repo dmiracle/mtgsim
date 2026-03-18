@@ -65,6 +65,8 @@ class KeywordsData:
         }
         for kw, count in keyword_freq.items():
             kw_type = type_map.get(kw)
+            if kw_type is None:
+                continue  # Skip keywords not in the official keyword list
             category = category_map.get(kw_type, "keyword_abilities")
             result[category][kw] = count
 

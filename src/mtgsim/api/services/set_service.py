@@ -94,7 +94,7 @@ class SetService:
         self,
         code: str,
         rarity: str | None = None,
-        color: str | None = None,
+        colors: list[str] | None = None,
         card_type: str | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
@@ -105,7 +105,7 @@ class SetService:
         card_limit: int = 50,
     ) -> SetDetail | None:
         """Get full set details including cards and statistics."""
-        logger.debug(f"get_set: code={code} rarity={rarity} color={color} card_type={card_type}")
+        logger.debug(f"get_set: code={code} rarity={rarity} colors={colors} card_type={card_type}")
         set_meta = sets_data.get_set(code)
         if not set_meta:
             return None
@@ -114,7 +114,7 @@ class SetService:
         cards, card_total = sets_data.get_set_cards(
             code=code,
             rarity=rarity,
-            color=color,
+            colors=colors,
             card_type=card_type,
             owns=owns,
             wants=wants,

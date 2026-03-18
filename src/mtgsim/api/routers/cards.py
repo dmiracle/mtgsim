@@ -90,21 +90,24 @@ async def get_keyword_frequencies(
     sets: str | None = Query(None, description="Filter by multiple set codes (comma-separated)"),
     format: str | None = Query(None, description="Filter by format legality"),
     rarity: str | None = Query(None, description="Filter by rarity"),
-    color: str | None = Query(None, description="Filter by color"),
+    colors: str | None = Query(None, description="Filter by colors (e.g. WUB)"),
     type: str | None = Query(None, description="Filter by card type"),
-) -> dict[str, int]:
-    """Get keyword frequencies for filtered cards."""
+) -> dict:
+    """Get keyword frequencies for filtered cards, categorized by type."""
     from mtgsim.api.data import cards_data
+    from mtgsim.api.data.keywords import keywords_data
 
     set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
-    return cards_data.get_keyword_frequencies(
+    color_list = list(colors.upper()) if colors else None
+    freq = cards_data.get_keyword_frequencies(
         set_code=set,
         set_codes=set_code_list,
         format_legal=format,
         rarity=rarity,
-        color=color,
+        colors=color_list,
         card_type=type,
     )
+    return keywords_data.categorize_keyword_freq(freq)
 
 
 @router.get("/{uuid}", response_model=CardDetail)

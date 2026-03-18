@@ -32,7 +32,7 @@
             height: 100vh;
             overflow: hidden;
         }
-        #decksTab, #cardsTab, #pricesTab, #setsTab, #draftTab {
+        #decksTab, #cardsTab, #pricesTab, #setsTab, #draftTab, #referenceTab {
             display: flex;
             flex-direction: column;
             flex: 1;
@@ -206,6 +206,31 @@
             font-size: 0.85rem;
             margin-left: auto;
         }
+        .color-toggles {
+            display: flex;
+            gap: 2px;
+        }
+        .color-toggle {
+            width: 26px;
+            height: 26px;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.35;
+            transition: opacity 0.15s, border-color 0.15s;
+        }
+        .color-toggle:hover { opacity: 0.7; }
+        .color-toggle.active { opacity: 1; border-color: #e94560; }
+        .color-toggle[data-color="W"] { background: #f9faf4; color: #333; }
+        .color-toggle[data-color="U"] { background: #0e68ab; color: #fff; }
+        .color-toggle[data-color="B"] { background: #2b2b2b; color: #ccc; }
+        .color-toggle[data-color="R"] { background: #d32029; color: #fff; }
+        .color-toggle[data-color="G"] { background: #00733e; color: #fff; }
         .pin-btn {
             background: none;
             border: 1px solid #333;
@@ -833,11 +858,31 @@
         .set-code {
             color: #ffd700;
             cursor: pointer;
-            text-decoration: underline;
-            text-decoration-style: dotted;
+            text-decoration: none;
+            position: relative;
         }
         .set-code:hover {
             color: #e94560;
+        }
+        .set-code::after {
+            content: attr(data-set-name);
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            border: 1px solid #333;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .set-code:hover::after {
+            display: block;
         }
         .modal {
             display: none;
@@ -1241,6 +1286,52 @@
             border-radius: 12px;
             font-size: 0.8rem;
             color: #ccc;
+            position: relative;
+            cursor: default;
+        }
+        .keyword-tag[data-def]::after {
+            content: attr(data-def);
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            width: 250px;
+            white-space: normal;
+            border: 1px solid #333;
+            z-index: 1000;
+            pointer-events: none;
+            line-height: 1.3;
+        }
+        .keyword-tag[data-def]:hover::after {
+            display: block;
+        }
+        [data-kw-def]::after {
+            content: attr(data-kw-def);
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            width: 250px;
+            white-space: normal;
+            border: 1px solid #333;
+            z-index: 1000;
+            pointer-events: none;
+            line-height: 1.3;
+        }
+        [data-kw-def]:hover::after {
+            display: block;
         }
 
         /* Draft tab styles */
@@ -1396,6 +1487,13 @@
         .wordcloud-container svg text:hover {
             opacity: 0.7;
         }
+        .wordcloud-expanded {
+            flex-direction: column;
+        }
+        .wordcloud-expanded > div {
+            width: 100%;
+            min-width: 100% !important;
+        }
     </style>
 </head>
 <body>
@@ -1407,6 +1505,7 @@
             <button class="tab-btn" data-tab="prices" onclick="switchTab('prices')">Prices</button>
             <button class="tab-btn" data-tab="sets" onclick="switchTab('sets')">Sets</button>
             <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">Draft</button>
+            <button class="tab-btn" data-tab="reference" onclick="switchTab('reference')">Reference</button>
         </div>
         <div id="decksTab">
             <div class="search-box">
@@ -1641,6 +1740,23 @@
                 <div id="packHistoryList"></div>
             </div>
         </div>
+        <div id="referenceTab" style="display: none;">
+            <div class="filter-box">
+                <label>Search Keywords</label>
+                <input type="text" id="refSearch" placeholder="Search keywords..." oninput="filterReference()">
+            </div>
+            <div class="filter-box">
+                <label>Category</label>
+                <select id="refCategoryFilter" onchange="filterReference()">
+                    <option value="">All</option>
+                    <option value="Keyword Ability">Keyword Abilities</option>
+                    <option value="Keyword Action">Keyword Actions</option>
+                    <option value="Ability Word">Ability Words</option>
+                </select>
+            </div>
+            <div id="refCount" style="font-size:0.8rem;color:#888;margin-bottom:8px;"></div>
+            <div id="refList"></div>
+        </div>
     </div>
     <div class="main-content" id="mainContent">
         <div class="loading">Loading...</div>
@@ -1734,6 +1850,7 @@
         </div>
     </div>
 
+    <script src="/web/keyword-definitions.js"></script>
     <script src="/web/card-detail.js"></script>
     <script>
         // API Base URL
@@ -1744,6 +1861,8 @@
         let currentSet = null;
         let cardDataMap = {};
         let keywordsData = null;
+        let setNameCache = {};
+        let keywordTypeCache = null; // { keyword_name: 'Keyword Ability' | 'Keyword Action' | 'Ability Word' }
 
         // Pagination state
         let deckPage = 1;
@@ -1780,6 +1899,25 @@
             return response.json();
         }
 
+        async function ensureKeywordTypeCache() {
+            if (keywordTypeCache) return keywordTypeCache;
+            try {
+                const data = await api('/keywords');
+                keywordTypeCache = {};
+                for (const kw of data.keyword_abilities) keywordTypeCache[kw.term] = 'Keyword Ability';
+                for (const kw of data.keyword_actions) keywordTypeCache[kw.term] = 'Keyword Action';
+                for (const kw of data.ability_words) keywordTypeCache[kw.term] = 'Ability Word';
+            } catch (e) {
+                keywordTypeCache = {};
+            }
+            return keywordTypeCache;
+        }
+
+        function getKeywordType(keyword) {
+            if (!keywordTypeCache) return null;
+            return keywordTypeCache[keyword] || null;
+        }
+
         // ========================================
         // Utility Functions
         // ========================================
@@ -1795,7 +1933,11 @@
         function renderSetCode(code, clickable = true) {
             const lowerCode = (code || '').toLowerCase();
             const icon = `<i class="ss ss-${lowerCode}"></i>`;
-            return `${icon} ${code}`;
+            const setName = setNameCache[code] || code;
+            if (clickable) {
+                return `<span class="set-code" data-set-name="${escapeHtml(setName)}" onclick="event.stopPropagation();switchTab('sets');loadSet('${code}')">${icon} ${code}</span>`;
+            }
+            return `<span data-set-name="${escapeHtml(setName)}">${icon} ${code}</span>`;
         }
 
         function copyUuid(uuid) {
@@ -1832,6 +1974,7 @@
             document.getElementById('pricesTab').style.display = tab === 'prices' ? 'flex' : 'none';
             document.getElementById('setsTab').style.display = tab === 'sets' ? 'flex' : 'none';
             document.getElementById('draftTab').style.display = tab === 'draft' ? 'flex' : 'none';
+            document.getElementById('referenceTab').style.display = tab === 'reference' ? 'flex' : 'none';
 
             if (tab === 'cards') {
                 showCardsBrowser();
@@ -1841,6 +1984,8 @@
                 showSetsExplorer();
             } else if (tab === 'draft') {
                 showDraftTab();
+            } else if (tab === 'reference') {
+                showReference();
             } else {
                 showHomeScreen();
             }
@@ -2025,6 +2170,9 @@
             if (stats.keywords?.keyword_actions) {
                 renderWordCloud(stats.keywords.keyword_actions, '#deck-kw-actions');
             }
+            if (stats.keywords?.ability_words) {
+                renderWordCloud(stats.keywords.ability_words, '#deck-kw-ability-words');
+            }
         }
 
         function filterDeckCards(cards, filters) {
@@ -2032,7 +2180,8 @@
                 if (filters.rarity && (card.rarity || '').toLowerCase() !== filters.rarity) return false;
                 if (filters.color) {
                     const ci = card.color_identity || card.colorIdentity || [];
-                    if (!ci.includes(filters.color)) return false;
+                    const selectedColors = filters.color.split('');
+                    if (!selectedColors.some(c => ci.includes(c))) return false;
                 }
                 if (filters.type && !(card.type || '').includes(filters.type)) return false;
                 if (filters.owns === 'true' && !card.owns) return false;
@@ -2047,6 +2196,7 @@
                 let va, vb;
                 if (sort === 'mana_value') { va = a.mana_value || 0; vb = b.mana_value || 0; }
                 else if (sort === 'rarity') { va = a.rarity || ''; vb = b.rarity || ''; }
+                else if (sort === 'price') { va = a.price || 0; vb = b.price || 0; }
                 else { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); }
                 if (va < vb) return order === 'desc' ? 1 : -1;
                 if (va > vb) return order === 'desc' ? -1 : 1;
@@ -2179,6 +2329,12 @@
                         <h4>Keyword Actions</h4>
                         <div class="wordcloud-container" id="deck-kw-actions"></div>
                     </div>` : ''}
+
+                    ${stats.keywords?.ability_words && Object.keys(stats.keywords.ability_words).length > 0 ? `
+                    <div class="stat-card stat-card-2col">
+                        <h4>Ability Words</h4>
+                        <div class="wordcloud-container" id="deck-kw-ability-words"></div>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -2205,7 +2361,20 @@
             const mainContent = document.getElementById('mainContent');
             mainContent.innerHTML = `
                 <h2 style="color: #e94560;">Card Browser</h2>
-                <div class="wordcloud-container" id="cardBrowseKeywords" style="min-height:0;"></div>
+                <div id="cardBrowseKeywords" style="min-height:0; display:flex; gap:16px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:200px;">
+                        <h4 style="color:#e94560; margin:0 0 4px;">Keyword Abilities</h4>
+                        <div class="wordcloud-container" id="cardBrowseKwAbilities" style="min-height:0;"></div>
+                    </div>
+                    <div style="flex:1; min-width:200px;">
+                        <h4 style="color:#e94560; margin:0 0 4px;">Keyword Actions</h4>
+                        <div class="wordcloud-container" id="cardBrowseKwActions" style="min-height:0;"></div>
+                    </div>
+                    <div style="flex:1; min-width:200px;">
+                        <h4 style="color:#e94560; margin:0 0 4px;">Ability Words</h4>
+                        <div class="wordcloud-container" id="cardBrowseKwAbilityWords" style="min-height:0;"></div>
+                    </div>
+                </div>
                 ${renderCardFilterBar('cardBrowseFilters', 'searchCardsBrowse', { showUnique: true })}
                 <div class="cards-grid" id="cardBrowseGrid"></div>
                 <div class="pagination" id="cardBrowsePagination" style="display:none;">
@@ -2233,16 +2402,43 @@
             if (format) params.format = format;
             if (sets) params.sets = sets;
             if (f.rarity) params.rarity = f.rarity;
-            if (f.color) params.color = f.color;
+            if (f.color) params.colors = f.color;
             if (f.type) params.type = f.type;
 
             try {
-                const freq = await api('/cards/keyword-frequencies', params);
-                renderClickableWordCloud(freq, '#cardBrowseKeywords', (keywords) => {
+                const data = await api('/cards/keyword-frequencies', params);
+                const onKeywordClick = (keywords) => {
                     selectedKeywords = keywords;
                     cardBrowsePage = 1;
                     searchCardsBrowse();
-                });
+                };
+                const abilities = data.keyword_abilities || {};
+                const actions = data.keyword_actions || {};
+                const abilityWords = data.ability_words || {};
+                const abilityCount = Object.keys(abilities).length;
+                const actionCount = Object.keys(actions).length;
+                const abilityWordCount = Object.keys(abilityWords).length;
+                if (abilityCount > 0) {
+                    renderClickableWordCloud(abilities, '#cardBrowseKwAbilities', onKeywordClick, selectedKeywords);
+                } else {
+                    document.querySelector('#cardBrowseKwAbilities').innerHTML = '';
+                }
+                if (actionCount > 0) {
+                    renderClickableWordCloud(actions, '#cardBrowseKwActions', onKeywordClick, selectedKeywords);
+                } else {
+                    document.querySelector('#cardBrowseKwActions').innerHTML = '';
+                }
+                if (abilityWordCount > 0) {
+                    renderClickableWordCloud(abilityWords, '#cardBrowseKwAbilityWords', onKeywordClick, selectedKeywords);
+                } else {
+                    document.querySelector('#cardBrowseKwAbilityWords').innerHTML = '';
+                }
+                // Expand wordclouds to full width when there are many keywords
+                const kwContainer = document.getElementById('cardBrowseKeywords');
+                if (kwContainer) {
+                    const totalWords = abilityCount + actionCount + abilityWordCount;
+                    kwContainer.classList.toggle('wordcloud-expanded', totalWords > 40);
+                }
             } catch (e) {
                 console.error('Error loading keywords:', e);
             }
@@ -2280,6 +2476,10 @@
                 if (grid) grid.innerHTML = '';
                 document.getElementById('cardBrowsePagination').style.display = 'none';
                 updateFilterCount('cardBrowseFilters', 0);
+                const kwA = document.querySelector('#cardBrowseKwAbilities');
+                const kwB = document.querySelector('#cardBrowseKwActions');
+                if (kwA) kwA.innerHTML = '';
+                if (kwB) kwB.innerHTML = '';
                 return;
             }
 
@@ -2293,6 +2493,8 @@
             if (f.owns) params.owns = f.owns;
             if (f.unique) params.unique = true;
             if (selectedKeywords.length > 0) params.keywords = selectedKeywords.join(',');
+
+            loadCardBrowseKeywords();
 
             try {
                 const data = await api('/cards', params);
@@ -2371,6 +2573,8 @@
             const sets = data.data || [];
             const pagination = data.pagination || {};
 
+            for (const s of sets) setNameCache[s.code] = s.name;
+
             setTotalPages = pagination.pages || 1;
             document.getElementById('setCount').textContent = `${pagination.total || sets.length} sets`;
 
@@ -2421,7 +2625,7 @@
                 card_limit: 50,
             };
             if (opts.rarity) params.rarity = opts.rarity;
-            if (opts.color) params.color = opts.color;
+            if (opts.color) params.colors = opts.color;
             if (opts.type) params.type = opts.type;
             if (opts.owns !== undefined && opts.owns !== '') params.owns = opts.owns;
             if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
@@ -2497,6 +2701,12 @@
                         <h4>Keyword Actions</h4>
                         <div class="wordcloud-container" id="set-kw-actions"></div>
                     </div>` : ''}
+
+                    ${stats.keywords?.ability_words && Object.keys(stats.keywords.ability_words).length > 0 ? `
+                    <div class="stat-card">
+                        <h4>Ability Words</h4>
+                        <div class="wordcloud-container" id="set-kw-ability-words"></div>
+                    </div>` : ''}
                 </div>
 
                 <h3 style="margin: 20px 0 4px; color: #e94560;">Cards</h3>
@@ -2517,6 +2727,9 @@
             }
             if (stats.keywords?.keyword_actions) {
                 renderWordCloud(stats.keywords.keyword_actions, '#set-kw-actions');
+            }
+            if (stats.keywords?.ability_words) {
+                renderWordCloud(stats.keywords.ability_words, '#set-kw-ability-words');
             }
             updateFilterCount('setCardFilters', cardPagination.total);
         }
@@ -2936,14 +3149,13 @@
                         <option value="rare" ${pf.rarity === 'rare' ? 'selected' : ''}>Rare</option>
                         <option value="mythic" ${pf.rarity === 'mythic' ? 'selected' : ''}>Mythic</option>
                     </select>
-                    <select data-filter="color" onchange="${onchangeFn}()">
-                        <option value="" ${!pf.color ? 'selected' : ''}>All colors</option>
-                        <option value="W" ${pf.color === 'W' ? 'selected' : ''}>White</option>
-                        <option value="U" ${pf.color === 'U' ? 'selected' : ''}>Blue</option>
-                        <option value="B" ${pf.color === 'B' ? 'selected' : ''}>Black</option>
-                        <option value="R" ${pf.color === 'R' ? 'selected' : ''}>Red</option>
-                        <option value="G" ${pf.color === 'G' ? 'selected' : ''}>Green</option>
-                    </select>
+                    <div class="color-toggles" data-filter="colors" data-onchange="${onchangeFn}">
+                        <div class="color-toggle" data-color="W" onclick="toggleColor(this, '${onchangeFn}')">W</div>
+                        <div class="color-toggle" data-color="U" onclick="toggleColor(this, '${onchangeFn}')">U</div>
+                        <div class="color-toggle" data-color="B" onclick="toggleColor(this, '${onchangeFn}')">B</div>
+                        <div class="color-toggle" data-color="R" onclick="toggleColor(this, '${onchangeFn}')">R</div>
+                        <div class="color-toggle" data-color="G" onclick="toggleColor(this, '${onchangeFn}')">G</div>
+                    </div>
                     <select data-filter="type" onchange="${onchangeFn}()">
                         <option value="" ${!pf.type ? 'selected' : ''}>All types</option>
                         <option value="Creature" ${pf.type === 'Creature' ? 'selected' : ''}>Creature</option>
@@ -2967,11 +3179,18 @@
                         <option value="mana_value-desc" ${pf.sort === 'mana_value-desc' ? 'selected' : ''}>Mana (High)</option>
                         <option value="rarity" ${pf.sort === 'rarity' ? 'selected' : ''}>Rarity</option>
                         <option value="rarity-desc" ${pf.sort === 'rarity-desc' ? 'selected' : ''}>Rarity (desc)</option>
+                        <option value="price" ${pf.sort === 'price' ? 'selected' : ''}>Price (Low)</option>
+                        <option value="price-desc" ${pf.sort === 'price-desc' ? 'selected' : ''}>Price (High)</option>
                     </select>
                     ${showUnique ? `<label><input type="checkbox" data-filter="unique" onchange="${onchangeFn}()" ${pf.unique !== false ? 'checked' : ''}> Unique</label>` : ''}
                     <span class="filter-count" data-filter="count"></span>
                 </div>
             `;
+        }
+
+        function toggleColor(el, onchangeFn) {
+            el.classList.toggle('active');
+            window[onchangeFn]();
         }
 
         function getCardFilters(barId) {
@@ -2983,9 +3202,11 @@
                 ? [sortVal.replace('-desc', ''), 'desc']
                 : [sortVal, 'asc'];
             const uniqueEl = bar.querySelector('[data-filter="unique"]');
+            const colorEls = bar.querySelectorAll('.color-toggle.active');
+            const colors = Array.from(colorEls).map(el => el.dataset.color).join('');
             return {
                 rarity: get('rarity'),
-                color: get('color'),
+                color: colors,
                 type: get('type'),
                 owns: get('owns'),
                 sort,
@@ -3199,7 +3420,7 @@
             }
         }
 
-        function renderClickableWordCloud(freqMap, selector, onClickFn) {
+        function renderClickableWordCloud(freqMap, selector, onClickFn, activeKeywords) {
             const container = d3.select(selector);
             if (!container.node()) return;
             container.selectAll('*').remove();
@@ -3207,14 +3428,19 @@
             const entries = Object.entries(freqMap).filter(([_, v]) => v > 0);
             if (entries.length === 0) return;
 
+            const activeSet = new Set(activeKeywords || []);
+
             const width = container.node().getBoundingClientRect().width || 400;
-            const height = Math.max(140, Math.min(220, entries.length * 10));
+            const isExpanded = width > 600;
+            const maxH = isExpanded ? 350 : 220;
+            const height = Math.max(140, Math.min(maxH, entries.length * 8));
 
             const maxCount = Math.max(...entries.map(([_, v]) => v));
             const minCount = Math.min(...entries.map(([_, v]) => v));
+            const maxSize = isExpanded ? 36 : 28;
             const sizeScale = d3.scaleLinear()
                 .domain([minCount, Math.max(maxCount, minCount + 1)])
-                .range([11, 28]);
+                .range([11, maxSize]);
 
             const colors = ['#4cc9f0', '#f4a261', '#e94560', '#4ade80', '#c084fc', '#60a5fa', '#f472b6'];
 
@@ -3223,6 +3449,7 @@
                 size: sizeScale(count),
                 count: count,
                 color: colors[i % colors.length],
+                active: activeSet.has(word),
             }));
 
             const layout = d3.layout.cloud()
@@ -3241,33 +3468,62 @@
                     .attr('height', height)
                     .style('overflow', 'hidden');
 
+                const tooltip = container.append('div')
+                    .style('position', 'absolute')
+                    .style('display', 'none')
+                    .style('background', '#1a1a2e')
+                    .style('color', '#e0e0e0')
+                    .style('padding', '6px 10px')
+                    .style('border-radius', '6px')
+                    .style('font-size', '0.75rem')
+                    .style('max-width', '260px')
+                    .style('border', '1px solid #333')
+                    .style('z-index', '1000')
+                    .style('pointer-events', 'none')
+                    .style('line-height', '1.3');
+
+                container.style('position', 'relative');
+
                 svg.append('g')
                     .attr('transform', `translate(${width / 2},${height / 2})`)
                     .selectAll('text')
                     .data(placed)
                     .join('text')
-                    .attr('class', 'wc-word')
+                    .attr('class', d => 'wc-word' + (d.active ? ' wc-active' : ''))
                     .style('font-size', d => d.size + 'px')
                     .style('font-family', 'sans-serif')
                     .style('font-weight', '600')
                     .style('fill', d => d.color)
                     .style('cursor', 'pointer')
-                    .style('opacity', 0.4)
+                    .style('opacity', d => d.active ? 1.0 : 0.4)
                     .attr('text-anchor', 'middle')
                     .attr('transform', d => `translate(${d.x},${d.y})`)
                     .text(d => d.text)
+                    .on('mouseenter', function(event, d) {
+                        const def = getKeywordDefinition(d.text);
+                        if (!def) return;
+                        tooltip.html(`<strong>${d.text}</strong> (${d.count})<br>${def}`)
+                            .style('display', 'block');
+                    })
+                    .on('mousemove', function(event) {
+                        const rect = container.node().getBoundingClientRect();
+                        tooltip
+                            .style('left', (event.clientX - rect.left + 10) + 'px')
+                            .style('top', (event.clientY - rect.top - 40) + 'px');
+                    })
+                    .on('mouseleave', function() {
+                        tooltip.style('display', 'none');
+                    })
                     .on('click', function(event, d) {
                         const el = d3.select(this);
                         const isActive = el.classed('wc-active');
                         el.classed('wc-active', !isActive);
                         el.style('opacity', isActive ? 0.4 : 1.0);
-                        // Collect all active keywords
+                        // Collect active keywords from ALL wordclouds
                         const active = [];
-                        container.selectAll('.wc-active').each(function(d) { active.push(d.text); });
+                        d3.selectAll('.wc-active').each(function(d) { active.push(d.text); });
                         onClickFn(active);
-                    })
-                    .append('title')
-                    .text(d => `${d.text}: ${d.count}`);
+                    });
             }
         }
 
@@ -3356,34 +3612,96 @@
             }
         }
 
-        const glossaryTerms = [
-            {term: "Battlefield", def: "The zone where permanents exist.", cat: "Zone"},
-            {term: "Graveyard", def: "A player's discard pile.", cat: "Zone"},
-            {term: "Exile", def: "A zone for cards removed from the game.", cat: "Zone"},
-            {term: "Library", def: "A player's deck.", cat: "Zone"},
-            {term: "Hand", def: "Cards held by a player.", cat: "Zone"},
-            {term: "Stack", def: "Where spells and abilities wait to resolve.", cat: "Zone"},
-            {term: "Creature", def: "A permanent that can attack and block.", cat: "Card Type"},
-            {term: "Instant", def: "A spell that can be cast at any time.", cat: "Card Type"},
-            {term: "Sorcery", def: "A spell that can only be cast during your main phase.", cat: "Card Type"},
-            {term: "Enchantment", def: "A permanent that provides ongoing effects.", cat: "Card Type"},
-            {term: "Artifact", def: "A permanent representing magical items.", cat: "Card Type"},
-            {term: "Land", def: "A permanent that produces mana.", cat: "Card Type"},
-            {term: "Planeswalker", def: "A permanent with loyalty counters.", cat: "Card Type"},
-            {term: "Flying", def: "Can only be blocked by creatures with flying or reach.", cat: "Keyword"},
-            {term: "First Strike", def: "Deals combat damage before creatures without first strike.", cat: "Keyword"},
-            {term: "Deathtouch", def: "Any damage dealt to a creature destroys it.", cat: "Keyword"},
-            {term: "Lifelink", def: "Damage dealt also causes you to gain that much life.", cat: "Keyword"},
-            {term: "Vigilance", def: "Attacking doesn't cause this creature to tap.", cat: "Keyword"},
-            {term: "Trample", def: "Excess combat damage is dealt to the defending player.", cat: "Keyword"},
-            {term: "Haste", def: "Can attack and use tap abilities immediately.", cat: "Keyword"},
-            {term: "Hexproof", def: "Cannot be targeted by opponents.", cat: "Keyword"},
-            {term: "Indestructible", def: "Cannot be destroyed.", cat: "Keyword"},
-            {term: "Standard", def: "Rotating format using recent sets.", cat: "Format"},
-            {term: "Modern", def: "Non-rotating format from 8th Edition forward.", cat: "Format"},
-            {term: "Legacy", def: "Non-rotating format with most cards.", cat: "Format"},
-            {term: "Commander", def: "100-card singleton format with a commander.", cat: "Format"},
-        ];
+        // ========================================
+        // Reference Tab
+        // ========================================
+
+        let referenceData = null;
+
+        async function showReference() {
+            document.getElementById('mainContent').innerHTML =
+                '<div style="padding:40px;color:#555;text-align:center;font-size:1.1rem;">Browse keywords in the sidebar</div>';
+            if (referenceData) {
+                filterReference();
+                return;
+            }
+            const container = document.getElementById('refList');
+            container.innerHTML = '<div class="loading">Loading keywords...</div>';
+            try {
+                const data = await api('/keywords');
+                referenceData = [];
+                for (const kw of data.keyword_abilities) {
+                    const def = getKeywordDefinition(kw.term) || kw.definition || '';
+                    referenceData.push({term: kw.term, def, cat: 'Keyword Ability'});
+                }
+                for (const kw of data.keyword_actions) {
+                    const def = getKeywordDefinition(kw.term) || kw.definition || '';
+                    referenceData.push({term: kw.term, def, cat: 'Keyword Action'});
+                }
+                for (const kw of data.ability_words) {
+                    const def = getKeywordDefinition(kw.term) || kw.definition || '';
+                    referenceData.push({term: kw.term, def, cat: 'Ability Word'});
+                }
+                referenceData.sort((a, b) => a.term.localeCompare(b.term));
+                filterReference();
+            } catch (e) {
+                container.innerHTML = '<div class="loading">Error loading keywords</div>';
+            }
+        }
+
+        function filterReference() {
+            if (!referenceData) return;
+            const query = (document.getElementById('refSearch').value || '').toLowerCase();
+            const cat = document.getElementById('refCategoryFilter').value;
+            const filtered = referenceData.filter(item => {
+                if (cat && item.cat !== cat) return false;
+                if (query && !item.term.toLowerCase().includes(query) && !item.def.toLowerCase().includes(query)) return false;
+                return true;
+            });
+            document.getElementById('refCount').textContent = `${filtered.length} keywords`;
+            renderReferenceList(filtered);
+        }
+
+        function renderReferenceList(items) {
+            const container = document.getElementById('refList');
+            if (items.length === 0) {
+                container.innerHTML = '<div class="loading">No matching keywords</div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="glossary-item">
+                    <div class="glossary-term">${escapeHtml(item.term)} <span class="glossary-category">${item.cat}</span></div>
+                    <div class="glossary-def">${escapeHtml(item.def) || '<span style="color:#555;">No definition available</span>'}</div>
+                </div>
+            `).join('');
+        }
+
+        const glossaryTerms = (() => {
+            const terms = [
+                {term: "Battlefield", def: "The zone where permanents exist.", cat: "Zone"},
+                {term: "Graveyard", def: "A player's discard pile.", cat: "Zone"},
+                {term: "Exile", def: "A zone for cards removed from the game.", cat: "Zone"},
+                {term: "Library", def: "A player's deck.", cat: "Zone"},
+                {term: "Hand", def: "Cards held by a player.", cat: "Zone"},
+                {term: "Stack", def: "Where spells and abilities wait to resolve.", cat: "Zone"},
+                {term: "Creature", def: "A permanent that can attack and block.", cat: "Card Type"},
+                {term: "Instant", def: "A spell that can be cast at any time.", cat: "Card Type"},
+                {term: "Sorcery", def: "A spell that can only be cast during your main phase.", cat: "Card Type"},
+                {term: "Enchantment", def: "A permanent that provides ongoing effects.", cat: "Card Type"},
+                {term: "Artifact", def: "A permanent representing magical items.", cat: "Card Type"},
+                {term: "Land", def: "A permanent that produces mana.", cat: "Card Type"},
+                {term: "Planeswalker", def: "A permanent with loyalty counters.", cat: "Card Type"},
+                {term: "Standard", def: "Rotating format using recent sets.", cat: "Format"},
+                {term: "Modern", def: "Non-rotating format from 8th Edition forward.", cat: "Format"},
+                {term: "Legacy", def: "Non-rotating format with most cards.", cat: "Format"},
+                {term: "Commander", def: "100-card singleton format with a commander.", cat: "Format"},
+            ];
+            for (const [kw, def] of Object.entries(KEYWORD_DEFINITIONS)) {
+                terms.push({term: kw, def: def, cat: "Keyword"});
+            }
+            terms.sort((a, b) => a.term.localeCompare(b.term));
+            return terms;
+        })();
 
         function openGlossary() {
             renderGlossary(glossaryTerms);
@@ -3846,6 +4164,19 @@
             html += '</div>';
             mainContent.innerHTML = html;
         }
+
+        // Prefetch set names for tooltips
+        (async () => {
+            try {
+                for (let p = 1; p <= 20; p++) {
+                    const data = await api('/sets', { limit: 100, page: p });
+                    const sets = data.data || [];
+                    if (sets.length === 0) break;
+                    for (const s of sets) setNameCache[s.code] = s.name;
+                    if (sets.length < 100) break;
+                }
+            } catch (e) { /* ignore */ }
+        })();
 
         // Load initial data
         loadDecks();

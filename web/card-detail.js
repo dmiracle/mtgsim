@@ -13,8 +13,14 @@ async function showCardDetail(uuid) {
     mainContent.innerHTML = '<div class="loading">Loading card...</div>';
 
     try {
-        const card = await api(`/cards/${uuid}`);
+        const [card] = await Promise.all([api(`/cards/${uuid}`), ensureKeywordTypeCache()]);
         cardDataMap[card.uuid] = card;
+        if (card.set_code && card.set_name) setNameCache[card.set_code] = card.set_name;
+        if (card.other_printings) {
+            for (const p of card.other_printings) {
+                if (p.set_code && p.set_name) setNameCache[p.set_code] = p.set_name;
+            }
+        }
         cardDetailHistory.push(uuid);
         renderCardDetailView(card);
     } catch (error) {
@@ -137,14 +143,32 @@ function buildStatsRow(card) {
 
 function renderKeywords(keywords) {
     if (!keywords || keywords.length === 0) return '';
-    return `
-        <div class="card-detail-section">
-            <h3>Keywords</h3>
-            <div class="keywords-list">
-                ${keywords.map(k => `<span class="keyword-tag">${escapeHtml(k)}</span>`).join('')}
-            </div>
-        </div>
-    `;
+
+    // Group by type
+    const groups = { 'Keyword Ability': [], 'Keyword Action': [], 'Ability Word': [], 'Other': [] };
+    for (const k of keywords) {
+        const type = getKeywordType(k) || 'Other';
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(k);
+    }
+
+    let html = '<div class="card-detail-section"><h3>Keywords</h3>';
+    for (const [type, kws] of Object.entries(groups)) {
+        if (kws.length === 0) continue;
+        const pluralMap = { 'Keyword Ability': 'Keyword Abilities', 'Keyword Action': 'Keyword Actions', 'Ability Word': 'Ability Words' };
+        const label = pluralMap[type] || type;
+        const typeLabel = type === 'Other' ? '' : `<div style="font-size:0.7rem;color:#888;margin:8px 0 4px;text-transform:uppercase;">${label}</div>`;
+        html += typeLabel;
+        html += '<div class="keywords-list">';
+        for (const k of kws) {
+            const def = getKeywordDefinition(k);
+            const defAttr = def ? ` data-def="${escapeHtml(def)}"` : '';
+            html += `<span class="keyword-tag"${defAttr}>${escapeHtml(k)}</span>`;
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+    return html;
 }
 
 function renderMetaGrid(card) {

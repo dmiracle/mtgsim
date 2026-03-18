@@ -74,6 +74,7 @@ class CardService:
                     set_code=c.get("set_code", ""),
                     color_identity=c.get("color_identity", []),
                     text=c.get("oracle_text"),
+                    price=c.get("price"),
                     image_url=c.get("image_url"),
                     owns=c.get("owns", False),
                     wants=c.get("wants", False),

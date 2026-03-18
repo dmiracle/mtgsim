@@ -17,9 +17,51 @@ from mtgdb.models import (
 from mtgdb.session import get_session
 from sqlmodel import func, select
 
-from .helpers import build_image_url, card_to_api_dict
+from .helpers import add_price_join, build_image_url, card_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.cards")
+
+_standard_cutoff_cache: str | None = None
+
+
+def _standard_cutoff_date(session) -> str | None:
+    """Find the oldest release date among current standard-legal expansion/core sets.
+
+    Uses a heuristic: find the earliest release_date of expansion/core sets
+    that contain cards legal in standard, limited to the most recent sets.
+    Standard keeps ~3 years of sets since 2024 rotation change.
+    """
+    global _standard_cutoff_cache
+    if _standard_cutoff_cache is not None:
+        return _standard_cutoff_cache
+
+    # Get all expansion/core sets that have standard-legal cards, ordered by release
+    q = (
+        select(MJSet.release_date)
+        .join(MJCard, MJCard.set_code == MJSet.code)
+        .join(
+            MJCardLegality,
+            (MJCard.uuid == MJCardLegality.card_uuid)
+            & (MJCardLegality.format == "standard")
+            & (MJCardLegality.status == "Legal"),
+        )
+        .where(MJSet.type.in_(["expansion", "core"]))
+        .distinct()
+        .order_by(MJSet.release_date.asc())
+    )
+    dates = list(session.exec(q).all())
+    if not dates:
+        return None
+
+    # Keep only sets from the last 3 years (standard rotation window)
+    from datetime import datetime
+
+    now = datetime.now().strftime("%Y-%m-%d")
+    three_years_ago = str(int(now[:4]) - 3) + now[4:]
+    recent = [d for d in dates if d and d >= three_years_ago]
+    cutoff = recent[0] if recent else dates[-1]
+    _standard_cutoff_cache = cutoff
+    return cutoff
 
 
 class CardsData:
@@ -52,6 +94,8 @@ class CardsData:
                 .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
                 .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
             )
+            query, price_col = add_price_join(query)
+            query = query.add_columns(price_col)
 
             # Format legality filter
             if format_legal:
@@ -61,6 +105,14 @@ class CardsData:
                     & (MJCardLegality.format == format_legal)
                     & (MJCardLegality.status == "Legal"),
                 )
+                # Restrict to expansion/core sets; for standard also limit to rotation window
+                query = query.join(MJSet, MJCard.set_code == MJSet.code).where(MJSet.type.in_(["expansion", "core"]))
+                if format_legal == "standard":
+                    # Standard rotation: find the cutoff from the 3rd-newest fall set
+                    # Simpler: only include sets released in last ~2.5 years
+                    cutoff = _standard_cutoff_date(session)
+                    if cutoff:
+                        query = query.where(MJSet.release_date >= cutoff)
 
             # Text search
             if q:
@@ -84,10 +136,13 @@ class CardsData:
             if card_type:
                 query = query.where(MJCard.type_line.contains(card_type))
 
-            # Color filter (card must have ALL specified colors)
+            # Color filter (card must have ANY of the specified colors)
             if colors:
-                for color in colors:
-                    query = query.where(func.json_extract(MJCard.colors, "$").contains(f'"{color}"'))
+                from sqlalchemy import or_
+
+                query = query.where(
+                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
+                )
 
             # Keyword filter (card must have ALL specified keywords)
             if keywords:
@@ -110,38 +165,48 @@ class CardsData:
                     (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
                 )
 
-            # Unique filter: one printing per card name
-            if unique:
-                min_uuid_subq = (
-                    select(func.min(MJCard.uuid))
-                    .group_by(MJCard.name)
-                )
-                # Apply same set filters to subquery
-                if set_code:
-                    min_uuid_subq = min_uuid_subq.where(MJCard.set_code == set_code)
-                if set_codes:
-                    min_uuid_subq = min_uuid_subq.where(MJCard.set_code.in_(set_codes))
-                if format_legal:
-                    min_uuid_subq = min_uuid_subq.join(
-                        MJCardLegality,
-                        (MJCard.uuid == MJCardLegality.card_uuid)
-                        & (MJCardLegality.format == format_legal)
-                        & (MJCardLegality.status == "Legal"),
-                    )
-                query = query.where(MJCard.uuid.in_(min_uuid_subq))
-
-            # Count total before pagination
-            count_query = select(func.count()).select_from(query.subquery())
-            total = session.exec(count_query).one()
-
             # Sorting
             sort_map = {
                 "name": MJCard.name,
                 "mana_value": MJCard.mana_value,
                 "rarity": MJCard.rarity,
                 "set_code": MJCard.set_code,
+                "price": price_col,
             }
             sort_field = sort_map.get(sort, MJCard.name)
+
+            # Unique filter: one printing per card name (cheapest price)
+            if unique:
+                from sqlalchemy.orm import aliased
+
+                MJCard2 = aliased(MJCard)
+                min_uuid_subq = select(func.min(MJCard2.uuid)).group_by(MJCard2.name)
+
+                if set_code:
+                    min_uuid_subq = min_uuid_subq.where(MJCard2.set_code == set_code)
+                if set_codes:
+                    min_uuid_subq = min_uuid_subq.where(MJCard2.set_code.in_(set_codes))
+                if format_legal:
+                    MJCardLegality2 = aliased(MJCardLegality)
+                    min_uuid_subq = min_uuid_subq.join(
+                        MJCardLegality2,
+                        (MJCard2.uuid == MJCardLegality2.card_uuid)
+                        & (MJCardLegality2.format == format_legal)
+                        & (MJCardLegality2.status == "Legal"),
+                    )
+                    MJSet2 = aliased(MJSet)
+                    min_uuid_subq = min_uuid_subq.join(MJSet2, MJCard2.set_code == MJSet2.code).where(
+                        MJSet2.type.in_(["expansion", "core"])
+                    )
+                    if format_legal == "standard":
+                        cutoff = _standard_cutoff_date(session)
+                        if cutoff:
+                            min_uuid_subq = min_uuid_subq.where(MJSet2.release_date >= cutoff)
+                query = query.where(MJCard.uuid.in_(min_uuid_subq))
+
+            # Count total before pagination
+            count_query = select(func.count()).select_from(query.subquery())
+            total = session.exec(count_query).one()
 
             if order == "desc":
                 query = query.order_by(sort_field.desc())
@@ -158,8 +223,8 @@ class CardsData:
             # Convert to API format
             logger.debug(f"search_cards: query returned {len(results)} results, total={total}")
             cards = []
-            for mj_card, identifier, user_card in results:
-                cards.append(card_to_api_dict(mj_card, identifier, user_card))
+            for mj_card, identifier, user_card, best_price in results:
+                cards.append(card_to_api_dict(mj_card, identifier, user_card, price=best_price))
 
             return cards, total
 
@@ -169,7 +234,7 @@ class CardsData:
         set_codes: list[str] | None = None,
         format_legal: str | None = None,
         rarity: str | None = None,
-        color: str | None = None,
+        colors: list[str] | None = None,
         card_type: str | None = None,
     ) -> dict[str, int]:
         """Get keyword frequencies for a filtered set of cards."""
@@ -183,14 +248,23 @@ class CardsData:
                     & (MJCardLegality.format == format_legal)
                     & (MJCardLegality.status == "Legal"),
                 )
+                query = query.join(MJSet, MJCard.set_code == MJSet.code).where(MJSet.type.in_(["expansion", "core"]))
+                if format_legal == "standard":
+                    cutoff = _standard_cutoff_date(session)
+                    if cutoff:
+                        query = query.where(MJSet.release_date >= cutoff)
             if set_code:
                 query = query.where(MJCard.set_code == set_code)
             if set_codes:
                 query = query.where(MJCard.set_code.in_(set_codes))
             if rarity:
                 query = query.where(MJCard.rarity == rarity)
-            if color:
-                query = query.where(func.json_extract(MJCard.color_identity, "$").contains(f'"{color}"'))
+            if colors:
+                from sqlalchemy import or_
+
+                query = query.where(
+                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
+                )
             if card_type:
                 query = query.where(MJCard.type_line.contains(card_type))
 
@@ -249,7 +323,16 @@ class CardsData:
             rating_query = select(UserCardRating).where(UserCardRating.card_uuid == uuid)
             rating = session.exec(rating_query).first()
 
-            card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name)
+            # Pick best price: TCGPlayer normal retail, then any
+            best = None
+            for p in all_prices:
+                if p["provider"] == "tcgplayer" and p["finish"] == "normal" and p["listing_type"] == "retail":
+                    best = p["price"]
+                    break
+            if best is None and all_prices:
+                best = all_prices[0]["price"]
+
+            card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name, price=best)
             card_dict["legalities"] = legalities
             card_dict["all_prices"] = all_prices
             if rating:

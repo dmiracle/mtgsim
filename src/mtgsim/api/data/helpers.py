@@ -28,11 +28,41 @@ def apply_pagination(query, page: int, limit: int):
     return query.offset(offset).limit(limit)
 
 
+def add_price_join(query):
+    """Add LEFT JOIN to MJCardPrice for TCGPlayer normal retail price.
+
+    Returns (modified_query, price_column).
+    """
+    from mtgdb.models import MJCardPrice
+    from sqlalchemy import case
+
+    query = query.outerjoin(
+        MJCardPrice,
+        (MJCardPrice.card_uuid == MJCard_uuid_col())
+        & (MJCardPrice.provider == "tcgplayer")
+        & (MJCardPrice.finish == "normal")
+        & (MJCardPrice.listing_type == "retail"),
+    )
+    price_col = case(
+        (MJCardPrice.price.is_not(None), MJCardPrice.price),
+        else_=None,
+    ).label("best_price")
+    return query, price_col
+
+
+def MJCard_uuid_col():
+    """Get MJCard.uuid column reference (avoids circular import)."""
+    from mtgdb.models import MJCard
+
+    return MJCard.uuid
+
+
 def card_to_api_dict(
     mj_card,
     identifier=None,
     user_card=None,
     set_name: str | None = None,
+    price: float | None = None,
 ) -> dict:
     """Convert MJCard + optional joins to API response dict."""
     scryfall_id = identifier.scryfall_id if identifier else None
@@ -91,6 +121,7 @@ def card_to_api_dict(
         "is_reserved": mj_card.is_reserved,
         "is_promo": mj_card.is_promo,
         "image_url": build_image_url(scryfall_id),
+        "price": price,
         "owns": owns,
         "wants": wants,
         "total_owned": total_owned,

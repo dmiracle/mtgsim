@@ -50,7 +50,7 @@ async def list_sets(
 async def get_set(
     code: str,
     rarity: str | None = Query(None, description="Filter cards by rarity"),
-    color: str | None = Query(None, description="Filter cards by color"),
+    colors: str | None = Query(None, description="Filter cards by colors (e.g. WUB)"),
     type: str | None = Query(None, description="Filter cards by type"),
     owns: bool | None = Query(None, description="Filter by ownership (true=owned, false=not owned)"),
     wants: bool | None = Query(None, description="Filter by want status"),
@@ -68,11 +68,12 @@ async def get_set(
     - Statistics (rarity breakdown, keywords)
     - Paginated card list (filterable by rarity, color, type, ownership)
     """
-    logger.debug(f"get_set: code={code} rarity={rarity} color={color} type={type} sort={sort} card_page={card_page}")
+    color_list = list(colors.upper()) if colors else None
+    logger.debug(f"get_set: code={code} rarity={rarity} colors={color_list} type={type} sort={sort}")
     set_data = await set_service.get_set(
         code=code,
         rarity=rarity,
-        color=color,
+        colors=color_list,
         card_type=type,
         owns=owns,
         wants=wants,
