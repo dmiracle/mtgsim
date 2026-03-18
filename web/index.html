@@ -1362,6 +1362,7 @@
         <h1 onclick="showHomeScreen()">MTG Deck Viewer</h1>
         <div class="tab-bar">
             <button class="tab-btn active" data-tab="decks" onclick="switchTab('decks')">Decks</button>
+            <button class="tab-btn" data-tab="cards" onclick="switchTab('cards')">Cards</button>
             <button class="tab-btn" data-tab="prices" onclick="switchTab('prices')">Prices</button>
             <button class="tab-btn" data-tab="sets" onclick="switchTab('sets')">Sets</button>
             <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">Draft</button>
@@ -1498,6 +1499,97 @@
                 <button onclick="changePricePage(-1)" id="pricePrevBtn">Prev</button>
                 <span id="pricePageInfo">Page 1</span>
                 <button onclick="changePricePage(1)" id="priceNextBtn">Next</button>
+            </div>
+        </div>
+        <div id="cardsTab" style="display: none;">
+            <div class="search-box">
+                <input type="text" id="cardSearch" placeholder="Search cards..." oninput="debounceCardSearch()">
+            </div>
+            <div class="filter-box">
+                <label>Format</label>
+                <select id="cardFormatFilter" onchange="searchCardsBrowse()">
+                    <option value="">All formats</option>
+                    <option value="standard">Standard</option>
+                    <option value="pioneer">Pioneer</option>
+                    <option value="modern">Modern</option>
+                    <option value="legacy">Legacy</option>
+                    <option value="vintage">Vintage</option>
+                    <option value="commander">Commander</option>
+                    <option value="pauper">Pauper</option>
+                    <option value="historic">Historic</option>
+                    <option value="brawl">Brawl</option>
+                    <option value="timeless">Timeless</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Sets (comma-separated)</label>
+                <input type="text" id="cardSetsFilter" placeholder="e.g. DSK,FDN,BLB" onchange="searchCardsBrowse()">
+            </div>
+            <div class="filter-box">
+                <label>Rarity</label>
+                <select id="cardRarityFilter" onchange="searchCardsBrowse()">
+                    <option value="">All rarities</option>
+                    <option value="common">Common</option>
+                    <option value="uncommon">Uncommon</option>
+                    <option value="rare">Rare</option>
+                    <option value="mythic">Mythic</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Color</label>
+                <select id="cardColorFilter" onchange="searchCardsBrowse()">
+                    <option value="">All colors</option>
+                    <option value="W">White</option>
+                    <option value="U">Blue</option>
+                    <option value="B">Black</option>
+                    <option value="R">Red</option>
+                    <option value="G">Green</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Type</label>
+                <select id="cardTypeFilter" onchange="searchCardsBrowse()">
+                    <option value="">All types</option>
+                    <option value="Creature">Creature</option>
+                    <option value="Instant">Instant</option>
+                    <option value="Sorcery">Sorcery</option>
+                    <option value="Enchantment">Enchantment</option>
+                    <option value="Artifact">Artifact</option>
+                    <option value="Planeswalker">Planeswalker</option>
+                    <option value="Land">Land</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Ownership</label>
+                <select id="cardOwnsFilter" onchange="searchCardsBrowse()">
+                    <option value="">All cards</option>
+                    <option value="true">Owned</option>
+                    <option value="false">Not owned</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label>Sort by</label>
+                <select id="cardSortFilter" onchange="searchCardsBrowse()">
+                    <option value="name">Name (A-Z)</option>
+                    <option value="name-desc">Name (Z-A)</option>
+                    <option value="mana_value">Mana (Low)</option>
+                    <option value="mana_value-desc">Mana (High)</option>
+                    <option value="rarity">Rarity</option>
+                    <option value="rarity-desc">Rarity (desc)</option>
+                    <option value="set_code">Set (A-Z)</option>
+                </select>
+            </div>
+            <div class="filter-box">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <input type="checkbox" id="cardUniqueFilter" onchange="searchCardsBrowse()" checked> Unique cards only
+                </label>
+            </div>
+            <div class="deck-count" id="cardBrowseCount">Use filters to browse cards</div>
+            <div class="deck-list" id="cardBrowseList"></div>
+            <div class="pagination" id="cardBrowsePagination" style="display: none;">
+                <button onclick="changeCardBrowsePage(-1)" id="cardBrowsePrevBtn">Prev</button>
+                <span id="cardBrowsePageInfo">Page 1</span>
+                <button onclick="changeCardBrowsePage(1)" id="cardBrowseNextBtn">Next</button>
             </div>
         </div>
         <div id="setsTab" style="display: none;">
@@ -1761,11 +1853,14 @@
                 btn.classList.toggle('active', btn.dataset.tab === tab);
             });
             document.getElementById('decksTab').style.display = tab === 'decks' ? 'flex' : 'none';
+            document.getElementById('cardsTab').style.display = tab === 'cards' ? 'flex' : 'none';
             document.getElementById('pricesTab').style.display = tab === 'prices' ? 'flex' : 'none';
             document.getElementById('setsTab').style.display = tab === 'sets' ? 'flex' : 'none';
             document.getElementById('draftTab').style.display = tab === 'draft' ? 'flex' : 'none';
 
-            if (tab === 'prices') {
+            if (tab === 'cards') {
+                showCardsBrowser();
+            } else if (tab === 'prices') {
                 showPriceExplorer();
             } else if (tab === 'sets') {
                 showSetsExplorer();
@@ -2073,6 +2168,114 @@
             document.getElementById('modalTitle').textContent = currentDeck.meta?.name || 'Deck JSON';
             document.getElementById('modalJson').innerHTML = renderJson(currentDeck);
             document.getElementById('modal').classList.add('active');
+        }
+
+        // ========================================
+        // Cards Browser Tab
+        // ========================================
+
+        let cardBrowsePage = 1;
+        let cardBrowseTotalPages = 1;
+        let cardSearchDebounce = null;
+
+        function showCardsBrowser() {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="home-screen">
+                    <div class="home-header">
+                        <h2>Card Browser</h2>
+                        <p>Search and filter cards across sets and formats</p>
+                    </div>
+                    <p style="color: #888; text-align: center;">Use the filters on the left to browse cards.</p>
+                </div>
+            `;
+        }
+
+        function debounceCardSearch() {
+            clearTimeout(cardSearchDebounce);
+            cardSearchDebounce = setTimeout(() => searchCardsBrowse(), 300);
+        }
+
+        async function searchCardsBrowse() {
+            const q = document.getElementById('cardSearch')?.value || '';
+            const format = document.getElementById('cardFormatFilter')?.value || '';
+            const sets = document.getElementById('cardSetsFilter')?.value || '';
+            const rarity = document.getElementById('cardRarityFilter')?.value || '';
+            const color = document.getElementById('cardColorFilter')?.value || '';
+            const type = document.getElementById('cardTypeFilter')?.value || '';
+            const owns = document.getElementById('cardOwnsFilter')?.value || '';
+            const unique = document.getElementById('cardUniqueFilter')?.checked || false;
+            const sortVal = document.getElementById('cardSortFilter')?.value || 'name';
+            const [sort, order] = sortVal.includes('-desc')
+                ? [sortVal.replace('-desc', ''), 'desc']
+                : [sortVal, 'asc'];
+
+            // Require at least one filter to avoid loading entire DB
+            if (!q && !format && !sets && !rarity && !color && !type && owns === '') {
+                document.getElementById('cardBrowseCount').textContent = 'Use at least one filter to browse cards';
+                document.getElementById('cardBrowseList').innerHTML = '';
+                document.getElementById('cardBrowsePagination').style.display = 'none';
+                const mainContent = document.getElementById('mainContent');
+                mainContent.innerHTML = `
+                    <div class="home-screen">
+                        <div class="home-header">
+                            <h2>Card Browser</h2>
+                            <p>Search and filter cards across sets and formats</p>
+                        </div>
+                        <p style="color: #888; text-align: center;">Use the filters on the left to browse cards.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const params = { page: cardBrowsePage, limit: 50, sort, order };
+            if (q) params.q = q;
+            if (format) params.format = format;
+            if (sets) params.sets = sets;
+            if (rarity) params.rarity = rarity;
+            if (color) params.colors = color;
+            if (type) params.type = type;
+            if (owns) params.owns = owns;
+            if (unique) params.unique = true;
+
+            try {
+                const data = await api('/cards', params);
+                renderCardBrowseResults(data);
+            } catch (error) {
+                console.error('Error searching cards:', error);
+                document.getElementById('cardBrowseList').innerHTML = '<div class="loading">Error searching cards</div>';
+            }
+        }
+
+        function renderCardBrowseResults(data) {
+            const cards = data.data || [];
+            const pagination = data.pagination || {};
+            cardBrowseTotalPages = pagination.pages || 1;
+            cardBrowsePage = pagination.page || 1;
+
+            document.getElementById('cardBrowseCount').textContent = `${pagination.total || cards.length} cards`;
+
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="cards-grid">
+                    ${cards.map(card => renderCard(card)).join('')}
+                </div>
+            `;
+
+            const pag = document.getElementById('cardBrowsePagination');
+            if (pagination.pages > 1) {
+                pag.style.display = '';
+                document.getElementById('cardBrowsePageInfo').textContent = `Page ${pagination.page} of ${pagination.pages}`;
+                document.getElementById('cardBrowsePrevBtn').disabled = pagination.page <= 1;
+                document.getElementById('cardBrowseNextBtn').disabled = pagination.page >= pagination.pages;
+            } else {
+                pag.style.display = 'none';
+            }
+        }
+
+        function changeCardBrowsePage(delta) {
+            cardBrowsePage = Math.max(1, Math.min(cardBrowseTotalPages, cardBrowsePage + delta));
+            searchCardsBrowse();
         }
 
         // ========================================

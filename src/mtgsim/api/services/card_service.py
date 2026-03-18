@@ -24,9 +24,11 @@ class CardService:
         self,
         q: str | None = None,
         set_code: str | None = None,
+        set_codes: list[str] | None = None,
         rarity: str | None = None,
         card_type: str | None = None,
         colors: list[str] | None = None,
+        format_legal: str | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
         sort: str = "name",
@@ -35,21 +37,25 @@ class CardService:
         limit: int = 50,
         owns: bool | None = None,
         wants: bool | None = None,
+        unique: bool = False,
     ) -> CardListResponse:
         """Search cards with filters."""
-        logger.debug(f"search_cards: q={q} set_code={set_code} rarity={rarity} sort={sort} page={page}")
+        logger.debug(f"search_cards: q={q} set_code={set_code} format={format_legal} sort={sort} page={page}")
         cards, total = cards_data.search_cards(
             q=q,
             set_code=set_code,
+            set_codes=set_codes,
             rarity=rarity,
             card_type=card_type,
             colors=colors,
+            format_legal=format_legal,
             sort=sort,
             order=order,
             page=page,
             limit=limit,
             owns=owns,
             wants=wants,
+            unique=unique,
         )
 
         logger.debug(f"search_cards: got {len(cards)} cards, total={total}")

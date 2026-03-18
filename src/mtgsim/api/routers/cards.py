@@ -41,45 +41,39 @@ class QuadrantRatingResponse(BaseModel):
 async def search_cards(
     q: str | None = Query(None, description="Search by card name"),
     set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by multiple set codes (comma-separated)"),
     rarity: str | None = Query(None, description="Filter by rarity"),
     type: str | None = Query(None, description="Filter by card type"),
     colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality (standard, modern, etc.)"),
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
-    owns: bool | None = Query(None, description="Filter by ownership (true=owned, false=not owned)"),
-    wants: bool | None = Query(None, description="Filter by want status (true=wanted, false=not wanted)"),
+    owns: bool | None = Query(None, description="Filter by ownership"),
+    wants: bool | None = Query(None, description="Filter by want status"),
+    unique: bool = Query(False, description="Show only one printing per card name"),
     sort: str = Query("name", description="Sort field"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
 ) -> CardListResponse:
-    """
-    Search cards with filters.
-
-    - **q**: Search card names (minimum 2 characters recommended)
-    - **set**: Filter by set code
-    - **rarity**: Filter by rarity (common, uncommon, rare, mythic)
-    - **type**: Filter by card type (Creature, Instant, Sorcery, etc.)
-    - **colors**: Filter by color identity (e.g., "WU", "BRG")
-    - **price_min/price_max**: Filter by price range
-    - **owns**: Filter by ownership (true=owned only, false=not owned only)
-    - **wants**: Filter by want status (true=wanted only, false=not wanted only)
-    - **sort**: Sort by name, price, mana_value
-    - **order**: Sort order (asc, desc)
-    """
+    """Search cards with filters."""
     color_list = list(colors.upper()) if colors else None
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
 
-    logger.debug(f"search_cards: q={q} set={set} rarity={rarity} type={type} colors={color_list}")
+    logger.debug(f"search_cards: q={q} set={set} format={format} rarity={rarity}")
     return await card_service.search_cards(
         q=q,
         set_code=set,
+        set_codes=set_code_list,
         rarity=rarity,
         card_type=type,
         colors=color_list,
+        format_legal=format,
         price_min=price_min,
         price_max=price_max,
         owns=owns,
         wants=wants,
+        unique=unique,
         sort=sort,
         order=order,
         page=page,

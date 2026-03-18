@@ -29,35 +29,21 @@ class CardsData:
         self,
         q: str | None = None,
         set_code: str | None = None,
+        set_codes: list[str] | None = None,
         rarity: str | None = None,
         card_type: str | None = None,
         colors: list[str] | None = None,
+        format_legal: str | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
+        unique: bool = False,
         sort: str = "name",
         order: str = "asc",
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
-        """
-        Search cards with automatic collection status.
-
-        Args:
-            q: Text search in name and type
-            set_code: Filter by set code
-            rarity: Filter by rarity
-            card_type: Filter by card type
-            colors: Filter by colors (card must have ALL specified colors)
-            owns: Filter to owned (True) or not owned (False) cards
-            wants: Filter to wanted (True) or not wanted (False) cards
-            sort: Sort field (name, mana_value, rarity, set_code)
-            order: Sort order (asc, desc)
-            page: Page number (1-indexed)
-            limit: Results per page
-
-        Returns: (list of cards, total count)
-        """
-        logger.debug(f"search_cards: q={q} set_code={set_code} rarity={rarity} card_type={card_type} colors={colors}")
+        """Search cards with filters. Returns: (list of cards, total count)"""
+        logger.debug(f"search_cards: q={q} set_code={set_code} rarity={rarity} format={format_legal}")
         with get_session() as session:
             # Base query with LEFT JOINs
             query = (
@@ -66,15 +52,28 @@ class CardsData:
                 .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
             )
 
+            # Format legality filter
+            if format_legal:
+                query = query.join(
+                    MJCardLegality,
+                    (MJCard.uuid == MJCardLegality.card_uuid)
+                    & (MJCardLegality.format == format_legal)
+                    & (MJCardLegality.status == "Legal"),
+                )
+
             # Text search
             if q:
                 query = query.where(
                     (MJCard.name.contains(q)) | (MJCard.type_line.contains(q)) | (MJCard.oracle_text.contains(q))
                 )
 
-            # Set filter
+            # Set filter (single)
             if set_code:
                 query = query.where(MJCard.set_code == set_code)
+
+            # Set filter (multi)
+            if set_codes:
+                query = query.where(MJCard.set_code.in_(set_codes))
 
             # Rarity filter
             if rarity:
@@ -104,6 +103,26 @@ class CardsData:
                 query = query.where(
                     (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
                 )
+
+            # Unique filter: one printing per card name
+            if unique:
+                min_uuid_subq = (
+                    select(func.min(MJCard.uuid))
+                    .group_by(MJCard.name)
+                )
+                # Apply same set filters to subquery
+                if set_code:
+                    min_uuid_subq = min_uuid_subq.where(MJCard.set_code == set_code)
+                if set_codes:
+                    min_uuid_subq = min_uuid_subq.where(MJCard.set_code.in_(set_codes))
+                if format_legal:
+                    min_uuid_subq = min_uuid_subq.join(
+                        MJCardLegality,
+                        (MJCard.uuid == MJCardLegality.card_uuid)
+                        & (MJCardLegality.format == format_legal)
+                        & (MJCardLegality.status == "Legal"),
+                    )
+                query = query.where(MJCard.uuid.in_(min_uuid_subq))
 
             # Count total before pagination
             count_query = select(func.count()).select_from(query.subquery())
