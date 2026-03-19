@@ -48,6 +48,7 @@ async def search_cards(
     colors: str | None = Query(None, description="Filter by color identity"),
     format: str | None = Query(None, description="Filter by format legality (standard, modern, etc.)"),
     keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated, e.g. mana-dork,ramp)"),
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
     owns: bool | None = Query(None, description="Filter by ownership"),
@@ -62,6 +63,7 @@ async def search_cards(
     color_list = list(colors.upper()) if colors else None
     set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
     keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
 
     logger.debug(f"search_cards: q={q} set={set} format={format} rarity={rarity}")
     return await card_service.search_cards(
@@ -74,6 +76,7 @@ async def search_cards(
         colors=color_list,
         format_legal=format,
         keywords=keyword_list,
+        tags=tag_list,
         price_min=price_min,
         price_max=price_max,
         owns=owns,
@@ -83,6 +86,27 @@ async def search_cards(
         order=order,
         page=page,
         limit=limit,
+    )
+
+
+@router.get("/tags")
+async def get_tags(
+    set: str | None = Query(None, description="Filter by set code"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    colors: str | None = Query(None, description="Filter by colors (e.g. WUB)"),
+    type: str | None = Query(None, description="Filter by card type"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+) -> list[dict]:
+    """Get available oracle tags with card counts, optionally filtered."""
+    from mtgsim.api.data import cards_data
+
+    color_list = list(colors.upper()) if colors else None
+    return cards_data.get_available_tags(
+        set_code=set,
+        format_legal=format,
+        colors=color_list,
+        card_type=type,
+        rarity=rarity,
     )
 
 

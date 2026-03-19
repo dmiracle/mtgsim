@@ -6,6 +6,7 @@ from pathlib import Path
 MTGDB_HOME = Path.home() / ".mtgsim"
 REFERENCE_DIR = MTGDB_HOME / "reference"
 MTGJSON_DIR = REFERENCE_DIR / "mtgjson"
+SCRYFALL_DIR = REFERENCE_DIR / "scryfall"
 
 # Database path
 DB_PATH = MTGDB_HOME / "mtgsim.sqlite"
@@ -26,3 +27,4 @@ def ensure_dirs() -> None:
     MTGDB_HOME.mkdir(parents=True, exist_ok=True)
     REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
     MTGJSON_DIR.mkdir(parents=True, exist_ok=True)
+    SCRYFALL_DIR.mkdir(parents=True, exist_ok=True)

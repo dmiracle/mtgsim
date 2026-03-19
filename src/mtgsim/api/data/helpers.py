@@ -29,11 +29,14 @@ def apply_card_filters(
     text: str | None = None,
     colors: list[str] | None = None,
     keywords: list[str] | None = None,
+    tags: list[str] | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
 ):
     """Apply common card filters to a query that joins MJCard and optionally UserCard."""
-    from mtgdb.models import MJCard, UserCard
+    from mtgdb.models import MJCard, MJCardTag, UserCard
+    from sqlalchemy import exists
+    from sqlalchemy import select as sa_select
     from sqlmodel import func
 
     if rarity:
@@ -45,12 +48,14 @@ def apply_card_filters(
     if colors:
         from sqlalchemy import or_
 
-        query = query.where(
-            or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
-        )
+        query = query.where(or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors]))
     if keywords:
         for kw in keywords:
             query = query.where(func.json_extract(MJCard.keywords, "$").contains(f'"{kw}"'))
+    if tags:
+        query = query.where(
+            exists(sa_select(MJCardTag.id).where((MJCardTag.card_name == MJCard.name) & (MJCardTag.tag.in_(tags))))
+        )
     if owns is True:
         query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
     elif owns is False:
@@ -107,6 +112,7 @@ def card_to_api_dict(
     user_card=None,
     set_name: str | None = None,
     price: float | None = None,
+    tags: list[str] | None = None,
 ) -> dict:
     """Convert MJCard + optional joins to API response dict."""
     scryfall_id = identifier.scryfall_id if identifier else None
@@ -170,6 +176,7 @@ def card_to_api_dict(
         "wants": wants,
         "total_owned": total_owned,
         "total_wanted": total_wanted,
+        "tags": tags or [],
         "collection": collection,
     }
 

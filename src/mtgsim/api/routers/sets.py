@@ -53,6 +53,7 @@ async def get_set(
     colors: str | None = Query(None, description="Filter cards by colors (e.g. WUB)"),
     type: str | None = Query(None, description="Filter cards by type"),
     text: str | None = Query(None, description="Filter cards by oracle text"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
     owns: bool | None = Query(None, description="Filter by ownership (true=owned, false=not owned)"),
     wants: bool | None = Query(None, description="Filter by want status"),
     sort: str = Query("number", description="Sort field (name, number, mana_value, rarity)"),
@@ -70,6 +71,7 @@ async def get_set(
     - Paginated card list (filterable by rarity, color, type, ownership)
     """
     color_list = list(colors.upper()) if colors else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
     logger.debug(f"get_set: code={code} rarity={rarity} colors={color_list} type={type} sort={sort}")
     set_data = await set_service.get_set(
         code=code,
@@ -77,6 +79,7 @@ async def get_set(
         colors=color_list,
         card_type=type,
         text=text,
+        tags=tag_list,
         owns=owns,
         wants=wants,
         sort=sort,

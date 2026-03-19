@@ -163,6 +163,49 @@ class TestSearchCards:
             assert "set_code" in card
             assert "color_identity" in card
 
+    def test_search_cards_filter_by_tags(self, client):
+        """Filter by oracle tags works."""
+        response = client.get("/api/cards?tags=mana-dork")
+        assert response.status_code == 200
+
+    def test_search_cards_filter_by_multiple_tags(self, client):
+        """Filter by multiple oracle tags works."""
+        response = client.get("/api/cards?tags=mana-dork,ramp")
+        assert response.status_code == 200
+
+    def test_search_cards_card_summary_has_tags(self, client):
+        """Card summary includes tags field."""
+        response = client.get("/api/cards")
+        data = response.json()
+
+        if data["data"]:
+            card = data["data"][0]
+            assert "tags" in card
+            assert isinstance(card["tags"], list)
+
+
+class TestGetTags:
+    """Tests for GET /api/cards/tags endpoint."""
+
+    def test_get_tags_returns_200(self, client):
+        """Tags endpoint returns 200."""
+        response = client.get("/api/cards/tags")
+        assert response.status_code == 200
+
+    def test_get_tags_returns_list(self, client):
+        """Tags endpoint returns a list."""
+        response = client.get("/api/cards/tags")
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_get_tags_entry_structure(self, client):
+        """Tag entries have tag and count fields."""
+        response = client.get("/api/cards/tags")
+        data = response.json()
+        if data:
+            assert "tag" in data[0]
+            assert "count" in data[0]
+
 
 class TestGetCard:
     """Tests for GET /api/cards/{uuid} endpoint."""
@@ -283,6 +326,14 @@ class TestGetCard:
             assert "set_code" in printing
             assert "set_name" in printing
             assert "uuid" in printing
+
+    def test_get_card_has_tags(self, client, sample_card_uuid):
+        """Card detail includes tags field."""
+        response = client.get(f"/api/cards/{sample_card_uuid}")
+        data = response.json()
+
+        assert "tags" in data
+        assert isinstance(data["tags"], list)
 
     def test_get_card_image_url(self, client, sample_card_uuid):
         """Card has image URL."""

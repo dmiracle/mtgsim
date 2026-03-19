@@ -16,6 +16,7 @@ class CardSummary(BaseModel):
     rarity: str | None = None
     set_code: str | None = None
     color_identity: list[str] = []
+    tags: list[str] = []
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
@@ -91,6 +92,7 @@ class CardDetail(BaseModel):
     color_identity: list[str] = []
     colors: list[str] = []
     keywords: list[str] = []
+    tags: list[str] = []
     power: str | None = None
     toughness: str | None = None
     loyalty: str | None = None

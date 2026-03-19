@@ -6,6 +6,7 @@ from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
     MJCardPrice,
+    MJCardTag,
     MJDeck,
     MJDeckCard,
     UserCard,
@@ -515,6 +516,17 @@ class DecksData:
                 "source": deck.source,
             }
 
+    def _get_tags_for_names(self, session, card_names: list[str]) -> dict[str, list[str]]:
+        """Get tags for a list of card names, returned as {name: [tag, ...]}."""
+        if not card_names:
+            return {}
+        query = select(MJCardTag.card_name, MJCardTag.tag).where(MJCardTag.card_name.in_(card_names))
+        results = session.exec(query).all()
+        tags_map: dict[str, list[str]] = {}
+        for name, tag in results:
+            tags_map.setdefault(name, []).append(tag)
+        return tags_map
+
     def _get_deck_cards(self, session, deck_uuid: str, board: str) -> list[dict]:
         """Get cards from a precon deck board with ownership status."""
         query = (
@@ -558,13 +570,19 @@ class DecksData:
             for card_uuid, price in session.exec(price_query).all():
                 price_map[card_uuid] = price
 
+        # Get tags
+        card_names = [dc.name for dc in deck_cards]
+        tags_map = self._get_tags_for_names(session, card_names)
+
         cards = []
         for dc in deck_cards:
             owned_count = ownership_map.get(dc.card_uuid, 0)
             image_url = image_map.get(dc.card_uuid)
             price = price_map.get(dc.card_uuid)
 
-            cards.append(deck_card_to_api_dict(dc, owned_count, image_url, price))
+            d = deck_card_to_api_dict(dc, owned_count, image_url, price)
+            d["tags"] = tags_map.get(dc.name, [])
+            cards.append(d)
 
         return cards
 
@@ -602,6 +620,10 @@ class DecksData:
             for card_uuid, price in session.exec(price_query).all():
                 price_map[card_uuid] = price
 
+        # Get tags
+        card_names = [r[1].name for r in results]
+        tags_map = self._get_tags_for_names(session, card_names)
+
         cards = []
         for deck_card, mj_card, identifier in results:
             owned_count = ownership_map.get(mj_card.uuid, 0)
@@ -620,6 +642,7 @@ class DecksData:
                     "colors": mj_card.colors or [],
                     "rarity": mj_card.rarity or "",
                     "keywords": mj_card.keywords or [],
+                    "tags": tags_map.get(mj_card.name, []),
                     "image_url": build_image_url(identifier.scryfall_id if identifier else None),
                     "price": price_map.get(mj_card.uuid),
                     "is_foil": deck_card.is_foil,

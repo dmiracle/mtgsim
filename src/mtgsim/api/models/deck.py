@@ -67,6 +67,7 @@ class DeckCard(BaseModel):
     types: list[str] = []
     colors: list[str] = []
     rarity: str | None = None
+    tags: list[str] = []
     text: str | None = None
     price: float | None = None
     image_url: str | None = None

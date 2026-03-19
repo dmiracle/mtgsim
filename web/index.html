@@ -2158,6 +2158,7 @@
             html += '<div id="deckCardsContainer"></div>';
 
             mainContent.innerHTML = html;
+            _refreshDeckTagCounts();
             applyDeckCardFilters();
 
             // Render visualizations
@@ -2185,6 +2186,7 @@
                 }
                 if (filters.type && !(card.type || '').includes(filters.type)) return false;
                 if (filters.text && !(card.text || '').toLowerCase().includes(filters.text.toLowerCase())) return false;
+                if (filters.tags && !(card.tags || []).includes(filters.tags)) return false;
                 if (filters.owns === 'true' && !card.owns) return false;
                 if (filters.owns === 'false' && card.owns) return false;
                 return true;
@@ -2234,6 +2236,16 @@
             }
             container.innerHTML = html;
             updateFilterCount('deckCardFilters', totalShown);
+        }
+
+        function _refreshDeckTagCounts() {
+            if (!window._deckCards) return;
+            const allCards = [
+                ...(window._deckCards.commander || []),
+                ...(window._deckCards.main || []),
+                ...(window._deckCards.side || []),
+            ];
+            updateTagCountsFromCards('deckCardFilters', allCards);
         }
 
         function renderDeckStats(stats, legality, price) {
@@ -2387,6 +2399,7 @@
             selectedKeywords = [];
             const format = document.getElementById('cardFormatFilter')?.value;
             const q = document.getElementById('cardSearch')?.value;
+            _refreshCardBrowseTagCounts();
             if (format || q) {
                 searchCardsBrowse();
                 loadCardBrowseKeywords();
@@ -2485,7 +2498,7 @@
             const f = getCardFilters('cardBrowseFilters');
 
             // Require at least one filter
-            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns && !f.text && selectedKeywords.length === 0) {
+            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.tags && !f.owns && !f.text && selectedKeywords.length === 0) {
                 document.getElementById('cardBrowseCount').textContent = 'Select a format or enter a search to browse';
                 const grid = document.getElementById('cardBrowseGrid');
                 if (grid) grid.innerHTML = '';
@@ -2507,10 +2520,12 @@
             if (f.type) params.type = f.type;
             if (f.owns) params.owns = f.owns;
             if (f.text) params.text = f.text;
+            if (f.tags) params.tags = f.tags;
             if (f.unique) params.unique = true;
             if (selectedKeywords.length > 0) params.keywords = selectedKeywords.join(',');
 
             loadCardBrowseKeywords();
+            _refreshCardBrowseTagCounts();
 
             try {
                 const data = await api('/cards', params);
@@ -2519,6 +2534,19 @@
             } catch (error) {
                 console.error('Error searching cards:', error);
             }
+        }
+
+        function _refreshCardBrowseTagCounts() {
+            const format = document.getElementById('cardFormatFilter')?.value || '';
+            const sets = document.getElementById('cardSetsFilter')?.value || '';
+            const f = getCardFilters('cardBrowseFilters');
+            const p = {};
+            if (format) p.format = format;
+            if (sets) p.set = sets;
+            if (f.rarity) p.rarity = f.rarity;
+            if (f.color) p.colors = f.color;
+            if (f.type) p.type = f.type;
+            updateTagCounts('cardBrowseFilters', p);
         }
 
         function renderCardBrowseGrid(data) {
@@ -2646,6 +2674,7 @@
             if (opts.owns !== undefined && opts.owns !== '') params.owns = opts.owns;
             if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
             if (opts.text) params.text = opts.text;
+            if (opts.tags) params.tags = opts.tags;
             if (opts.sort) params.sort = opts.sort;
             if (opts.order) params.order = opts.order;
             // Default unique to true on initial load
@@ -2738,6 +2767,7 @@
                 </div>
             `;
 
+            updateTagCounts('setCardFilters', { set: currentSetCode });
             // Render wordclouds after innerHTML is set
             if (stats.keywords?.keyword_abilities) {
                 renderWordCloud(stats.keywords.keyword_abilities, '#set-kw-abilities');
@@ -3184,6 +3214,9 @@
                         <option value="Planeswalker" ${pf.type === 'Planeswalker' ? 'selected' : ''}>Planeswalker</option>
                         <option value="Land" ${pf.type === 'Land' ? 'selected' : ''}>Land</option>
                     </select>
+                    <select data-filter="tags" onchange="${onchangeFn}()">
+                        <option value="">All tags</option>
+                    </select>
                     <select data-filter="owns" onchange="${onchangeFn}()">
                         <option value="" ${!pf.owns ? 'selected' : ''}>All cards</option>
                         <option value="true" ${pf.owns === 'true' ? 'selected' : ''}>Owned</option>
@@ -3206,6 +3239,44 @@
             `;
         }
 
+        function _applyTagCounts(barId, tagCounts) {
+            const bar = document.getElementById(barId);
+            if (!bar) return;
+            const sel = bar.querySelector('[data-filter="tags"]');
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = '<option value="">All tags</option>';
+            tagCounts.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.tag;
+                opt.textContent = `${t.tag} (${t.count.toLocaleString()})`;
+                sel.appendChild(opt);
+            });
+            sel.value = current;
+        }
+
+        async function updateTagCounts(barId, params = {}) {
+            try {
+                const tags = await api('/cards/tags', params);
+                _applyTagCounts(barId, tags);
+            } catch (e) {
+                _applyTagCounts(barId, []);
+            }
+        }
+
+        function updateTagCountsFromCards(barId, cards) {
+            const counts = {};
+            for (const card of cards) {
+                for (const tag of (card.tags || [])) {
+                    counts[tag] = (counts[tag] || 0) + (card.count || 1);
+                }
+            }
+            const tagCounts = Object.entries(counts)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([tag, count]) => ({ tag, count }));
+            _applyTagCounts(barId, tagCounts);
+        }
+
         function toggleColor(el, onchangeFn) {
             el.classList.toggle('active');
             window[onchangeFn]();
@@ -3226,6 +3297,7 @@
                 rarity: get('rarity'),
                 color: colors,
                 type: get('type'),
+                tags: get('tags'),
                 owns: get('owns'),
                 text: get('text'),
                 sort,

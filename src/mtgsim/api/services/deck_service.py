@@ -119,6 +119,7 @@ class DeckService:
                 types=c.get("types", []),
                 colors=c.get("colors", []),
                 rarity=c.get("rarity", ""),
+                tags=c.get("tags", []),
                 text=c.get("text"),
                 price=c.get("price"),
                 image_url=c.get("image_url"),

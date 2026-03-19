@@ -186,6 +186,16 @@ class MJKeyword(SQLModel, table=True):
     type: str = Field(index=True)  # abilityWords, keywordAbilities, keywordActions
 
 
+class MJCardTag(SQLModel, table=True):
+    """Card tag from Scryfall oracle tags (e.g. mana-dork, ramp, removal)."""
+
+    __tablename__ = "mj_card_tag"
+
+    id: int | None = Field(default=None, primary_key=True)
+    card_name: str = Field(index=True)
+    tag: str = Field(index=True)
+
+
 # =============================================================================
 # User Models - User-modifiable data
 # =============================================================================
