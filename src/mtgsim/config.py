@@ -10,6 +10,8 @@ from pathlib import Path
 from mtgdb.config import (
     DB_PATH,
     MTGJSON_BASE_URL,
+    MTGJSON_DIR,
+    ensure_dirs,
 )
 
 # Legacy aliases (all point to unified DB for backwards compatibility)

@@ -211,6 +211,7 @@ class SetsData:
         rarity: str | None = None,
         colors: list[str] | None = None,
         card_type: str | None = None,
+        text: str | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
         sort: str = "number",
@@ -266,6 +267,10 @@ class SetsData:
             # Type filter
             if card_type:
                 query = query.where(MJCard.type_line.contains(card_type))
+
+            # Oracle text filter
+            if text:
+                query = query.where(MJCard.oracle_text.contains(text))
 
             # Ownership filter
             if owns is True:

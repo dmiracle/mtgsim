@@ -70,6 +70,7 @@ class CardsData:
     def search_cards(
         self,
         q: str | None = None,
+        text: str | None = None,
         set_code: str | None = None,
         set_codes: list[str] | None = None,
         rarity: str | None = None,
@@ -114,11 +115,15 @@ class CardsData:
                     if cutoff:
                         query = query.where(MJSet.release_date >= cutoff)
 
-            # Text search
+            # Text search (name, type, oracle text)
             if q:
                 query = query.where(
                     (MJCard.name.contains(q)) | (MJCard.type_line.contains(q)) | (MJCard.oracle_text.contains(q))
                 )
+
+            # Oracle text filter (oracle text only)
+            if text:
+                query = query.where(MJCard.oracle_text.contains(text))
 
             # Set filter (single)
             if set_code:

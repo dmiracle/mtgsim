@@ -2184,6 +2184,7 @@
                     if (!selectedColors.some(c => ci.includes(c))) return false;
                 }
                 if (filters.type && !(card.type || '').includes(filters.type)) return false;
+                if (filters.text && !(card.text || '').toLowerCase().includes(filters.text.toLowerCase())) return false;
                 if (filters.owns === 'true' && !card.owns) return false;
                 if (filters.owns === 'false' && card.owns) return false;
                 return true;
@@ -2463,6 +2464,20 @@
             cardSearchDebounce = setTimeout(() => searchCardsBrowse(), 300);
         }
 
+        let _textFilterDebounces = {};
+        function debouncesearchCardsBrowse() {
+            clearTimeout(_textFilterDebounces.browse);
+            _textFilterDebounces.browse = setTimeout(() => searchCardsBrowse(), 300);
+        }
+        function debounceapplyDeckCardFilters() {
+            clearTimeout(_textFilterDebounces.deck);
+            _textFilterDebounces.deck = setTimeout(() => applyDeckCardFilters(), 300);
+        }
+        function debounceapplySetCardFilters() {
+            clearTimeout(_textFilterDebounces.set);
+            _textFilterDebounces.set = setTimeout(() => applySetCardFilters(), 300);
+        }
+
         async function searchCardsBrowse() {
             const q = document.getElementById('cardSearch')?.value || '';
             const format = document.getElementById('cardFormatFilter')?.value || '';
@@ -2470,7 +2485,7 @@
             const f = getCardFilters('cardBrowseFilters');
 
             // Require at least one filter
-            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns && selectedKeywords.length === 0) {
+            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns && !f.text && selectedKeywords.length === 0) {
                 document.getElementById('cardBrowseCount').textContent = 'Select a format or enter a search to browse';
                 const grid = document.getElementById('cardBrowseGrid');
                 if (grid) grid.innerHTML = '';
@@ -2491,6 +2506,7 @@
             if (f.color) params.colors = f.color;
             if (f.type) params.type = f.type;
             if (f.owns) params.owns = f.owns;
+            if (f.text) params.text = f.text;
             if (f.unique) params.unique = true;
             if (selectedKeywords.length > 0) params.keywords = selectedKeywords.join(',');
 
@@ -2629,6 +2645,7 @@
             if (opts.type) params.type = opts.type;
             if (opts.owns !== undefined && opts.owns !== '') params.owns = opts.owns;
             if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
+            if (opts.text) params.text = opts.text;
             if (opts.sort) params.sort = opts.sort;
             if (opts.order) params.order = opts.order;
             // Default unique to true on initial load
@@ -3142,6 +3159,7 @@
 
             return `
                 <div class="card-filter-bar" id="${id}">
+                    <input type="text" data-filter="text" placeholder="Oracle text..." oninput="debounce${onchangeFn}()" style="width:140px; padding:4px 8px; border-radius:4px; border:1px solid #333; background:#1a1a2e; color:#eee;">
                     <select data-filter="rarity" onchange="${onchangeFn}()">
                         <option value="" ${!pf.rarity ? 'selected' : ''}>All rarities</option>
                         <option value="common" ${pf.rarity === 'common' ? 'selected' : ''}>Common</option>
@@ -3209,6 +3227,7 @@
                 color: colors,
                 type: get('type'),
                 owns: get('owns'),
+                text: get('text'),
                 sort,
                 order,
                 sortVal,
