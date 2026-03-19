@@ -2158,6 +2158,7 @@
             html += '<div id="deckCardsContainer"></div>';
 
             mainContent.innerHTML = html;
+            loadTagOptions();
             applyDeckCardFilters();
 
             // Render visualizations
@@ -2185,6 +2186,7 @@
                 }
                 if (filters.type && !(card.type || '').includes(filters.type)) return false;
                 if (filters.text && !(card.text || '').toLowerCase().includes(filters.text.toLowerCase())) return false;
+                if (filters.tags && !(card.tags || []).includes(filters.tags)) return false;
                 if (filters.owns === 'true' && !card.owns) return false;
                 if (filters.owns === 'false' && card.owns) return false;
                 return true;
@@ -2385,6 +2387,7 @@
                 </div>
             `;
             selectedKeywords = [];
+            loadTagOptions();
             const format = document.getElementById('cardFormatFilter')?.value;
             const q = document.getElementById('cardSearch')?.value;
             if (format || q) {
@@ -2485,7 +2488,7 @@
             const f = getCardFilters('cardBrowseFilters');
 
             // Require at least one filter
-            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.owns && !f.text && selectedKeywords.length === 0) {
+            if (!q && !format && !sets && !f.rarity && !f.color && !f.type && !f.tags && !f.owns && !f.text && selectedKeywords.length === 0) {
                 document.getElementById('cardBrowseCount').textContent = 'Select a format or enter a search to browse';
                 const grid = document.getElementById('cardBrowseGrid');
                 if (grid) grid.innerHTML = '';
@@ -2507,6 +2510,7 @@
             if (f.type) params.type = f.type;
             if (f.owns) params.owns = f.owns;
             if (f.text) params.text = f.text;
+            if (f.tags) params.tags = f.tags;
             if (f.unique) params.unique = true;
             if (selectedKeywords.length > 0) params.keywords = selectedKeywords.join(',');
 
@@ -2646,6 +2650,7 @@
             if (opts.owns !== undefined && opts.owns !== '') params.owns = opts.owns;
             if (opts.wants !== undefined && opts.wants !== '') params.wants = opts.wants;
             if (opts.text) params.text = opts.text;
+            if (opts.tags) params.tags = opts.tags;
             if (opts.sort) params.sort = opts.sort;
             if (opts.order) params.order = opts.order;
             // Default unique to true on initial load
@@ -2738,6 +2743,7 @@
                 </div>
             `;
 
+            loadTagOptions();
             // Render wordclouds after innerHTML is set
             if (stats.keywords?.keyword_abilities) {
                 renderWordCloud(stats.keywords.keyword_abilities, '#set-kw-abilities');
@@ -3184,6 +3190,9 @@
                         <option value="Planeswalker" ${pf.type === 'Planeswalker' ? 'selected' : ''}>Planeswalker</option>
                         <option value="Land" ${pf.type === 'Land' ? 'selected' : ''}>Land</option>
                     </select>
+                    <select data-filter="tags" onchange="${onchangeFn}()">
+                        <option value="">All tags</option>
+                    </select>
                     <select data-filter="owns" onchange="${onchangeFn}()">
                         <option value="" ${!pf.owns ? 'selected' : ''}>All cards</option>
                         <option value="true" ${pf.owns === 'true' ? 'selected' : ''}>Owned</option>
@@ -3206,6 +3215,28 @@
             `;
         }
 
+        let _cachedTags = null;
+        async function loadTagOptions() {
+            if (!_cachedTags) {
+                try {
+                    _cachedTags = await api('/cards/tags');
+                } catch (e) {
+                    _cachedTags = [];
+                }
+            }
+            document.querySelectorAll('[data-filter="tags"]').forEach(sel => {
+                if (sel.options.length > 1) return;
+                const current = sel.value;
+                _cachedTags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.tag;
+                    opt.textContent = `${t.tag} (${t.count.toLocaleString()})`;
+                    sel.appendChild(opt);
+                });
+                if (current) sel.value = current;
+            });
+        }
+
         function toggleColor(el, onchangeFn) {
             el.classList.toggle('active');
             window[onchangeFn]();
@@ -3226,6 +3257,7 @@
                 rarity: get('rarity'),
                 color: colors,
                 type: get('type'),
+                tags: get('tags'),
                 owns: get('owns'),
                 text: get('text'),
                 sort,

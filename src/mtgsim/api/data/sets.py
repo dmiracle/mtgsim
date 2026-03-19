@@ -212,6 +212,7 @@ class SetsData:
         colors: list[str] | None = None,
         card_type: str | None = None,
         text: str | None = None,
+        tags: list[str] | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
         sort: str = "number",
@@ -259,6 +260,7 @@ class SetsData:
                 card_type=card_type,
                 text=text,
                 colors=colors,
+                tags=tags,
                 owns=owns,
                 wants=wants,
             )
