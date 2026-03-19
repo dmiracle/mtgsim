@@ -213,10 +213,41 @@ class CardsData:
 
             return cards, total
 
-    def get_available_tags(self) -> list[dict]:
-        """Get all distinct tags with card counts."""
+    def get_available_tags(
+        self,
+        set_code: str | None = None,
+        format_legal: str | None = None,
+        colors: list[str] | None = None,
+        card_type: str | None = None,
+        rarity: str | None = None,
+    ) -> list[dict]:
+        """Get distinct tags with card counts, optionally filtered."""
         with get_session() as session:
-            query = select(MJCardTag.tag, func.count(MJCardTag.id)).group_by(MJCardTag.tag).order_by(MJCardTag.tag)
+            query = select(MJCardTag.tag, func.count(func.distinct(MJCardTag.card_name))).join(
+                MJCard, MJCardTag.card_name == MJCard.name
+            )
+
+            if set_code:
+                query = query.where(MJCard.set_code == set_code)
+            if format_legal:
+                query = query.join(
+                    MJCardLegality,
+                    (MJCard.uuid == MJCardLegality.card_uuid)
+                    & (MJCardLegality.format == format_legal)
+                    & (MJCardLegality.status == "Legal"),
+                )
+            if rarity:
+                query = query.where(MJCard.rarity == rarity)
+            if card_type:
+                query = query.where(MJCard.type_line.contains(card_type))
+            if colors:
+                from sqlalchemy import or_
+
+                query = query.where(
+                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
+                )
+
+            query = query.group_by(MJCardTag.tag).order_by(MJCardTag.tag)
             results = session.exec(query).all()
             return [{"tag": tag, "count": count} for tag, count in results]
 

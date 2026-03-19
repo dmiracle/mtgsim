@@ -5,10 +5,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine, select
-
 from mtgdb.models import MJCardTag
 from mtgdb.sync.scryfall import sync_tags
+from sqlmodel import Session, SQLModel, create_engine, select
 
 
 @pytest.fixture

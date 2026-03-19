@@ -90,11 +90,24 @@ async def search_cards(
 
 
 @router.get("/tags")
-async def get_tags() -> list[dict]:
-    """Get all available oracle tags with card counts."""
+async def get_tags(
+    set: str | None = Query(None, description="Filter by set code"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    colors: str | None = Query(None, description="Filter by colors (e.g. WUB)"),
+    type: str | None = Query(None, description="Filter by card type"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+) -> list[dict]:
+    """Get available oracle tags with card counts, optionally filtered."""
     from mtgsim.api.data import cards_data
 
-    return cards_data.get_available_tags()
+    color_list = list(colors.upper()) if colors else None
+    return cards_data.get_available_tags(
+        set_code=set,
+        format_legal=format,
+        colors=color_list,
+        card_type=type,
+        rarity=rarity,
+    )
 
 
 @router.get("/keyword-frequencies")
