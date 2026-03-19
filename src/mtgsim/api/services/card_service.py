@@ -23,6 +23,7 @@ class CardService:
     async def search_cards(
         self,
         q: str | None = None,
+        text: str | None = None,
         set_code: str | None = None,
         set_codes: list[str] | None = None,
         rarity: str | None = None,
@@ -41,9 +42,12 @@ class CardService:
         unique: bool = False,
     ) -> CardListResponse:
         """Search cards with filters."""
-        logger.debug(f"search_cards: q={q} set_code={set_code} format={format_legal} sort={sort} page={page}")
+        logger.debug(
+            f"search_cards: q={q} text={text} set_code={set_code} format={format_legal} sort={sort} page={page}"
+        )
         cards, total = cards_data.search_cards(
             q=q,
+            text=text,
             set_code=set_code,
             set_codes=set_codes,
             rarity=rarity,

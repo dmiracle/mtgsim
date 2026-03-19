@@ -40,6 +40,7 @@ class QuadrantRatingResponse(BaseModel):
 @router.get("", response_model=CardListResponse)
 async def search_cards(
     q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
     set: str | None = Query(None, description="Filter by set code"),
     sets: str | None = Query(None, description="Filter by multiple set codes (comma-separated)"),
     rarity: str | None = Query(None, description="Filter by rarity"),
@@ -65,6 +66,7 @@ async def search_cards(
     logger.debug(f"search_cards: q={q} set={set} format={format} rarity={rarity}")
     return await card_service.search_cards(
         q=q,
+        text=text,
         set_code=set,
         set_codes=set_code_list,
         rarity=rarity,
