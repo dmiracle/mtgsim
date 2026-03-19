@@ -48,6 +48,7 @@ def fetch_tag(tag: str) -> list[str]:
     while url:
         req = urllib.request.Request(url)
         req.add_header("User-Agent", "mtgsim/1.0")
+        req.add_header("Accept", "application/json")
 
         with urllib.request.urlopen(req) as resp:
             data = json.loads(resp.read().decode())
