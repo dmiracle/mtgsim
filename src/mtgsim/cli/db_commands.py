@@ -37,6 +37,7 @@ def db_sync(
     prices_only: bool = typer.Option(False, "--prices", help="Sync only prices"),
     decks_only: bool = typer.Option(False, "--decks", help="Sync only decks"),
     keywords_only: bool = typer.Option(False, "--keywords", help="Sync only keywords"),
+    tags_only: bool = typer.Option(False, "--tags", help="Sync only Scryfall oracle tags"),
 ):
     """Sync MTGJSON data to unified database.
 
@@ -49,6 +50,7 @@ def db_sync(
     - Prices (mj_card_price)
     - Decks (mj_deck, mj_deck_card)
     - Keywords (mj_keyword)
+    - Tags (mj_card_tag) — Scryfall oracle tags
 
     By default syncs all data. Use flags to sync specific data types.
     """
@@ -64,9 +66,10 @@ def db_sync(
     from mtgdb.session import init_db
     from mtgdb.sync import sync_all, sync_cards, sync_decks, sync_keywords, sync_prices, sync_sets
     from mtgdb.sync.download import download_and_extract_tar_xz, download_and_extract_xz
+    from mtgdb.sync.scryfall import fetch_all_tags, sync_tags
 
     try:
-        if cards_only or sets_only or prices_only or decks_only or keywords_only:
+        if cards_only or sets_only or prices_only or decks_only or keywords_only or tags_only:
             ensure_dirs()
             init_db()
 
@@ -98,6 +101,11 @@ def db_sync(
                 download_and_extract_xz(KEYWORDS_URL, keywords_file, force)
                 sync_keywords(keywords_file)
                 typer.echo("Keywords sync complete.")
+
+            if tags_only:
+                tag_data = fetch_all_tags(force=force)
+                sync_tags()
+                typer.echo(f"Tags sync complete. {sum(len(v) for v in tag_data.values())} card-tag pairs.")
         else:
             sync_all(force=force)
 
@@ -129,6 +137,7 @@ def db_stats():
         ("mj_deck", "Decks"),
         ("mj_deck_card", "Deck Cards"),
         ("mj_keyword", "Keywords"),
+        ("mj_card_tag", "Card Tags"),
         ("user_card", "User Collection"),
         ("user_deck", "User Decks"),
         ("user_deck_card", "User Deck Cards"),

@@ -8,6 +8,7 @@ from mtgdb.models import (
     MJCardIdentifier,
     MJCardLegality,
     MJCardPrice,
+    MJCardTag,
     MJDeck,
     MJDeckCard,
     MJSet,
@@ -78,6 +79,7 @@ class CardsData:
         colors: list[str] | None = None,
         format_legal: str | None = None,
         keywords: list[str] | None = None,
+        tags: list[str] | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
         unique: bool = False,
@@ -137,6 +139,7 @@ class CardsData:
                 text=text,
                 colors=colors,
                 keywords=keywords,
+                tags=tags,
                 owns=owns,
                 wants=wants,
             )
@@ -198,11 +201,24 @@ class CardsData:
 
             # Convert to API format
             logger.debug(f"search_cards: query returned {len(results)} results, total={total}")
+
+            # Batch-fetch tags for all card names in results
+            card_names = [r[0].name for r in results]
+            tags_map = self._get_tags_for_names(session, card_names)
+
             cards = []
             for mj_card, identifier, user_card, best_price in results:
-                cards.append(card_to_api_dict(mj_card, identifier, user_card, price=best_price))
+                card_tags = tags_map.get(mj_card.name, [])
+                cards.append(card_to_api_dict(mj_card, identifier, user_card, price=best_price, tags=card_tags))
 
             return cards, total
+
+    def get_available_tags(self) -> list[dict]:
+        """Get all distinct tags with card counts."""
+        with get_session() as session:
+            query = select(MJCardTag.tag, func.count(MJCardTag.id)).group_by(MJCardTag.tag).order_by(MJCardTag.tag)
+            results = session.exec(query).all()
+            return [{"tag": tag, "count": count} for tag, count in results]
 
     def get_keyword_frequencies(
         self,
@@ -299,7 +315,11 @@ class CardsData:
             if best is None and all_prices:
                 best = all_prices[0]["price"]
 
-            card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name, price=best)
+            # Get tags
+            tags_map = self._get_tags_for_names(session, [mj_card.name])
+            card_tags = tags_map.get(mj_card.name, [])
+
+            card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name, price=best, tags=card_tags)
             card_dict["legalities"] = legalities
             card_dict["all_prices"] = all_prices
             if rating:
@@ -311,6 +331,17 @@ class CardsData:
                     "notes": rating.notes,
                 }
             return card_dict
+
+    def _get_tags_for_names(self, session, card_names: list[str]) -> dict[str, list[str]]:
+        """Get tags for a list of card names, returned as {name: [tag, ...]}."""
+        if not card_names:
+            return {}
+        query = select(MJCardTag.card_name, MJCardTag.tag).where(MJCardTag.card_name.in_(card_names))
+        results = session.exec(query).all()
+        tags_map: dict[str, list[str]] = {}
+        for name, tag in results:
+            tags_map.setdefault(name, []).append(tag)
+        return tags_map
 
     def _get_card_legalities(self, session, uuid: str) -> dict[str, str]:
         """Get format legalities for a card."""
