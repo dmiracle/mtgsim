@@ -7,7 +7,7 @@ This module re-exports them and adds app-level paths.
 from pathlib import Path
 
 # Re-export from mtgdb for backwards compatibility
-from mtgdb.config import (
+from mtgdb.config import (  # noqa: F401
     DB_PATH,
     MTGJSON_BASE_URL,
     MTGJSON_DIR,

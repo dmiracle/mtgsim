@@ -17,7 +17,7 @@ from mtgdb.models import (
 from mtgdb.session import get_session
 from sqlmodel import func, select
 
-from .helpers import add_price_join, build_image_url, card_to_api_dict
+from .helpers import add_price_join, apply_card_filters, build_image_url, card_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.cards")
 
@@ -121,10 +121,6 @@ class CardsData:
                     (MJCard.name.contains(q)) | (MJCard.type_line.contains(q)) | (MJCard.oracle_text.contains(q))
                 )
 
-            # Oracle text filter (oracle text only)
-            if text:
-                query = query.where(MJCard.oracle_text.contains(text))
-
             # Set filter (single)
             if set_code:
                 query = query.where(MJCard.set_code == set_code)
@@ -133,42 +129,17 @@ class CardsData:
             if set_codes:
                 query = query.where(MJCard.set_code.in_(set_codes))
 
-            # Rarity filter
-            if rarity:
-                query = query.where(MJCard.rarity == rarity)
-
-            # Type filter
-            if card_type:
-                query = query.where(MJCard.type_line.contains(card_type))
-
-            # Color filter (card must have ANY of the specified colors)
-            if colors:
-                from sqlalchemy import or_
-
-                query = query.where(
-                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
-                )
-
-            # Keyword filter (card must have ALL specified keywords)
-            if keywords:
-                for kw in keywords:
-                    query = query.where(func.json_extract(MJCard.keywords, "$").contains(f'"{kw}"'))
-
-            # Ownership filter
-            if owns is True:
-                query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
-            elif owns is False:
-                query = query.where(
-                    (UserCard.id.is_(None)) | ((UserCard.quantity_owned == 0) & (UserCard.quantity_owned_foil == 0))
-                )
-
-            # Wants filter
-            if wants is True:
-                query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
-            elif wants is False:
-                query = query.where(
-                    (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
-                )
+            # Common card filters
+            query = apply_card_filters(
+                query,
+                rarity=rarity,
+                card_type=card_type,
+                text=text,
+                colors=colors,
+                keywords=keywords,
+                owns=owns,
+                wants=wants,
+            )
 
             # Sorting
             sort_map = {
@@ -262,16 +233,7 @@ class CardsData:
                 query = query.where(MJCard.set_code == set_code)
             if set_codes:
                 query = query.where(MJCard.set_code.in_(set_codes))
-            if rarity:
-                query = query.where(MJCard.rarity == rarity)
-            if colors:
-                from sqlalchemy import or_
-
-                query = query.where(
-                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
-                )
-            if card_type:
-                query = query.where(MJCard.type_line.contains(card_type))
+            query = apply_card_filters(query, rarity=rarity, card_type=card_type, colors=colors)
 
             # Deduplicate by name
             min_uuid_subq = select(func.min(MJCard.uuid)).group_by(MJCard.name)

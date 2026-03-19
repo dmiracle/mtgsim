@@ -7,7 +7,7 @@ from mtgdb.session import get_session
 from sqlalchemy import Integer, cast
 from sqlmodel import func, select
 
-from .helpers import add_price_join, build_image_url, set_to_api_dict
+from .helpers import add_price_join, apply_card_filters, build_image_url, set_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.sets")
 
@@ -252,41 +252,16 @@ class SetsData:
                     (MJCard.name == min_num_subq.c.cname) & (cast(MJCard.number, Integer) == min_num_subq.c.min_num),
                 )
 
-            # Rarity filter
-            if rarity:
-                query = query.where(MJCard.rarity == rarity)
-
-            # Color filter (match any of the selected colors)
-            if colors:
-                from sqlalchemy import or_
-
-                query = query.where(
-                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
-                )
-
-            # Type filter
-            if card_type:
-                query = query.where(MJCard.type_line.contains(card_type))
-
-            # Oracle text filter
-            if text:
-                query = query.where(MJCard.oracle_text.contains(text))
-
-            # Ownership filter
-            if owns is True:
-                query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
-            elif owns is False:
-                query = query.where(
-                    (UserCard.id.is_(None)) | ((UserCard.quantity_owned == 0) & (UserCard.quantity_owned_foil == 0))
-                )
-
-            # Wants filter
-            if wants is True:
-                query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
-            elif wants is False:
-                query = query.where(
-                    (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
-                )
+            # Common card filters
+            query = apply_card_filters(
+                query,
+                rarity=rarity,
+                card_type=card_type,
+                text=text,
+                colors=colors,
+                owns=owns,
+                wants=wants,
+            )
 
             # Count total before pagination
             count_query = select(func.count()).select_from(query.subquery())

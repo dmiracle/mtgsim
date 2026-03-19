@@ -22,6 +22,50 @@ def parse_json_column(value: str | list | None, default=None) -> list:
         return default if default is not None else []
 
 
+def apply_card_filters(
+    query,
+    rarity: str | None = None,
+    card_type: str | None = None,
+    text: str | None = None,
+    colors: list[str] | None = None,
+    keywords: list[str] | None = None,
+    owns: bool | None = None,
+    wants: bool | None = None,
+):
+    """Apply common card filters to a query that joins MJCard and optionally UserCard."""
+    from mtgdb.models import MJCard, UserCard
+    from sqlmodel import func
+
+    if rarity:
+        query = query.where(MJCard.rarity == rarity)
+    if card_type:
+        query = query.where(MJCard.type_line.contains(card_type))
+    if text:
+        query = query.where(MJCard.oracle_text.contains(text))
+    if colors:
+        from sqlalchemy import or_
+
+        query = query.where(
+            or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
+        )
+    if keywords:
+        for kw in keywords:
+            query = query.where(func.json_extract(MJCard.keywords, "$").contains(f'"{kw}"'))
+    if owns is True:
+        query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+    elif owns is False:
+        query = query.where(
+            (UserCard.id.is_(None)) | ((UserCard.quantity_owned == 0) & (UserCard.quantity_owned_foil == 0))
+        )
+    if wants is True:
+        query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
+    elif wants is False:
+        query = query.where(
+            (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
+        )
+    return query
+
+
 def apply_pagination(query, page: int, limit: int):
     """Apply pagination to query."""
     offset = (page - 1) * limit
