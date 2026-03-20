@@ -18,7 +18,11 @@ const navItems: NavItem[] = [
   { id: "reference", label: "Reference", path: "/reference", iconClass: "ms-ability-activated", iconFont: "ms" },
 ];
 
-export function SidebarNav() {
+type SidebarNavProps = {
+  onNavigate?: () => void;
+};
+
+export function SidebarNav({ onNavigate }: SidebarNavProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -39,7 +43,7 @@ export function SidebarNav() {
           return (
             <li key={item.id}>
               <button
-                onClick={() => navigate(item.path)}
+                onClick={() => { navigate(item.path); onNavigate?.(); }}
                 className={`w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm transition-colors ${
                   active
                     ? "bg-accent-muted text-accent border-r-2 border-accent"

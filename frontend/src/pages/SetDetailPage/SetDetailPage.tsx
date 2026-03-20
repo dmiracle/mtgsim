@@ -47,11 +47,11 @@ export function SetDetailPage({ set, cards, cardPagination, availableTags = [], 
       <button onClick={onBack} className="text-xs text-text-muted hover:text-accent transition-colors">&larr; Back</button>
 
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <SetBadge code={set.meta.code} name={set.meta.name} size="lg" />
-        <div>
-          <h2 className="text-xl font-bold text-text-primary">{set.meta.name}</h2>
-          <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-text-primary truncate">{set.meta.name}</h2>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-text-muted mt-0.5">
             <span className="capitalize">{set.meta.type}</span>
             <span>·</span>
             <span>{set.meta.release_date}</span>

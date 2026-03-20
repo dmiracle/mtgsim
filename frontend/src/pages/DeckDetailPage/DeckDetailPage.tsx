@@ -30,11 +30,11 @@ export function DeckDetailPage({ deck, availableTags = [], onBack, onCardClick, 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <button onClick={onBack} className="text-xs text-text-muted hover:text-accent transition-colors">&larr; Back</button>
-        <div>
-          <h2 className="text-xl font-bold text-text-primary">{deck.meta.name}</h2>
-          <div className="flex items-center gap-2 mt-0.5">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-text-primary truncate">{deck.meta.name}</h2>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-0.5">
             {deck.meta.format && <span className="text-xs text-text-muted capitalize">{deck.meta.format}</span>}
             <span className="text-xs text-text-muted">{deck.meta.source}</span>
             {deck.meta.release_date && <span className="text-xs text-text-muted">{deck.meta.release_date}</span>}

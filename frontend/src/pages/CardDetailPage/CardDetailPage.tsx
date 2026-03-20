@@ -64,7 +64,7 @@ export function CardDetailPage({
       {/* Back button */}
       <button onClick={onBack} className="text-xs text-text-muted hover:text-accent transition-colors">&larr; Back</button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
         {/* Left column: main card info */}
         <div className="space-y-4">
           <CardIdentity

@@ -55,8 +55,8 @@ export function CardBrowserPage({
       <h2 className="text-xl font-bold text-text-primary">Cards</h2>
 
       {/* Top search bar */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex-1 min-w-[150px]">
           <SearchInput value={nameSearch} placeholder="Search cards by name..." onChange={setNameSearch} />
         </div>
         <select
@@ -74,7 +74,7 @@ export function CardBrowserPage({
           value={setFilter}
           onChange={(e) => setSetFilter(e.target.value)}
           placeholder="Set codes"
-          className="w-28 bg-bg-secondary border border-border rounded px-2 py-1.5 text-xs text-text-secondary placeholder-text-muted focus:outline-none focus:border-accent"
+          className="w-24 sm:w-28 bg-bg-secondary border border-border rounded px-2 py-1.5 text-xs text-text-secondary placeholder-text-muted focus:outline-none focus:border-accent"
         />
       </div>
 

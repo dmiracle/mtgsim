@@ -21,12 +21,12 @@ export function DraftSimulatorPage({ sets, packs, onOpenPacks, onCardClick, load
     <div className="space-y-4">
       <h2 className="text-xl font-bold text-text-primary">Draft Simulator</h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_220px] gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[280px_1fr_220px] gap-4">
         {/* Left: config */}
         <PackConfigPanel sets={sets} onOpen={onOpenPacks} loading={loading} />
 
         {/* Center: pack display */}
-        <div>
+        <div className="min-w-0">
           {activePack ? (
             <PackDisplay
               cards={activePack.cards}
@@ -35,18 +35,20 @@ export function DraftSimulatorPage({ sets, packs, onOpenPacks, onCardClick, load
               onCardClick={onCardClick}
             />
           ) : (
-            <div className="flex items-center justify-center py-24 text-text-muted border border-border rounded-lg bg-bg-secondary">
+            <div className="flex items-center justify-center py-16 md:py-24 text-text-muted border border-border rounded-lg bg-bg-secondary text-sm text-center px-4">
               Select a set and open packs to begin
             </div>
           )}
         </div>
 
-        {/* Right: pack history */}
-        <PackHistory
-          packs={packs}
-          activeIndex={activePackIndex}
-          onSelect={setActivePackIndex}
-        />
+        {/* Right: pack history — below on mobile/tablet, sidebar on desktop */}
+        <div className="md:col-span-2 lg:col-span-1">
+          <PackHistory
+            packs={packs}
+            activeIndex={activePackIndex}
+            onSelect={setActivePackIndex}
+          />
+        </div>
       </div>
     </div>
   );

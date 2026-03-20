@@ -62,84 +62,82 @@ export function CardFilterBar({
 
   return (
     <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
-      {/* Top bar: search + result count + toggle */}
-      <div className="flex items-center gap-3 p-3 bg-bg-primary/50">
-        <div className="flex-1">
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-3 bg-bg-primary/50">
+        <div className="flex-1 min-w-[150px]">
           <SearchInput
             value={filters.text}
             placeholder="Search oracle text..."
             onChange={(text) => update({ text })}
           />
         </div>
-        <SortSelect
-          options={sortOptions}
-          sort={filters.sort}
-          order={filters.order}
-          onSortChange={(sort) => update({ sort })}
-          onOrderChange={(order) => update({ order })}
-        />
-        {resultCount !== undefined && (
-          <span className="text-xs font-medium text-text-secondary whitespace-nowrap tabular-nums">
-            {resultCount.toLocaleString()}
-          </span>
-        )}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="px-2 py-1 text-xs rounded border border-border text-text-muted hover:text-text-secondary hover:border-border-hover transition-colors"
-        >
-          {expanded ? "▲ Filters" : `▼ Filters${activeCount > 0 ? ` (${activeCount})` : ""}`}
-        </button>
+        <div className="flex items-center gap-2">
+          <SortSelect
+            options={sortOptions}
+            sort={filters.sort}
+            order={filters.order}
+            onSortChange={(sort) => update({ sort })}
+            onOrderChange={(order) => update({ order })}
+          />
+          {resultCount !== undefined && (
+            <span className="text-xs font-medium text-text-secondary whitespace-nowrap tabular-nums hidden sm:inline">
+              {resultCount.toLocaleString()}
+            </span>
+          )}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="px-2 py-1 text-xs rounded border border-border text-text-muted hover:text-text-secondary hover:border-border-hover transition-colors whitespace-nowrap"
+          >
+            {expanded ? "▲ Filters" : `▼ Filters${activeCount > 0 ? ` (${activeCount})` : ""}`}
+          </button>
+        </div>
       </div>
 
       {/* Filter panels */}
       {expanded && (
         <div className="border-t border-border">
-          {/* Row 1: Color + Type */}
-          <div className="flex items-center gap-6 px-4 py-3 border-b border-border/50">
-            <div className="flex items-center gap-2.5">
-              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold w-10">Color</span>
+          {/* Filters — vertical stack on mobile, horizontal rows on desktop */}
+          <div className="p-3 sm:px-4 sm:py-3 space-y-3 sm:space-y-2">
+            {/* Color */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5">
+              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold sm:w-10">Color</span>
               <ColorIdentityPicker
                 selected={filters.colors}
                 onChange={(colors) => update({ colors })}
                 size="sm"
               />
             </div>
-            <div className="w-px h-6 bg-border" />
-            <div className="flex items-center gap-2.5">
-              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold w-10">Type</span>
+
+            {/* Type */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5">
+              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold sm:w-10">Type</span>
               <CardTypeFilter
                 selected={filters.types}
                 onChange={(types) => update({ types })}
               />
             </div>
-          </div>
 
-          {/* Row 2: Rarity + Tags + Ownership */}
-          <div className="flex items-center gap-6 px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold w-10">Rarity</span>
+            {/* Rarity */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5">
+              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold sm:w-10">Rarity</span>
               <RarityFilter
                 selected={filters.rarities}
                 onChange={(rarities) => update({ rarities })}
               />
             </div>
-            <div className="w-px h-6 bg-border" />
-            <div className="flex items-center gap-2.5">
-              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold w-10">Tags</span>
+
+            {/* Tags + Ownership + Unique — row that wraps */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <OracleTagsDropdown
                 tags={availableTags}
                 selected={filters.tags}
                 onChange={(tags) => update({ tags })}
               />
-            </div>
-            <div className="w-px h-6 bg-border" />
-            <OwnershipToggle
-              value={filters.ownership}
-              onChange={(ownership) => update({ ownership })}
-            />
-            {showUnique && (
-              <>
-                <div className="w-px h-6 bg-border" />
+              <OwnershipToggle
+                value={filters.ownership}
+                onChange={(ownership) => update({ ownership })}
+              />
+              {showUnique && (
                 <label className="inline-flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
                   <input
                     type="checkbox"
@@ -149,28 +147,28 @@ export function CardFilterBar({
                   />
                   Unique
                 </label>
-              </>
-            )}
-            {activeCount > 0 && (
-              <button
-                onClick={() =>
-                  onChange({
-                    text: "",
-                    colors: [],
-                    rarities: [],
-                    types: [],
-                    tags: [],
-                    ownership: "all",
-                    sort: filters.sort,
-                    order: filters.order,
-                    unique: filters.unique,
-                  })
-                }
-                className="text-xs font-medium text-danger hover:underline ml-auto"
-              >
-                Clear all ({activeCount})
-              </button>
-            )}
+              )}
+              {activeCount > 0 && (
+                <button
+                  onClick={() =>
+                    onChange({
+                      text: "",
+                      colors: [],
+                      rarities: [],
+                      types: [],
+                      tags: [],
+                      ownership: "all",
+                      sort: filters.sort,
+                      order: filters.order,
+                      unique: filters.unique,
+                    })
+                  }
+                  className="text-xs font-medium text-danger hover:underline ml-auto"
+                >
+                  Clear ({activeCount})
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
