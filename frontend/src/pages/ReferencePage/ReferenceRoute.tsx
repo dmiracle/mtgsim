@@ -1,5 +1,6 @@
+import { useKeywords } from "@/api/hooks";
 import { ReferencePage } from "./ReferencePage";
-import { keywordsResponse } from "@/fixtures";
+import { keywordsResponse as fallback } from "@/fixtures";
 
 const glossary = [
   { term: "Battlefield", definition: "The zone where permanents exist.", category: "Zone" },
@@ -13,5 +14,6 @@ const glossary = [
 ];
 
 export function ReferenceRoute() {
-  return <ReferencePage keywords={keywordsResponse} glossary={glossary} />;
+  const { data: keywords } = useKeywords();
+  return <ReferencePage keywords={keywords ?? fallback} glossary={glossary} />;
 }

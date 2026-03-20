@@ -1,40 +1,43 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCards, useCardTags, useKeywordFrequencies } from "@/api/hooks";
 import { CardBrowserPage } from "./CardBrowserPage";
-import { cardSummaries, keywordFrequencies } from "@/fixtures";
-
-const sampleTags = [
-  { tag: "removal", count: 245 },
-  { tag: "burn", count: 128 },
-  { tag: "counter", count: 89 },
-  { tag: "draw", count: 312 },
-];
 
 export function CardBrowserRoute() {
   const navigate = useNavigate();
-  const [pinnedIds, setPinnedIds] = useState(new Set<string>());
+  const [pinnedIds, setPinnedIds] = useState(() => {
+    const stored = localStorage.getItem("pinnedCards");
+    return new Set<string>(stored ? JSON.parse(stored) : []);
+  });
+  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useState<Record<string, string>>({});
+
+  const { data: cardsData } = useCards({ ...searchParams, page, limit: 50 });
+  const { data: tags } = useCardTags({});
+  const { data: kwFreqs } = useKeywordFrequencies({});
 
   function togglePin(uuid: string) {
     setPinnedIds((prev) => {
       const next = new Set(prev);
       if (next.has(uuid)) next.delete(uuid);
       else next.add(uuid);
+      localStorage.setItem("pinnedCards", JSON.stringify([...next]));
       return next;
     });
   }
 
   return (
     <CardBrowserPage
-      cards={cardSummaries}
-      pagination={{ page: 1, pages: 5, total: 250, limit: 50 }}
-      availableTags={sampleTags}
-      keywordFrequencies={keywordFrequencies}
+      cards={cardsData?.data ?? []}
+      pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
+      availableTags={tags ?? []}
+      keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
       pinnedIds={pinnedIds}
       onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
       onSetClick={(code) => navigate(`/sets/${code}`)}
       onPin={togglePin}
       onAddToDeck={() => {}}
-      onPageChange={() => {}}
+      onPageChange={setPage}
     />
   );
 }

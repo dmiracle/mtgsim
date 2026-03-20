@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
+import { useHomeStats } from "@/api/hooks";
 import { HomePage } from "./HomePage";
-import { homeStats } from "@/fixtures";
+import { homeStats as fallback } from "@/fixtures";
 
 export function HomeRoute() {
   const navigate = useNavigate();
-  return <HomePage stats={homeStats} onSetClick={(code) => navigate(`/sets/${code}`)} />;
+  const { data } = useHomeStats();
+
+  return <HomePage stats={data ?? fallback} onSetClick={(code) => navigate(`/sets/${code}`)} />;
 }
