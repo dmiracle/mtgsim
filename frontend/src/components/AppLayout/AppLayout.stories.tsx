@@ -35,7 +35,7 @@ function EmptyContent() {
 }
 
 const meta: Meta<typeof AppLayout> = {
-  title: "Layout/AppLayout",
+  title: "Layouts/Sidebar",
   component: AppLayout,
   tags: ["autodocs"],
   parameters: { layout: "fullscreen" },

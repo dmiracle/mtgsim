@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { SidebarNav } from "./SidebarNav";
 
 const meta: Meta<typeof SidebarNav> = {
-  title: "Layout/SidebarNav",
+  title: "Layouts/SidebarNav",
   component: SidebarNav,
   tags: ["autodocs"],
   decorators: [

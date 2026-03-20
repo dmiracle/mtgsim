@@ -95,6 +95,17 @@ const preview: Preview = {
       test: 'todo'
     },
     backgrounds: { disable: true },
+    viewport: {
+      options: {
+        mobile: { name: 'iPhone SE', styles: { width: '375px', height: '667px' } },
+        mobileLg: { name: 'iPhone 14 Pro', styles: { width: '393px', height: '852px' } },
+        tablet: { name: 'iPad Mini', styles: { width: '768px', height: '1024px' } },
+        tabletLg: { name: 'iPad Pro', styles: { width: '1024px', height: '1366px' } },
+        laptop: { name: 'Laptop', styles: { width: '1366px', height: '768px' } },
+        desktop: { name: 'Desktop', styles: { width: '1920px', height: '1080px' } },
+        ultrawide: { name: 'Ultrawide', styles: { width: '2560px', height: '1080px' } },
+      },
+    },
   },
 };
 
