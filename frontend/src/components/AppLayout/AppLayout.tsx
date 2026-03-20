@@ -1,17 +1,13 @@
-import type { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import { SidebarNav } from "@/components/SidebarNav/SidebarNav";
 
-type AppLayoutProps = {
-  activeNav: string;
-  onNavigate: (id: string) => void;
-  children: ReactNode;
-};
-
-export function AppLayout({ activeNav, onNavigate, children }: AppLayoutProps) {
+export function AppLayout() {
   return (
     <div className="flex h-screen bg-bg-primary text-text-primary">
-      <SidebarNav activeId={activeNav} onNavigate={onNavigate} />
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <SidebarNav />
+      <main className="flex-1 overflow-y-auto p-6">
+        <Outlet />
+      </main>
     </div>
   );
 }

@@ -124,7 +124,7 @@ export const cardDetail: CardDetail = {
   is_reprint: true,
   is_reserved: false,
   is_promo: false,
-  image_url: null,
+  image_url: "https://cards.scryfall.io/normal/front/f/2/f29ba16f-c8fb-42fe-aabf-87089cb214a7.jpg",
   legalities: {
     standard: "not_legal",
     pioneer: "not_legal",

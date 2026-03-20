@@ -1,17 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { MemoryRouter } from "react-router-dom";
 import { SidebarNav } from "./SidebarNav";
 
 const meta: Meta<typeof SidebarNav> = {
   title: "Layout/SidebarNav",
   component: SidebarNav,
   tags: ["autodocs"],
-  args: { onNavigate: fn() },
   decorators: [
     (Story) => (
-      <div className="h-[600px] bg-bg-primary">
-        <Story />
-      </div>
+      <MemoryRouter initialEntries={["/"]}>
+        <div className="h-[600px] bg-bg-primary">
+          <Story />
+        </div>
+      </MemoryRouter>
     ),
   ],
 };
@@ -20,17 +21,41 @@ export default meta;
 type Story = StoryObj<typeof SidebarNav>;
 
 export const Home: Story = {
-  args: { activeId: "home" },
+  decorators: [
+    (Story) => (
+      <MemoryRouter initialEntries={["/"]}>
+        <div className="h-[600px] bg-bg-primary"><Story /></div>
+      </MemoryRouter>
+    ),
+  ],
 };
 
 export const Decks: Story = {
-  args: { activeId: "decks" },
+  decorators: [
+    (Story) => (
+      <MemoryRouter initialEntries={["/decks"]}>
+        <div className="h-[600px] bg-bg-primary"><Story /></div>
+      </MemoryRouter>
+    ),
+  ],
 };
 
 export const Cards: Story = {
-  args: { activeId: "cards" },
+  decorators: [
+    (Story) => (
+      <MemoryRouter initialEntries={["/cards"]}>
+        <div className="h-[600px] bg-bg-primary"><Story /></div>
+      </MemoryRouter>
+    ),
+  ],
 };
 
 export const Draft: Story = {
-  args: { activeId: "draft" },
+  decorators: [
+    (Story) => (
+      <MemoryRouter initialEntries={["/draft"]}>
+        <div className="h-[600px] bg-bg-primary"><Story /></div>
+      </MemoryRouter>
+    ),
+  ],
 };

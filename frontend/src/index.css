@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "mana-font/css/mana.css";
 @import "keyrune/css/keyrune.css";
+@import "./fonts.css";
 @import "./themes.css";
+@import "./typography.css";
 
 @theme {
   --color-bg-primary: var(--color-bg-primary);
@@ -19,4 +21,27 @@
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+/* Apply typography to semantic elements */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-heading);
+  letter-spacing: var(--font-letter-heading);
+}
+
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
+}
+
+/* Override mana-font hardcoded colors so icons inherit parent color */
+.ms-saga,
+.ms-loyalty-up,
+.ms-loyalty-down,
+.ms-loyalty-zero,
+.ms-loyalty-start {
+  color: inherit !important;
 }

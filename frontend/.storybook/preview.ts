@@ -26,6 +26,30 @@ const THEMES = [
   { value: 'light-newspaper', title: 'Newspaper', icon: 'starhollow' },
 ];
 
+const FONTS = [
+  // Clean
+  { value: 'system', title: 'System Default', icon: 'document' },
+  { value: 'inter', title: 'Inter', icon: 'document' },
+  { value: 'geist', title: 'Geist', icon: 'document' },
+  { value: 'clean', title: 'DM Sans', icon: 'document' },
+  { value: 'compact', title: 'IBM Plex', icon: 'document' },
+  { value: 'sora', title: 'Sora', icon: 'document' },
+  // Expressive
+  { value: 'serif', title: 'Playfair + Source Serif', icon: 'bookmark' },
+  { value: 'mechanical', title: 'Rajdhani + Exo 2', icon: 'bookmark' },
+  { value: 'fantasy', title: 'Cinzel + Cormorant', icon: 'bookmark' },
+  // Wild
+  { value: 'streetwear', title: 'Streetwear', icon: 'lightning' },
+  { value: 'luxury', title: 'Luxury', icon: 'lightning' },
+  { value: 'arcade', title: 'Retro Arcade', icon: 'lightning' },
+  { value: 'brutalist', title: 'Brutalist', icon: 'lightning' },
+  { value: 'neo-tokyo', title: 'Neo Tokyo', icon: 'lightning' },
+  { value: 'comic', title: 'Comic Book', icon: 'lightning' },
+  { value: 'western', title: 'Western', icon: 'lightning' },
+  { value: 'art-deco', title: 'Art Deco', icon: 'lightning' },
+  { value: 'grunge', title: 'Grunge', icon: 'lightning' },
+];
+
 const preview: Preview = {
   globalTypes: {
     theme: {
@@ -37,14 +61,26 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    font: {
+      description: 'Typography theme',
+      toolbar: {
+        title: 'Font',
+        icon: 'document',
+        items: FONTS,
+        dynamicTitle: true,
+      },
+    },
   },
   initialGlobals: {
     theme: 'dark-slate',
+    font: 'system',
   },
   decorators: [
     (Story, context) => {
       const theme = context.globals.theme || 'dark-slate';
+      const font = context.globals.font || 'system';
       document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.setAttribute('data-font', font);
       return Story();
     },
   ],
