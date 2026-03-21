@@ -59,6 +59,7 @@ class CardPrinting(BaseModel):
     rarity: str | None = None
     number: str | None = None
     image_url: str | None = None
+    price: float | None = None
     owns: bool = False
     total_owned: int = 0
 
