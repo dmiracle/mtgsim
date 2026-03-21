@@ -83,6 +83,7 @@ class CardsData:
         owns: bool | None = None,
         wants: bool | None = None,
         unique: bool = False,
+        price_mode: str = "min",
         sort: str = "name",
         order: str = "asc",
         page: int = 1,
@@ -154,34 +155,62 @@ class CardsData:
             }
             sort_field = sort_map.get(sort, MJCard.name)
 
-            # Unique filter: one printing per card name (cheapest price)
+            # Unique filter: one printing per card name, selected by price_mode
             if unique:
                 from sqlalchemy.orm import aliased
 
                 MJCard2 = aliased(MJCard)
-                min_uuid_subq = select(func.min(MJCard2.uuid)).group_by(MJCard2.name)
+                MJCardPrice2 = aliased(MJCardPrice)
 
+                # Pick price ordering based on price_mode
+                if price_mode == "max":
+                    price_order = MJCardPrice2.price.desc().nulls_last()
+                else:
+                    price_order = MJCardPrice2.price.asc().nulls_last()
+
+                # Row number: rank printings per card name by price
+                row_num = (
+                    func.row_number()
+                    .over(
+                        partition_by=MJCard2.name,
+                        order_by=[price_order, MJCard2.uuid.asc()],
+                    )
+                    .label("rn")
+                )
+
+                ranked = select(MJCard2.uuid.label("ranked_uuid"), row_num).outerjoin(
+                    MJCardPrice2,
+                    (MJCardPrice2.card_uuid == MJCard2.uuid)
+                    & (MJCardPrice2.provider == "tcgplayer")
+                    & (MJCardPrice2.finish == "normal")
+                    & (MJCardPrice2.listing_type == "retail"),
+                )
+
+                # Apply same filters to the ranking subquery
                 if set_code:
-                    min_uuid_subq = min_uuid_subq.where(MJCard2.set_code == set_code)
+                    ranked = ranked.where(MJCard2.set_code == set_code)
                 if set_codes:
-                    min_uuid_subq = min_uuid_subq.where(MJCard2.set_code.in_(set_codes))
+                    ranked = ranked.where(MJCard2.set_code.in_(set_codes))
                 if format_legal:
                     MJCardLegality2 = aliased(MJCardLegality)
-                    min_uuid_subq = min_uuid_subq.join(
+                    ranked = ranked.join(
                         MJCardLegality2,
                         (MJCard2.uuid == MJCardLegality2.card_uuid)
                         & (MJCardLegality2.format == format_legal)
                         & (MJCardLegality2.status == "Legal"),
                     )
                     MJSet2 = aliased(MJSet)
-                    min_uuid_subq = min_uuid_subq.join(MJSet2, MJCard2.set_code == MJSet2.code).where(
+                    ranked = ranked.join(MJSet2, MJCard2.set_code == MJSet2.code).where(
                         MJSet2.type.in_(["expansion", "core"])
                     )
                     if format_legal == "standard":
                         cutoff = _standard_cutoff_date(session)
                         if cutoff:
-                            min_uuid_subq = min_uuid_subq.where(MJSet2.release_date >= cutoff)
-                query = query.where(MJCard.uuid.in_(min_uuid_subq))
+                            ranked = ranked.where(MJSet2.release_date >= cutoff)
+
+                ranked_subq = ranked.subquery()
+                best_uuids = select(ranked_subq.c.ranked_uuid).where(ranked_subq.c.rn == 1)
+                query = query.where(MJCard.uuid.in_(best_uuids))
 
             # Count total before pagination
             count_query = select(func.count()).select_from(query.subquery())

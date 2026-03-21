@@ -218,6 +218,7 @@ class SetsData:
         sort: str = "number",
         order: str = "asc",
         unique: bool = False,
+        price_mode: str = "min",
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:

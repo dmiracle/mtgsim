@@ -103,6 +103,7 @@ class SetService:
         sort: str = "number",
         order: str = "asc",
         unique: bool = False,
+        price_mode: str = "min",
         card_page: int = 1,
         card_limit: int = 50,
     ) -> SetDetail | None:
@@ -125,6 +126,7 @@ class SetService:
             sort=sort,
             order=order,
             unique=unique,
+            price_mode=price_mode,
             page=card_page,
             limit=card_limit,
         )
