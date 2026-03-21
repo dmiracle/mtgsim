@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -17,6 +17,7 @@ type DualPanelLayoutProps = {
 };
 
 export function DualPanelLayout({ sidebar, children }: DualPanelLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -28,37 +29,55 @@ export function DualPanelLayout({ sidebar, children }: DualPanelLayoutProps) {
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
       {/* Top bar */}
-      <header className="shrink-0 h-12 border-b border-border bg-bg-secondary flex items-center px-4 gap-6">
+      <header className="shrink-0 h-12 border-b border-border bg-bg-secondary flex items-center px-3 sm:px-4 gap-3 sm:gap-6">
         <div className="flex items-center gap-2">
           <i className="ms ms-planeswalker text-accent" style={{ fontSize: "1.2em" }} />
-          <span className="text-sm font-semibold text-text-primary">MTG Viewer</span>
+          <span className="text-sm font-semibold text-text-primary hidden sm:inline">MTG Viewer</span>
         </div>
-        <nav className="flex items-center gap-0.5">
+        <nav className="flex items-center gap-0.5 overflow-x-auto">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`px-2.5 py-1.5 text-xs flex items-center gap-1.5 rounded transition-colors ${
+              className={`px-2 sm:px-2.5 py-1.5 text-xs flex items-center gap-1.5 rounded transition-colors whitespace-nowrap shrink-0 ${
                 isActive(item.path)
                   ? "text-accent bg-accent-muted"
                   : "text-text-muted hover:text-text-primary"
               }`}
             >
               <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: "0.9em" }} />
-              {item.label}
+              <span className="hidden md:inline">{item.label}</span>
             </button>
           ))}
         </nav>
+        {sidebar && (
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden ml-auto text-xs px-2 py-1 rounded border border-border text-text-muted"
+          >
+            {sidebarOpen ? "Hide" : "Filters"}
+          </button>
+        )}
       </header>
 
-      {/* Dual panel body */}
       <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar — overlay on mobile, panel on desktop */}
         {sidebar && (
-          <aside className="w-80 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto p-4">
-            {sidebar}
-          </aside>
+          <>
+            <aside className="hidden md:block w-72 lg:w-80 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto p-4">
+              {sidebar}
+            </aside>
+            {sidebarOpen && (
+              <div className="fixed inset-0 z-50 md:hidden">
+                <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+                <div className="absolute left-0 top-12 bottom-0 w-72 bg-bg-secondary border-r border-border overflow-y-auto p-4">
+                  {sidebar}
+                </div>
+              </div>
+            )}
+          </>
         )}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

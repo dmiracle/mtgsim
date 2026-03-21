@@ -33,7 +33,7 @@ function SidebarContent() {
 function MainContent() {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatCard label="Results" value="250" />
         <StatCard label="Owned" value="142" />
         <StatCard label="Value" value="$1,245" />

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -16,8 +16,15 @@ type RadialOrbitalLayoutProps = { children: ReactNode };
 export function RadialOrbitalLayout({ children }: RadialOrbitalLayoutProps) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   function isActive(path: string) {
     if (path === "/") return location.pathname === "/";
@@ -30,37 +37,33 @@ export function RadialOrbitalLayout({ children }: RadialOrbitalLayoutProps) {
   }
 
   const activePage = navItems.find((n) => isActive(n.path));
-
-  // Orbit around center of screen
-  const radius = 180;
+  const radius = isMobile ? 110 : 180;
   const angleStep = (Math.PI * 2) / navItems.length;
   const startAngle = -Math.PI / 2;
+  const iconSize = isMobile ? "w-10 h-10" : "w-14 h-14";
 
   return (
     <div className="h-screen bg-bg-primary text-text-primary relative overflow-hidden">
-      <main className={`h-full overflow-y-auto p-6 transition-all duration-500 ${open ? "blur-sm scale-95 opacity-40" : ""}`}>
+      <main className={`h-full overflow-y-auto p-4 sm:p-6 transition-all duration-500 ${open ? "blur-sm scale-95 opacity-40" : ""}`}>
         {children}
       </main>
 
-      {/* Center trigger */}
       <button
         onClick={() => setOpen(!open)}
         className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 rounded-full flex flex-col items-center justify-center shadow-2xl transition-all duration-500 ${
           open
-            ? "w-24 h-24 bg-bg-secondary border-2 border-accent"
-            : "w-14 h-14 bg-accent hover:scale-110"
+            ? `${isMobile ? "w-16 h-16" : "w-24 h-24"} bg-bg-secondary border-2 border-accent`
+            : "w-12 h-12 sm:w-14 sm:h-14 bg-accent hover:scale-110"
         }`}
       >
-        <i className={`ms ms-planeswalker ${open ? "text-accent" : "text-white"}`} style={{ fontSize: open ? "1.8em" : "1.5em" }} />
-        {open && activePage && (
+        <i className={`ms ms-planeswalker ${open ? "text-accent" : "text-white"}`} style={{ fontSize: open ? (isMobile ? "1.3em" : "1.8em") : "1.3em" }} />
+        {open && activePage && !isMobile && (
           <span className="text-[10px] text-accent mt-0.5">{activePage.label}</span>
         )}
       </button>
 
-      {/* Orbital items */}
       {open && (
         <>
-          {/* Orbit ring */}
           <div
             className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 rounded-full border border-border/30 pointer-events-none"
             style={{ width: radius * 2, height: radius * 2 }}
@@ -86,15 +89,15 @@ export function RadialOrbitalLayout({ children }: RadialOrbitalLayoutProps) {
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <div className={`flex flex-col items-center gap-1.5 transition-transform duration-200 ${isHovered ? "scale-125" : ""}`}>
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-colors ${
+                <div className={`flex flex-col items-center gap-1 sm:gap-1.5 transition-transform duration-200 ${isHovered ? "scale-125" : ""}`}>
+                  <div className={`${iconSize} rounded-full flex items-center justify-center shadow-xl transition-colors ${
                     active
                       ? "bg-accent text-white shadow-[0_0_20px_var(--color-accent)]"
                       : "bg-bg-secondary border-2 border-border text-text-secondary hover:border-accent hover:text-accent"
                   }`}>
-                    <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: "1.3em" }} />
+                    <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: isMobile ? "1em" : "1.3em" }} />
                   </div>
-                  <span className={`text-xs font-medium transition-colors ${active ? "text-accent" : "text-text-muted"}`}>
+                  <span className={`text-[10px] sm:text-xs font-medium transition-colors ${active ? "text-accent" : "text-text-muted"}`}>
                     {item.label}
                   </span>
                 </div>

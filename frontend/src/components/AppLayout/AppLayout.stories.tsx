@@ -8,7 +8,7 @@ function DashboardContent() {
   return (
     <div className="space-y-6">
       <h2 className="text-xl">Dashboard</h2>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatCard label="Total Decks" value={42} />
         <StatCard label="Total Sets" value={156} />
         <StatCard label="Cards with Prices" value="25,000" />

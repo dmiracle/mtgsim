@@ -80,6 +80,20 @@ export function CardDetailPage({
             onAddToDeck={onAddToDeck}
           />
 
+          {/* Card image — mobile only, after header */}
+          <div className="md:hidden">
+            <div className="aspect-[5/7] max-w-[280px] mx-auto bg-bg-tertiary rounded-lg flex items-center justify-center border border-border overflow-hidden">
+              {card.image_url ? (
+                <img src={card.image_url} alt={card.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center p-4">
+                  <p className="text-text-muted text-sm">{card.name}</p>
+                  <p className="text-text-muted text-xs mt-1">No image</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <CardOracleText text={card.text} flavor_text={card.flavor_text} />
 
           <CardKeywords groups={keywordGroups} />
@@ -101,8 +115,8 @@ export function CardDetailPage({
 
         {/* Right column: sidebar */}
         <div className="space-y-4">
-          {/* Card image */}
-          <div className="aspect-[5/7] bg-bg-tertiary rounded-lg flex items-center justify-center border border-border overflow-hidden">
+          {/* Card image — desktop only */}
+          <div className="hidden md:block aspect-[5/7] bg-bg-tertiary rounded-lg flex items-center justify-center border border-border overflow-hidden">
             {card.image_url ? (
               <img src={card.image_url} alt={card.name} className="w-full h-full object-cover" />
             ) : (
