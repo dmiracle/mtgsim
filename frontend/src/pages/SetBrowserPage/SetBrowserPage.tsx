@@ -29,8 +29,8 @@ export function SetBrowserPage({ sets, pagination, availableTypes, onSetClick, o
       <h2 className="text-xl font-bold text-text-primary">Sets</h2>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex-1 min-w-[150px]">
           <SearchInput value={search} placeholder="Search sets..." onChange={setSearch} />
         </div>
         <select

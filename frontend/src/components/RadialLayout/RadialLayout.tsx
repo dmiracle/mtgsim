@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -13,10 +13,21 @@ const navItems = [
 
 type RadialLayoutProps = { children: ReactNode };
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(window.innerWidth < 640);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return mobile;
+}
+
 export function RadialLayout({ children }: RadialLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   function isActive(path: string) {
     if (path === "/") return location.pathname === "/";
@@ -28,29 +39,26 @@ export function RadialLayout({ children }: RadialLayoutProps) {
     setMenuOpen(false);
   }
 
-  const radius = 130;
+  const radius = isMobile ? 90 : 130;
   const angleStep = (Math.PI * 2) / navItems.length;
   const startAngle = -Math.PI / 2;
+  const btnSize = isMobile ? "w-10 h-10" : "w-12 h-12";
 
   return (
     <div className="h-screen bg-bg-primary text-text-primary relative overflow-hidden">
-      <main className="h-full overflow-y-auto p-6">{children}</main>
+      <main className="h-full overflow-y-auto p-4 sm:p-6">{children}</main>
 
-      {/* Radial menu trigger — bottom right */}
       <button
         onClick={() => setMenuOpen(!menuOpen)}
-        className={`fixed bottom-8 right-8 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 ${
-          menuOpen
-            ? "bg-danger text-white rotate-45 scale-110"
-            : "bg-accent text-white hover:scale-110"
+        className={`fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 ${
+          menuOpen ? "bg-danger text-white rotate-45 scale-110" : "bg-accent text-white hover:scale-110"
         }`}
       >
-        <i className="ms ms-planeswalker" style={{ fontSize: "1.5em" }} />
+        <i className="ms ms-planeswalker" style={{ fontSize: isMobile ? "1.2em" : "1.5em" }} />
       </button>
 
-      {/* Radial menu items */}
       {menuOpen && (
-        <div className="fixed bottom-8 right-8 z-30">
+        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-30">
           {navItems.map((item, i) => {
             const angle = startAngle + angleStep * i;
             const x = Math.cos(angle) * radius;
@@ -61,7 +69,7 @@ export function RadialLayout({ children }: RadialLayoutProps) {
               <button
                 key={item.id}
                 onClick={() => go(item.path)}
-                className={`absolute w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
+                className={`absolute ${btnSize} rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
                   active
                     ? "bg-accent text-white shadow-[0_0_12px_var(--color-accent)]"
                     : "bg-bg-secondary border border-border text-text-secondary hover:bg-accent hover:text-white hover:border-accent"
@@ -73,17 +81,14 @@ export function RadialLayout({ children }: RadialLayoutProps) {
                 }}
                 title={item.label}
               >
-                <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: "1.1em" }} />
+                <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: isMobile ? "0.9em" : "1.1em" }} />
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Backdrop */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-20 bg-black/30" onClick={() => setMenuOpen(false)} />
-      )}
+      {menuOpen && <div className="fixed inset-0 z-20 bg-black/30" onClick={() => setMenuOpen(false)} />}
     </div>
   );
 }

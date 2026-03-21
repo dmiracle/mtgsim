@@ -69,15 +69,15 @@ export function DeckBrowserPage({
       </div>
 
       {/* Filters */}
-      <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
+      <div className="bg-bg-secondary border border-border rounded-lg p-3 sm:p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex-1 min-w-[150px]">
             <SearchInput value={search} placeholder="Search decks..." onChange={setSearch} />
           </div>
           <SortSelect options={SORT_OPTIONS} sort={sort} order={order} onSortChange={setSort} onOrderChange={setOrder} />
         </div>
 
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold">Color</span>
             <ColorIdentityPicker selected={colors} onChange={setColors} size="sm" />

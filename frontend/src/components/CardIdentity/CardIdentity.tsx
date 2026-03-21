@@ -34,9 +34,9 @@ export function CardIdentity({
   return (
     <div className="space-y-2">
       {/* Name + mana cost */}
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-xl font-bold text-text-primary">{name}</h1>
-        <div className="flex items-center gap-3 shrink-0">
+      <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-4">
+        <h1 className="text-lg sm:text-xl font-bold text-text-primary">{name}</h1>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ManaSymbols cost={mana_cost} size="md" />
           <span className="text-xs text-text-muted bg-bg-tertiary rounded px-1.5 py-0.5">
             MV {mana_value}
@@ -51,7 +51,7 @@ export function CardIdentity({
       </div>
 
       {/* Stats + add to deck */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {statParts.length > 0 && (
           <div className="flex items-center gap-2">
             {statParts.map((s) => (

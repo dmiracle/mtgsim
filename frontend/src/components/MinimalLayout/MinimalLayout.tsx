@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
 type MinimalLayoutProps = { children: ReactNode };
 
 export function MinimalLayout({ children }: MinimalLayoutProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -22,10 +23,15 @@ export function MinimalLayout({ children }: MinimalLayoutProps) {
     return location.pathname.startsWith(path);
   }
 
+  function go(path: string) {
+    navigate(path);
+    setMobileOpen(false);
+  }
+
   return (
     <div className="flex h-screen bg-bg-primary text-text-primary">
-      {/* Icon-only rail */}
-      <nav className="w-14 shrink-0 bg-bg-secondary border-r border-border flex flex-col items-center py-4 gap-1">
+      {/* Desktop icon rail */}
+      <nav className="hidden sm:flex w-14 shrink-0 bg-bg-secondary border-r border-border flex-col items-center py-4 gap-1">
         <div className="mb-4">
           <i className="ms ms-planeswalker text-accent" style={{ fontSize: "1.5em" }} />
         </div>
@@ -47,7 +53,43 @@ export function MinimalLayout({ children }: MinimalLayoutProps) {
           </button>
         ))}
       </nav>
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile header */}
+        <header className="sm:hidden shrink-0 h-12 border-b border-border bg-bg-secondary flex items-center px-4 gap-3">
+          <button onClick={() => setMobileOpen(true)}>
+            <i className="ms ms-planeswalker text-accent" style={{ fontSize: "1.3em" }} />
+          </button>
+          <span className="text-sm text-text-primary">MTG Viewer</span>
+        </header>
+
+        {/* Mobile slide-out */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 sm:hidden">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
+            <div className="relative w-56 h-full bg-bg-secondary border-r border-border p-4 space-y-1">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                <i className="ms ms-planeswalker text-accent" style={{ fontSize: "1.4em" }} />
+                <span className="text-sm font-semibold text-text-primary">MTG Viewer</span>
+              </div>
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => go(item.path)}
+                  className={`w-full text-left px-3 py-2 text-sm rounded-lg flex items-center gap-3 transition-colors ${
+                    isActive(item.path) ? "bg-accent-muted text-accent" : "text-text-muted hover:bg-bg-hover"
+                  }`}
+                >
+                  <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: "1em" }} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+      </div>
     </div>
   );
 }

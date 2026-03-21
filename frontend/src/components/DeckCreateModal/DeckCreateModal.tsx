@@ -27,8 +27,8 @@ export function DeckCreateModal({ open, onClose, onCreate, creating = false }: D
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-sm font-semibold text-text-primary">New Deck</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary text-lg">&times;</button>

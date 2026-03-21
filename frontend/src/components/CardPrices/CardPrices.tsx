@@ -17,7 +17,8 @@ export function CardPrices({ prices }: CardPricesProps) {
   return (
     <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
       <h3 className="text-sm font-medium text-text-secondary">Prices</h3>
-      <table className="w-full text-xs">
+      <div className="overflow-x-auto -mx-4 px-4">
+      <table className="w-full text-xs min-w-[320px]">
         <thead>
           <tr className="text-text-muted border-b border-border">
             <th className="text-left pb-1.5 font-medium">Provider</th>
@@ -37,6 +38,7 @@ export function CardPrices({ prices }: CardPricesProps) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

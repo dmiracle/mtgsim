@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -19,6 +19,18 @@ export function CommandPaletteLayout({ children }: CommandPaletteLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen(true);
+      }
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   const filtered = navItems.filter((item) =>
     item.label.toLowerCase().includes(search.toLowerCase())
   );
@@ -38,8 +50,7 @@ export function CommandPaletteLayout({ children }: CommandPaletteLayoutProps) {
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
-      {/* Minimal header with command trigger */}
-      <header className="shrink-0 h-12 border-b border-border bg-bg-secondary/50 flex items-center justify-between px-6">
+      <header className="shrink-0 h-12 border-b border-border bg-bg-secondary/50 flex items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <i className="ms ms-planeswalker text-accent" style={{ fontSize: "1.2em" }} />
           {activePage && (
@@ -53,18 +64,18 @@ export function CommandPaletteLayout({ children }: CommandPaletteLayoutProps) {
           onClick={() => setOpen(true)}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-xs text-text-muted hover:border-border-hover hover:text-text-secondary transition-colors"
         >
-          Navigate...
-          <kbd className="px-1.5 py-0.5 rounded bg-bg-secondary border border-border text-[10px] font-mono">
+          <span className="hidden sm:inline">Navigate...</span>
+          <span className="sm:hidden">Menu</span>
+          <kbd className="hidden sm:inline px-1.5 py-0.5 rounded bg-bg-secondary border border-border text-[10px] font-mono">
             Ctrl+K
           </kbd>
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
 
-      {/* Command palette overlay */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/60" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] sm:pt-[20vh] p-4 bg-black/60" onClick={() => setOpen(false)}>
           <div className="w-full max-w-md bg-bg-secondary border border-border rounded-xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="p-3 border-b border-border">
               <input

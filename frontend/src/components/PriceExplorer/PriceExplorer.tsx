@@ -15,7 +15,7 @@ export function PriceExplorer({ stats, onCardClick }: PriceExplorerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard label="Cards with Prices" value={stats.total_cards_with_prices.toLocaleString()} />
         <StatCard label="Total Decks" value={stats.total_decks} />
         <StatCard label="Total Sets" value={stats.total_sets} />

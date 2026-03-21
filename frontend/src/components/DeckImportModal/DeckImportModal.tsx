@@ -40,8 +40,8 @@ export function DeckImportModal({ open, onClose, onImport, result, importing = f
   const created = result?.resolved.filter((r) => r.match_type === "created") ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-lg shadow-xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-lg shadow-xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <h2 className="text-sm font-semibold text-text-primary">Import Deck</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary text-lg">&times;</button>

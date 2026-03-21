@@ -25,30 +25,30 @@ export function TopNavLayout({ children }: TopNavLayoutProps) {
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
       <header className="shrink-0 border-b border-border bg-bg-secondary">
-        <div className="flex items-center h-14 px-6 gap-8">
+        <div className="flex items-center h-12 sm:h-14 px-3 sm:px-6 gap-4 sm:gap-8">
           <div className="flex items-center gap-2 shrink-0">
             <i className="ms ms-planeswalker text-accent" style={{ fontSize: "1.3em" }} />
-            <h1 className="text-base text-text-primary">MTG Viewer</h1>
+            <h1 className="text-base text-text-primary hidden sm:block">MTG Viewer</h1>
           </div>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`px-3 py-2 text-sm flex items-center gap-2 rounded-lg transition-colors ${
+                className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
                   isActive(item.path)
                     ? "bg-accent-muted text-accent"
                     : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
                 }`}
               >
                 <i className={`${item.iconFont} ${item.iconClass}`} style={{ fontSize: "1em" }} />
-                {item.label}
+                <span className="hidden sm:inline">{item.label}</span>
               </button>
             ))}
           </nav>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
     </div>
   );
 }

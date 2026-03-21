@@ -28,14 +28,14 @@ export function Pagination({ page, pages, total, limit, onPageChange }: Paginati
     return result;
   }
 
-  const btnBase = "px-3 py-1.5 text-sm rounded border";
+  const btnBase = "px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded border";
   const btnActive = "bg-accent border-accent text-white";
   const btnInactive = "bg-bg-secondary border-border text-text-secondary hover:bg-bg-tertiary hover:border-border-hover";
   const btnDisabled = "bg-bg-secondary border-border text-text-muted cursor-not-allowed";
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-text-muted">
+    <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+      <span className="text-xs sm:text-sm text-text-muted">
         {start}–{end} of {total.toLocaleString()}
       </span>
       <div className="flex items-center gap-1">
