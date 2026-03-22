@@ -2,7 +2,7 @@
 
 import logging
 
-from mtgdb.models import MJCard, MJCardIdentifier, MJSet, UserCard
+from mtgdb.models import MJCard, MJCardIdentifier, MJCardLegality, MJSet, UserCard
 from mtgdb.session import get_session
 from sqlalchemy import Integer, cast
 from sqlmodel import func, select
@@ -215,6 +215,7 @@ class SetsData:
         tags: list[str] | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
+        format_legal: str | None = None,
         sort: str = "number",
         order: str = "asc",
         unique: bool = False,
@@ -236,6 +237,15 @@ class SetsData:
             )
             query, price_col = add_price_join(query)
             query = query.add_columns(price_col)
+
+            # Format legality filter
+            if format_legal:
+                query = query.join(
+                    MJCardLegality,
+                    (MJCard.uuid == MJCardLegality.card_uuid)
+                    & (MJCardLegality.format == format_legal)
+                    & (MJCardLegality.status == "Legal"),
+                )
 
             # Unique filter: keep only the standard art (lowest collector number) per card name
             if unique:

@@ -80,6 +80,8 @@ class CardsData:
         format_legal: str | None = None,
         keywords: list[str] | None = None,
         tags: list[str] | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
         owns: bool | None = None,
         wants: bool | None = None,
         unique: bool = False,
@@ -144,6 +146,12 @@ class CardsData:
                 owns=owns,
                 wants=wants,
             )
+
+            # Price range filters
+            if price_min is not None:
+                query = query.where(price_col >= price_min)
+            if price_max is not None:
+                query = query.where(price_col <= price_max)
 
             # Sorting
             sort_map = {
@@ -516,11 +524,13 @@ class CardsData:
                 .order_by(MJCard.set_code)
                 .limit(50)
             )
+            query, price_col = add_price_join(query)
+            query = query.add_columns(price_col)
 
             results = session.exec(query).all()
 
             printings = []
-            for mj_card, identifier, user_card, set_name in results:
+            for mj_card, identifier, user_card, set_name, best_price in results:
                 total_owned = (user_card.quantity_owned or 0) + (user_card.quantity_owned_foil or 0) if user_card else 0
                 printings.append(
                     {
@@ -530,6 +540,7 @@ class CardsData:
                         "rarity": mj_card.rarity,
                         "number": mj_card.number,
                         "image_url": build_image_url(identifier.scryfall_id if identifier else None),
+                        "price": best_price,
                         "owns": total_owned > 0,
                         "total_owned": total_owned,
                     }

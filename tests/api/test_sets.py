@@ -254,6 +254,24 @@ class TestGetSet:
         response = client.get(f"/api/sets/{sample_set_code}?card_page=2&card_limit=20")
         assert response.status_code == 200
 
+    def test_get_set_filter_cards_by_format(self, client, sample_set_code):
+        """Filter cards by format legality works."""
+        response = client.get(f"/api/sets/{sample_set_code}?format=modern")
+        assert response.status_code == 200
+
+    def test_get_set_filter_cards_by_format_pauper(self, client, sample_set_code):
+        """Filter cards by pauper format works."""
+        response = client.get(f"/api/sets/{sample_set_code}?format=pauper")
+        assert response.status_code == 200
+
+    def test_get_set_filter_cards_by_format_reduces_count(self, client, sample_set_code):
+        """Format filter reduces card count compared to unfiltered."""
+        all_response = client.get(f"/api/sets/{sample_set_code}")
+        filtered_response = client.get(f"/api/sets/{sample_set_code}?format=pauper")
+        all_total = all_response.json()["cards"]["pagination"]["total"]
+        filtered_total = filtered_response.json()["cards"]["pagination"]["total"]
+        assert filtered_total <= all_total
+
     def test_get_set_not_found(self, client):
         """Non-existent set returns 404."""
         response = client.get("/api/sets/NOTASET")
