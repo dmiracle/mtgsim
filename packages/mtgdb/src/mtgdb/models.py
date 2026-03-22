@@ -197,6 +197,32 @@ class MJCardTag(SQLModel, table=True):
 
 
 # =============================================================================
+# 17Lands Models (MJ17L prefix) - Read-only, synced from 17Lands
+# =============================================================================
+
+
+class MJ17LDataset(SQLModel, table=True):
+    """17Lands public dataset metadata."""
+
+    __tablename__ = "mj_17l_dataset"
+
+    id: int | None = Field(default=None, primary_key=True)
+    expansion: str = Field(index=True)
+    format: str = Field(index=True)
+    last_updated: str | None = None
+
+    draft_data_url: str | None = None
+    game_data_url: str | None = None
+    replay_data_url: str | None = None
+
+    draft_data_downloaded: bool = False
+    game_data_downloaded: bool = False
+    replay_data_downloaded: bool = False
+
+    synced_at: str | None = None
+
+
+# =============================================================================
 # User Models - User-modifiable data
 # =============================================================================
 
