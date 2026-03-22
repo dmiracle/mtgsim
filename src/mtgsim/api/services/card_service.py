@@ -57,6 +57,8 @@ class CardService:
             format_legal=format_legal,
             keywords=keywords,
             tags=tags,
+            price_min=price_min,
+            price_max=price_max,
             sort=sort,
             order=order,
             page=page,
@@ -166,6 +168,7 @@ class CardService:
                     rarity=p.get("rarity"),
                     number=p.get("number"),
                     image_url=p.get("image_url"),
+                    price=p.get("price"),
                     owns=p.get("owns", False),
                     total_owned=p.get("total_owned", 0),
                 )
