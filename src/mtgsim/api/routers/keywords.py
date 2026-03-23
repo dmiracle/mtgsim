@@ -22,6 +22,7 @@ class KeywordMatch(BaseModel):
 
     keyword: str
     type: str
+    definition: str = ""
 
 
 class KeywordsResponse(BaseModel):
@@ -70,10 +71,13 @@ async def get_keywords() -> KeywordsResponse:
     logger.debug("get_keywords: fetching all keyword categories")
     all_keywords = keywords_data.get_all_keywords()
 
+    def _to_defs(kws):
+        return [KeywordDefinition(term=kw["name"], definition=kw["definition"]) for kw in kws]
+
     return KeywordsResponse(
-        ability_words=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["ability_words"]],
-        keyword_abilities=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["keyword_abilities"]],
-        keyword_actions=[KeywordDefinition(term=kw, definition="") for kw in all_keywords["keyword_actions"]],
+        ability_words=_to_defs(all_keywords["ability_words"]),
+        keyword_abilities=_to_defs(all_keywords["keyword_abilities"]),
+        keyword_actions=_to_defs(all_keywords["keyword_actions"]),
     )
 
 
@@ -88,7 +92,9 @@ async def search_keywords(
     """
     results = keywords_data.search_keywords(q)
     return KeywordSearchResponse(
-        results=[KeywordMatch(keyword=r["keyword"], type=r["type"]) for r in results],
+        results=[
+            KeywordMatch(keyword=r["keyword"], type=r["type"], definition=r.get("definition", "")) for r in results
+        ],
         total=len(results),
     )
 

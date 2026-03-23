@@ -186,6 +186,17 @@ class MJKeyword(SQLModel, table=True):
     type: str = Field(index=True)  # abilityWords, keywordAbilities, keywordActions
 
 
+class MJKeywordDefinition(SQLModel, table=True):
+    """Definition/rules text for an MTG keyword."""
+
+    __tablename__ = "mj_keyword_definition"
+
+    id: int | None = Field(default=None, primary_key=True)
+    keyword: str = Field(index=True, unique=True)
+    definition: str
+    source: str = "generated"  # generated, comprehensive_rules, scryfall, manual
+
+
 class MJCardTag(SQLModel, table=True):
     """Card tag from Scryfall oracle tags (e.g. mana-dork, ramp, removal)."""
 

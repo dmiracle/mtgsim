@@ -40,7 +40,7 @@ from mtgdb.session import get_engine, init_db
 
 from .download import download_and_extract_tar_xz, download_and_extract_xz
 from .scryfall import fetch_all_tags, sync_tags
-from .tables import sync_cards, sync_decks, sync_keywords, sync_prices, sync_sets
+from .tables import sync_cards, sync_decks, sync_keyword_definitions, sync_keywords, sync_prices, sync_sets
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ __all__ = [
     "sync_prices",
     "sync_decks",
     "sync_keywords",
+    "sync_keyword_definitions",
     "fetch_all_tags",
     "sync_tags",
 ]

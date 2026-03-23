@@ -143,6 +143,14 @@ def db_sync(
             if keywords_only:
                 download_and_extract_xz(KEYWORDS_URL, keywords_file, force)
                 sync_keywords(keywords_file)
+                # Also sync keyword definitions from web/keyword-definitions.js
+                from mtgdb.sync.tables import sync_keyword_definitions
+
+                from mtgsim.config import get_web_dir
+
+                defs_file = get_web_dir() / "keyword-definitions.js"
+                if defs_file.exists():
+                    sync_keyword_definitions(defs_file)
                 typer.echo("Keywords sync complete.")
 
             if tags_only:

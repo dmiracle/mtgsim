@@ -1,6 +1,6 @@
 """Keywords data access layer."""
 
-from mtgdb.models import MJKeyword
+from mtgdb.models import MJKeyword, MJKeywordDefinition
 from mtgdb.session import get_session
 from sqlmodel import func, select
 
@@ -26,20 +26,33 @@ class KeywordsData:
         """Get all keyword actions."""
         return self._get_keywords_by_type("keywordActions")
 
+    def get_definitions_map(self) -> dict[str, str]:
+        """Get all keyword definitions as a {keyword: definition} dict."""
+        with get_session() as session:
+            query = select(MJKeywordDefinition.keyword, MJKeywordDefinition.definition)
+            results = session.exec(query).all()
+            return dict(results)
+
     def get_all_keywords(self) -> dict:
-        """Get all keyword categories."""
+        """Get all keyword categories with definitions."""
+        defs = self.get_definitions_map()
         return {
-            "ability_words": self.get_ability_words(),
-            "keyword_abilities": self.get_keyword_abilities(),
-            "keyword_actions": self.get_keyword_actions(),
+            "ability_words": [{"name": kw, "definition": defs.get(kw, "")} for kw in self.get_ability_words()],
+            "keyword_abilities": [{"name": kw, "definition": defs.get(kw, "")} for kw in self.get_keyword_abilities()],
+            "keyword_actions": [{"name": kw, "definition": defs.get(kw, "")} for kw in self.get_keyword_actions()],
         }
 
     def search_keywords(self, query: str) -> list[dict]:
-        """Search keywords by partial match."""
+        """Search keywords by partial match, including definitions."""
         with get_session() as session:
-            q = select(MJKeyword.name, MJKeyword.type).where(MJKeyword.name.contains(query)).order_by(MJKeyword.name)
+            q = (
+                select(MJKeyword.name, MJKeyword.type, MJKeywordDefinition.definition)
+                .outerjoin(MJKeywordDefinition, MJKeyword.name == MJKeywordDefinition.keyword)
+                .where(MJKeyword.name.contains(query))
+                .order_by(MJKeyword.name)
+            )
             results = session.exec(q).all()
-            return [{"keyword": name, "type": kw_type} for name, kw_type in results]
+            return [{"keyword": name, "type": kw_type, "definition": defn or ""} for name, kw_type, defn in results]
 
     def get_keyword_count(self) -> dict[str, int]:
         """Get count of keywords by type."""
