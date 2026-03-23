@@ -222,6 +222,164 @@ class MJ17LDataset(SQLModel, table=True):
     synced_at: str | None = None
 
 
+class MJ17LDraftPick(SQLModel, table=True):
+    """One row per draft pick from 17Lands draft data."""
+
+    __tablename__ = "mj_17l_draft_pick"
+
+    id: int | None = Field(default=None, primary_key=True)
+    expansion: str = Field(index=True)
+    event_type: str = Field(index=True)
+    draft_id: str = Field(index=True)
+    draft_time: str | None = None
+    user_win_rate_bucket: float | None = None
+    user_n_matches_bucket: int | None = None
+    event_match_wins: int | None = None
+    event_match_losses: int | None = None
+    pack_number: int | None = None
+    pick_number: int | None = None
+    pick: str | None = Field(default=None, index=True)
+    pick_maindeck_rate: float | None = None
+    pick_sideboard_in_rate: float | None = None
+
+
+class MJ17LDraftCard(SQLModel, table=True):
+    """One row per card available in a draft pack."""
+
+    __tablename__ = "mj_17l_draft_card"
+
+    id: int | None = Field(default=None, primary_key=True)
+    draft_id: str = Field(index=True)
+    pack_number: int | None = None
+    pick_number: int | None = None
+    card_name: str = Field(index=True)
+    in_pack: bool = False
+    pool_count: int = 0
+
+
+class MJ17LGame(SQLModel, table=True):
+    """One row per game from 17Lands game data."""
+
+    __tablename__ = "mj_17l_game"
+
+    id: int | None = Field(default=None, primary_key=True)
+    expansion: str = Field(index=True)
+    event_type: str = Field(index=True)
+    draft_id: str = Field(index=True)
+    build_index: int | None = None
+    draft_time: str | None = None
+    game_number: int | None = None
+    rank: str | None = None
+    user_win_rate_bucket: float | None = None
+    user_n_games_bucket: int | None = None
+    on_play: bool | None = None
+    num_mulligans: int | None = None
+    opp_num_mulligans: int | None = None
+    opp_colors: str | None = None
+    num_turns: int | None = None
+    won: bool | None = None
+
+
+class MJ17LGameCard(SQLModel, table=True):
+    """One row per card in a game's deck composition."""
+
+    __tablename__ = "mj_17l_game_card"
+
+    id: int | None = Field(default=None, primary_key=True)
+    game_id: int = Field(foreign_key="mj_17l_game.id", index=True)
+    card_name: str = Field(index=True)
+    in_opening_hand: int = 0
+    in_deck: int = 0
+    drawn: int = 0
+    sideboarded: int = 0
+
+
+class MJ17LReplay(SQLModel, table=True):
+    """One row per game replay from 17Lands replay data."""
+
+    __tablename__ = "mj_17l_replay"
+
+    id: int | None = Field(default=None, primary_key=True)
+    expansion: str = Field(index=True)
+    format: str = Field(index=True)
+    draft_id: str = Field(index=True)
+    history_id: str | None = None
+    time: str | None = None
+    game_index: int | None = None
+    user_rank: str | None = None
+    oppo_rank: str | None = None
+    user_deck_colors: str | None = None
+    oppo_deck_colors: str | None = None
+    user_mulligans: int | None = None
+    oppo_mulligans: int | None = None
+    on_play: bool | None = None
+    turns: int | None = None
+    won: bool | None = None
+    missing_diffs: str | None = None
+    user_total_cards_drawn: int | None = None
+    user_total_cards_discarded: int | None = None
+    user_total_lands_played: int | None = None
+    user_total_cards_foretold: int | None = None
+    user_total_creatures_cast: int | None = None
+    user_total_non_creatures_cast: int | None = None
+    user_total_instants_sorceries_cast: int | None = None
+    user_total_cards_learned: int | None = None
+    user_total_mana_spent: int | None = None
+    oppo_total_cards_drawn: int | None = None
+    oppo_total_cards_discarded: int | None = None
+    oppo_total_lands_played: int | None = None
+    oppo_total_cards_foretold: int | None = None
+    oppo_total_creatures_cast: int | None = None
+    oppo_total_non_creatures_cast: int | None = None
+    oppo_total_instants_sorceries_cast: int | None = None
+    oppo_total_cards_learned: int | None = None
+    oppo_total_mana_spent: int | None = None
+
+
+class MJ17LReplayTurn(SQLModel, table=True):
+    """One row per turn per player in a game replay."""
+
+    __tablename__ = "mj_17l_replay_turn"
+
+    id: int | None = Field(default=None, primary_key=True)
+    replay_id: int = Field(foreign_key="mj_17l_replay.id", index=True)
+    turn_number: int | None = None
+    player: str | None = None  # "user" or "oppo"
+    cards_drawn: str | None = None
+    cards_discarded: str | None = None
+    lands_played: str | None = None
+    cards_foretold: str | None = None
+    creatures_cast: str | None = None
+    non_creatures_cast: str | None = None
+    user_instants_sorceries_cast: str | None = None
+    oppo_instants_sorceries_cast: str | None = None
+    user_abilities: str | None = None
+    oppo_abilities: str | None = None
+    user_cards_learned: str | None = None
+    oppo_cards_learned: str | None = None
+    creatures_attacked: str | None = None
+    creatures_blocked: str | None = None
+    creatures_unblocked: str | None = None
+    creatures_blocking: str | None = None
+    player_combat_damage_dealt: int | None = None
+    user_creatures_killed_combat: str | None = None
+    oppo_creatures_killed_combat: str | None = None
+    user_creatures_killed_non_combat: str | None = None
+    oppo_creatures_killed_non_combat: str | None = None
+    user_mana_spent: int | None = None
+    oppo_mana_spent: int | None = None
+    eot_user_cards_in_hand: str | None = None
+    eot_oppo_cards_in_hand: str | None = None
+    eot_user_lands_in_play: str | None = None
+    eot_oppo_lands_in_play: str | None = None
+    eot_user_creatures_in_play: str | None = None
+    eot_oppo_creatures_in_play: str | None = None
+    eot_user_non_creatures_in_play: str | None = None
+    eot_oppo_non_creatures_in_play: str | None = None
+    eot_user_life: int | None = None
+    eot_oppo_life: int | None = None
+
+
 # =============================================================================
 # User Models - User-modifiable data
 # =============================================================================

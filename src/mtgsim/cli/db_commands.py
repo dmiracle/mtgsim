@@ -45,6 +45,12 @@ def db_sync(
     seventeenlands_metadata_only: bool = typer.Option(
         False, "--17l-metadata-only", help="Only sync 17Lands metadata, skip downloads"
     ),
+    seventeenlands_ingest: bool = typer.Option(
+        False, "--17l-ingest", help="Ingest downloaded 17Lands CSVs into DB tables"
+    ),
+    seventeenlands_data_type: str | None = typer.Option(
+        None, "--17l-data-type", help="Data type to ingest: draft, game, replay, or all"
+    ),
 ):
     """Sync MTGJSON data to unified database.
 
@@ -79,16 +85,31 @@ def db_sync(
         if seventeenlands:
             from mtgdb.config import ensure_dirs
             from mtgdb.session import init_db
-            from mtgdb.sync.seventeenlands import download_dataset_files, sync_dataset_metadata
+            from mtgdb.sync.seventeenlands import (
+                download_dataset_files,
+                ingest_datasets,
+                sync_dataset_metadata,
+            )
 
             ensure_dirs()
             init_db()
             count = sync_dataset_metadata()
             typer.echo(f"17Lands metadata synced: {count} datasets.")
 
-            if not seventeenlands_metadata_only:
+            if not seventeenlands_metadata_only and not seventeenlands_ingest:
                 downloaded = download_dataset_files(expansion=seventeenlands_expansion, force=force)
                 typer.echo(f"17Lands files downloaded: {downloaded}.")
+
+            if seventeenlands_ingest:
+                dt = seventeenlands_data_type or "all"
+                data_types = ["draft", "game", "replay"] if dt == "all" else [dt]
+                results = ingest_datasets(
+                    expansion=seventeenlands_expansion,
+                    data_types=data_types,
+                )
+                for key, rows in results.items():
+                    typer.echo(f"  {key}: {rows:,} rows")
+                typer.echo(f"17Lands ingestion complete: {len(results)} datasets.")
             return
 
         if cards_only or sets_only or prices_only or decks_only or keywords_only or tags_only:

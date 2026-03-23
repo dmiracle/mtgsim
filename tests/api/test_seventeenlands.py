@@ -70,3 +70,73 @@ class TestListExpansions:
             assert "dataset_count" in entry
             assert "formats" in entry
             assert isinstance(entry["formats"], list)
+
+
+class TestListDraftPicks:
+    """Tests for GET /api/17lands/drafts endpoint."""
+
+    def test_list_drafts_returns_200(self, client):
+        response = client.get("/api/17lands/drafts")
+        assert response.status_code == 200
+
+    def test_list_drafts_response_structure(self, client):
+        response = client.get("/api/17lands/drafts")
+        data = response.json()
+        assert "data" in data
+        assert "pagination" in data
+
+    def test_list_drafts_filter_by_expansion(self, client):
+        response = client.get("/api/17lands/drafts?expansion=KHM")
+        assert response.status_code == 200
+
+    def test_list_drafts_filter_by_card(self, client):
+        response = client.get("/api/17lands/drafts?card_name=Lightning+Bolt")
+        assert response.status_code == 200
+
+    def test_list_drafts_limit_validation(self, client):
+        response = client.get("/api/17lands/drafts?limit=200")
+        assert response.status_code == 422
+
+
+class TestListGames:
+    """Tests for GET /api/17lands/games endpoint."""
+
+    def test_list_games_returns_200(self, client):
+        response = client.get("/api/17lands/games")
+        assert response.status_code == 200
+
+    def test_list_games_response_structure(self, client):
+        response = client.get("/api/17lands/games")
+        data = response.json()
+        assert "data" in data
+        assert "pagination" in data
+
+    def test_list_games_filter_by_won(self, client):
+        response = client.get("/api/17lands/games?won=true")
+        assert response.status_code == 200
+
+    def test_list_games_limit_validation(self, client):
+        response = client.get("/api/17lands/games?limit=200")
+        assert response.status_code == 422
+
+
+class TestListReplays:
+    """Tests for GET /api/17lands/replays endpoint."""
+
+    def test_list_replays_returns_200(self, client):
+        response = client.get("/api/17lands/replays")
+        assert response.status_code == 200
+
+    def test_list_replays_response_structure(self, client):
+        response = client.get("/api/17lands/replays")
+        data = response.json()
+        assert "data" in data
+        assert "pagination" in data
+
+    def test_list_replays_filter_by_expansion(self, client):
+        response = client.get("/api/17lands/replays?expansion=KHM")
+        assert response.status_code == 200
+
+    def test_list_replays_limit_validation(self, client):
+        response = client.get("/api/17lands/replays?limit=200")
+        assert response.status_code == 422
