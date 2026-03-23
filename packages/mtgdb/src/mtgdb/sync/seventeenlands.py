@@ -206,11 +206,13 @@ BATCH_SIZE = 1000
 
 def _open_csv(path: Path):
     """Open a .csv.gz file (handles both plain gzip and tar-wrapped gzip)."""
-    with gzip.open(path, "rt") as f:
-        first_bytes = f.read(10)
+    # Check if the gzip contains a tar archive by reading raw bytes
+    with gzip.open(path, "rb") as f:
+        header = f.read(262)
 
-    if first_bytes.startswith("\x00") or "ustar" in first_bytes or len(first_bytes) < 10:
-        # tar-wrapped: extract the CSV from the tar
+    is_tar = len(header) >= 262 and header[257:262] == b"ustar"
+
+    if is_tar:
         tf = tarfile.open(path, "r:gz")
         members = tf.getmembers()
         csv_member = next((m for m in members if m.name.endswith(".csv")), members[0])
@@ -333,27 +335,33 @@ def ingest_game_csv(path: Path) -> int:
 
     card_batch = []
 
+    game_batch = []
+
     with get_session() as session:
         for row in reader:
-            game = MJ17LGame(
-                expansion=row["expansion"],
-                event_type=row["event_type"],
-                draft_id=row["draft_id"],
-                build_index=_safe_int(row.get("build_index")),
-                draft_time=row.get("draft_time"),
-                game_number=_safe_int(row.get("game_number")),
-                rank=row.get("rank"),
-                user_win_rate_bucket=_safe_float(row.get("user_win_rate_bucket")),
-                user_n_games_bucket=_safe_int(row.get("user_n_games_bucket")),
-                on_play=_safe_bool(row.get("on_play")),
-                num_mulligans=_safe_int(row.get("num_mulligans")),
-                opp_num_mulligans=_safe_int(row.get("opp_num_mulligans")),
-                opp_colors=row.get("opp_colors"),
-                num_turns=_safe_int(row.get("num_turns")),
-                won=_safe_bool(row.get("won")),
+            draft_id = row["draft_id"]
+            build_index = _safe_int(row.get("build_index"))
+            game_number = _safe_int(row.get("game_number"))
+
+            game_batch.append(
+                MJ17LGame(
+                    expansion=row["expansion"],
+                    event_type=row["event_type"],
+                    draft_id=draft_id,
+                    build_index=build_index,
+                    draft_time=row.get("draft_time"),
+                    game_number=game_number,
+                    rank=row.get("rank"),
+                    user_win_rate_bucket=_safe_float(row.get("user_win_rate_bucket")),
+                    user_n_games_bucket=_safe_int(row.get("user_n_games_bucket")),
+                    on_play=_safe_bool(row.get("on_play")),
+                    num_mulligans=_safe_int(row.get("num_mulligans")),
+                    opp_num_mulligans=_safe_int(row.get("opp_num_mulligans")),
+                    opp_colors=row.get("opp_colors"),
+                    num_turns=_safe_int(row.get("num_turns")),
+                    won=_safe_bool(row.get("won")),
+                )
             )
-            session.add(game)
-            session.flush()
 
             for i, card_name in enumerate(card_names):
                 oh = _safe_int(row.get(oh_cols[i]))
@@ -363,7 +371,9 @@ def ingest_game_csv(path: Path) -> int:
                 if oh or dk or dr or sb:
                     card_batch.append(
                         MJ17LGameCard(
-                            game_id=game.id,
+                            draft_id=draft_id,
+                            build_index=build_index,
+                            game_number=game_number,
                             card_name=card_name,
                             in_opening_hand=oh or 0,
                             in_deck=dk or 0,
@@ -374,13 +384,16 @@ def ingest_game_csv(path: Path) -> int:
 
             row_count += 1
             if row_count % BATCH_SIZE == 0:
+                session.add_all(game_batch)
                 session.add_all(card_batch)
                 session.commit()
+                game_batch.clear()
                 card_batch.clear()
                 if row_count % 10000 == 0:
                     logger.info(f"  game: {row_count:,} rows ingested...")
 
-        if card_batch:
+        if game_batch:
+            session.add_all(game_batch)
             session.add_all(card_batch)
             session.commit()
 
@@ -442,6 +455,7 @@ def ingest_replay_csv(path: Path) -> int:
     f = _open_csv(path)
     reader = csv.DictReader(f)
 
+    replay_batch = []
     turn_batch = []
 
     with get_session() as session:
@@ -482,9 +496,10 @@ def ingest_replay_csv(path: Path) -> int:
                 oppo_total_cards_learned=_safe_int(row.get("oppo_total_cards_learned")),
                 oppo_total_mana_spent=_safe_int(row.get("oppo_total_mana_spent")),
             )
-            session.add(replay)
-            session.flush()
+            replay_batch.append(replay)
 
+            draft_id = row.get("draft_id")
+            game_index = _safe_int(row.get("game_index"))
             max_turns = _safe_int(row.get("turns")) or 0
             for turn_num in range(1, min(max_turns + 1, 31)):
                 for player in ("user", "oppo"):
@@ -492,7 +507,12 @@ def ingest_replay_csv(path: Path) -> int:
                     has_data = any(row.get(prefix + m) for m in _REPLAY_TURN_METRICS)
                     if not has_data:
                         continue
-                    turn_data = {"replay_id": replay.id, "turn_number": turn_num, "player": player}
+                    turn_data = {
+                        "draft_id": draft_id,
+                        "game_index": game_index,
+                        "turn_number": turn_num,
+                        "player": player,
+                    }
                     for metric in _REPLAY_TURN_METRICS:
                         val = row.get(prefix + metric, "")
                         if metric in _INT_METRICS:
@@ -503,13 +523,16 @@ def ingest_replay_csv(path: Path) -> int:
 
             row_count += 1
             if row_count % BATCH_SIZE == 0:
+                session.add_all(replay_batch)
                 session.add_all(turn_batch)
                 session.commit()
+                replay_batch.clear()
                 turn_batch.clear()
                 if row_count % 10000 == 0:
                     logger.info(f"  replay: {row_count:,} rows ingested...")
 
-        if turn_batch:
+        if replay_batch:
+            session.add_all(replay_batch)
             session.add_all(turn_batch)
             session.commit()
 

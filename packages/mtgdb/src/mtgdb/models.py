@@ -286,7 +286,9 @@ class MJ17LGameCard(SQLModel, table=True):
     __tablename__ = "mj_17l_game_card"
 
     id: int | None = Field(default=None, primary_key=True)
-    game_id: int = Field(foreign_key="mj_17l_game.id", index=True)
+    draft_id: str = Field(index=True)
+    build_index: int | None = None
+    game_number: int | None = None
     card_name: str = Field(index=True)
     in_opening_hand: int = 0
     in_deck: int = 0
@@ -342,7 +344,8 @@ class MJ17LReplayTurn(SQLModel, table=True):
     __tablename__ = "mj_17l_replay_turn"
 
     id: int | None = Field(default=None, primary_key=True)
-    replay_id: int = Field(foreign_key="mj_17l_replay.id", index=True)
+    draft_id: str = Field(index=True)
+    game_index: int | None = None
     turn_number: int | None = None
     player: str | None = None  # "user" or "oppo"
     cards_drawn: str | None = None
