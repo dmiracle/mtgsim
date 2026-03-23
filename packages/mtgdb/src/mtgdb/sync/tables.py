@@ -17,6 +17,7 @@ from mtgdb.models import (
     MJDeck,
     MJDeckCard,
     MJKeyword,
+    MJKeywordDefinition,
     MJSet,
 )
 from mtgdb.session import get_engine
@@ -415,3 +416,51 @@ def sync_keywords(keywords_file: Path):
         session.commit()
 
     logger.info(f"Synced {count} keywords")
+
+
+def sync_keyword_definitions(definitions_file: Path):
+    """Sync keyword definitions from a JS or JSON definitions file.
+
+    Supports:
+    - JS format: keyword-definitions.js with "key": "value" pairs
+    - JSON format: simple {"keyword": "definition"} dict
+    """
+    import re
+
+    logger.info("Syncing keyword definitions...")
+
+    if not definitions_file.exists():
+        logger.warning(f"Definitions file not found: {definitions_file}")
+        return
+
+    content = definitions_file.read_text()
+
+    if definitions_file.suffix == ".json":
+        definitions = json.loads(content)
+    else:
+        # Parse JS object with "key": "value" pairs
+        definitions = dict(re.findall(r'"([^"]+)":\s*"([^"]+)"', content))
+
+    if not definitions:
+        logger.warning("No definitions found")
+        return
+
+    engine = get_engine()
+    with Session(engine) as session:
+        session.exec(delete(MJKeywordDefinition))
+        session.commit()
+
+        count = 0
+        for keyword, definition in definitions.items():
+            session.add(
+                MJKeywordDefinition(
+                    keyword=keyword,
+                    definition=definition,
+                    source="generated",
+                )
+            )
+            count += 1
+
+        session.commit()
+
+    logger.info(f"Synced {count} keyword definitions")

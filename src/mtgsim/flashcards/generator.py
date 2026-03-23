@@ -2,12 +2,10 @@
 
 import logging
 
-from mtgdb.models import MJCard, MJCardIdentifier, MJKeyword
+from mtgdb.models import MJCard, MJCardIdentifier, MJKeyword, MJKeywordDefinition
 from mtgdb.session import get_session
 from sqlmodel import func, select
 from srs import SRSClient
-
-from mtgsim.flashcards.keyword_definitions import KEYWORD_DEFINITIONS
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +57,9 @@ def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
 
     with get_session() as session:
         keywords = session.exec(select(MJKeyword)).all()
+        # Load definitions from DB
+        defs_rows = session.exec(select(MJKeywordDefinition.keyword, MJKeywordDefinition.definition)).all()
+        definitions = dict(defs_rows)
 
     created = 0
     by_type: dict[str, list[dict]] = {}
@@ -73,7 +74,7 @@ def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
 
         cards = []
         for kw in kw_list:
-            definition = KEYWORD_DEFINITIONS.get(kw.name, f"Look up '{kw.name}' in the MTG comprehensive rules.")
+            definition = definitions.get(kw.name, f"Look up '{kw.name}' in the MTG comprehensive rules.")
             cards.append(
                 {
                     "question": {
