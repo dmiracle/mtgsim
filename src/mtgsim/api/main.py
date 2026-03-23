@@ -20,6 +20,7 @@ from mtgsim.api.routers import (
     keywords_router,
     prices_router,
     sets_router,
+    seventeenlands_router,
     stats_router,
 )
 from mtgsim.config import get_resources_dir, get_web_dir, get_webapp_dir
@@ -179,6 +180,7 @@ app.include_router(cards_router, prefix="/api")
 app.include_router(prices_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(keywords_router, prefix="/api")
+app.include_router(seventeenlands_router, prefix="/api")
 
 
 @app.get("/")
