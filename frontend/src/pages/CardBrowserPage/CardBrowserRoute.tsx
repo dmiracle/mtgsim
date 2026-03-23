@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCards, useCardTags, useKeywordFrequencies } from "@/api/hooks";
 import { CardBrowserPage } from "./CardBrowserPage";
+import type { CardSearchParams } from "./CardBrowserPage";
 
 export function CardBrowserRoute() {
   const navigate = useNavigate();
@@ -10,11 +11,19 @@ export function CardBrowserRoute() {
     return new Set<string>(stored ? JSON.parse(stored) : []);
   });
   const [page, setPage] = useState(1);
-  const [searchParams, setSearchParams] = useState<Record<string, string>>({});
+  const [searchParams, setSearchParams] = useState<CardSearchParams>({});
 
   const { data: cardsData } = useCards({ ...searchParams, page, limit: 50 });
-  const { data: tags } = useCardTags({});
-  const { data: kwFreqs } = useKeywordFrequencies({});
+  const { data: tags } = useCardTags({
+    format: searchParams.format,
+    colors: searchParams.colors,
+    set: searchParams.sets,
+  });
+  const { data: kwFreqs } = useKeywordFrequencies({
+    format: searchParams.format,
+    sets: searchParams.sets,
+    colors: searchParams.colors,
+  });
 
   function togglePin(uuid: string) {
     setPinnedIds((prev) => {
@@ -25,6 +34,11 @@ export function CardBrowserRoute() {
       return next;
     });
   }
+
+  const handleSearch = useCallback((params: CardSearchParams) => {
+    setSearchParams(params);
+    setPage(1);
+  }, []);
 
   return (
     <CardBrowserPage
@@ -38,6 +52,7 @@ export function CardBrowserRoute() {
       onPin={togglePin}
       onAddToDeck={() => {}}
       onPageChange={setPage}
+      onSearch={handleSearch}
     />
   );
 }

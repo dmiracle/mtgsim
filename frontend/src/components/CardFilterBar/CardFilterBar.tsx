@@ -18,6 +18,7 @@ type CardFilters = {
   sort: string;
   order: "asc" | "desc";
   unique: boolean;
+  priceMode: "min" | "max";
 };
 
 type CardFilterBarProps = {
@@ -79,6 +80,32 @@ export function CardFilterBar({
             onSortChange={(sort) => update({ sort })}
             onOrderChange={(order) => update({ order })}
           />
+          {filters.sort === "price" && (
+            <div className="inline-flex items-center rounded border border-border overflow-hidden">
+              <button
+                onClick={() => update({ priceMode: "min" })}
+                className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                  filters.priceMode === "min"
+                    ? "bg-accent text-white"
+                    : "bg-bg-secondary text-text-muted hover:text-text-secondary"
+                }`}
+                title="Show cheapest printing"
+              >
+                Min $
+              </button>
+              <button
+                onClick={() => update({ priceMode: "max" })}
+                className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                  filters.priceMode === "max"
+                    ? "bg-accent text-white"
+                    : "bg-bg-secondary text-text-muted hover:text-text-secondary"
+                }`}
+                title="Show most expensive printing"
+              >
+                Max $
+              </button>
+            </div>
+          )}
           {resultCount !== undefined && (
             <span className="text-xs font-medium text-text-secondary whitespace-nowrap tabular-nums hidden sm:inline">
               {resultCount.toLocaleString()}
@@ -161,6 +188,7 @@ export function CardFilterBar({
                       sort: filters.sort,
                       order: filters.order,
                       unique: filters.unique,
+                      priceMode: filters.priceMode,
                     })
                   }
                   className="text-xs font-medium text-danger hover:underline ml-auto"

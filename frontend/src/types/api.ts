@@ -160,6 +160,7 @@ export type CardPrinting = {
   image_url: string | null;
   owns: boolean;
   total_owned: number;
+  price?: number;
 };
 
 export type CardCollection = {
