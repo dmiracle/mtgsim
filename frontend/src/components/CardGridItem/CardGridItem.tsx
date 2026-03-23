@@ -1,6 +1,7 @@
 import type { CardSummary } from "@/types/api";
 import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 import { SetBadge } from "@/components/SetBadge/SetBadge";
+import { CardHoverLarge } from "@/components/CardHoverLarge/CardHoverLarge";
 
 type CardGridItemProps = {
   card: CardSummary;
@@ -45,9 +46,18 @@ export function CardGridItem({
   onSetClick,
 }: CardGridItemProps) {
   return (
-    <div
-      className={`bg-bg-secondary border ${rarityBorders[card.rarity] ?? "border-border"} rounded-lg overflow-hidden hover:border-accent transition-colors group`}
+    <CardHoverLarge
+      uuid={card.uuid}
+      pinned={pinned}
+      quantity={quantity}
+      onPin={onPin}
+      onAddToDeck={onAddToDeck}
+      onClick={onClick}
+      onSetClick={onSetClick}
     >
+      <div
+        className={`bg-bg-secondary border ${rarityBorders[card.rarity] ?? "border-border"} rounded-lg overflow-hidden hover:border-accent transition-colors group`}
+      >
       {/* Image area */}
       <div
         className="aspect-[5/7] bg-bg-tertiary flex items-center justify-center cursor-pointer relative"
@@ -154,5 +164,6 @@ export function CardGridItem({
         </div>
       </div>
     </div>
+    </CardHoverLarge>
   );
 }
