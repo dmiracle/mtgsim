@@ -1,20 +1,32 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSet } from "@/api/hooks";
 import { SetDetailPage } from "./SetDetailPage";
+import type { SetCardSearchParams } from "./SetDetailPage";
 import type { CardSummary } from "@/types/api";
 
 export function SetDetailRoute() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [cardPage, setCardPage] = useState(1);
-  const { data: setData } = useSet(code ?? "", { card_page: cardPage, card_limit: 50, unique: true });
+  const [cardFilters, setCardFilters] = useState<SetCardSearchParams>({});
+
+  const { data: setData } = useSet(code ?? "", {
+    card_page: cardPage,
+    card_limit: 50,
+    unique: true,
+    ...cardFilters,
+  });
+
+  const handleFiltersChange = useCallback((params: SetCardSearchParams) => {
+    setCardFilters(params);
+    setCardPage(1);
+  }, []);
 
   if (!setData) {
     return <div className="flex items-center justify-center h-64 text-text-muted">Loading set...</div>;
   }
 
-  // Map SetCard to CardSummary for CardGrid
   const cards: CardSummary[] = setData.cards.data.map((c) => ({
     uuid: c.uuid,
     name: c.name,
@@ -43,6 +55,7 @@ export function SetDetailRoute() {
       onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
       onSetClick={(c) => navigate(`/sets/${c}`)}
       onCardPageChange={setCardPage}
+      onCardFiltersChange={handleFiltersChange}
     />
   );
 }

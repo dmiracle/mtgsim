@@ -21,6 +21,7 @@ type CardDetailPageProps = {
   onAddToDeck: () => void;
   onAddToCollection: () => void;
   onSaveRating: (rating: { developing: number | null; ahead: number | null; behind: number | null; parity: number | null; notes: string | null }) => void;
+  setFilter?: string[];
 };
 
 function buildKeywordGroups(card: CardDetail, keywordTypes?: KeywordsResponse) {
@@ -56,8 +57,13 @@ export function CardDetailPage({
   onAddToDeck,
   onAddToCollection,
   onSaveRating,
+  setFilter,
 }: CardDetailPageProps) {
   const keywordGroups = buildKeywordGroups(card, keywordTypes);
+
+  const filteredPrintings = setFilter && setFilter.length > 0
+    ? card.other_printings.filter((p) => setFilter.includes(p.set_code))
+    : card.other_printings;
 
   return (
     <div className="space-y-4">
@@ -106,7 +112,7 @@ export function CardDetailPage({
 
           <CardPrices prices={card.all_prices} />
 
-          <OtherPrintings printings={card.other_printings} onSelect={onPrintingClick} />
+          <OtherPrintings printings={filteredPrintings} onSelect={onPrintingClick} />
 
           <DeckAppearances decks={card.appears_in_decks} onSelect={onDeckClick} />
 

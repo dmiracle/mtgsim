@@ -24,11 +24,11 @@ export function SetBadge({
   return (
     <span
       className={`inline-flex items-center gap-1.5 ${interactiveClasses}`}
-      title={name ?? code.toUpperCase()}
+      title={name}
       onClick={navigable ? onClick : undefined}
       role={navigable ? "button" : undefined}
     >
-      <SetIcon code={code} name={name} rarity={rarity} size={size} />
+      <SetIcon code={code} rarity={rarity} size={size} />
       <span className={`${codeSizes[size]} font-mono uppercase tracking-wide text-text-secondary`}>
         {code}
       </span>

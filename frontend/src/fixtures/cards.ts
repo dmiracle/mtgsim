@@ -146,8 +146,8 @@ export const cardDetail: CardDetail = {
     { file: "jund-midrange", name: "Jund Midrange", count: 3 },
   ],
   other_printings: [
-    { set_code: "A25", set_name: "Masters 25", uuid: "x1y2z3", rarity: "uncommon", number: "141", image_url: null, owns: false, total_owned: 0 },
-    { set_code: "2XM", set_name: "Double Masters", uuid: "x4y5z6", rarity: "uncommon", number: "134", image_url: null, owns: true, total_owned: 2 },
+    { set_code: "A25", set_name: "Masters 25", uuid: "x1y2z3", rarity: "uncommon", number: "141", image_url: null, owns: false, total_owned: 0, price: 1.25 },
+    { set_code: "2XM", set_name: "Double Masters", uuid: "x4y5z6", rarity: "uncommon", number: "134", image_url: null, owns: true, total_owned: 2, price: 1.75 },
   ],
   owns: true,
   wants: false,

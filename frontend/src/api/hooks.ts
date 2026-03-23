@@ -104,6 +104,7 @@ export function useCards(params: Record<string, string | number | boolean | null
     queryKey: ["cards", params],
     queryFn: () => apiFetch<CardListResponse>(`/cards${buildParams(params)}`),
     enabled: hasFilter,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -169,6 +170,7 @@ export function useSet(code: string, cardParams?: Record<string, string | number
     queryKey: ["set", code, cardParams],
     queryFn: () => apiFetch<SetDetail>(`/sets/${code}${buildParams(cardParams ?? {})}`),
     enabled: !!code,
+    placeholderData: (prev) => prev,
   });
 }
 

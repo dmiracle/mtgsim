@@ -14,12 +14,12 @@ export function OtherPrintings({ printings, onSelect }: OtherPrintingsProps) {
       <h3 className="text-sm font-medium text-text-secondary">
         Other Printings <span className="text-text-muted font-normal">({printings.length})</span>
       </h3>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {printings.map((p) => (
           <button
             key={p.uuid}
             onClick={() => onSelect(p.uuid)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-bg-hover transition-colors text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-bg-hover transition-colors text-left group"
           >
             <SetBadge
               code={p.set_code}
@@ -33,6 +33,9 @@ export function OtherPrintings({ printings, onSelect }: OtherPrintingsProps) {
                 Owned ({p.total_owned})
               </span>
             )}
+            <span className="ml-auto text-xs text-text-muted group-hover:text-accent transition-colors">
+              {p.price != null && p.price > 0 ? `$${p.price.toFixed(2)}` : "—"}
+            </span>
           </button>
         ))}
       </div>

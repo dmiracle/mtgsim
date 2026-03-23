@@ -14,7 +14,7 @@ const meta: Meta<typeof CardBrowserPage> = {
   title: "Pages/CardBrowserPage",
   component: CardBrowserPage,
   tags: ["autodocs"],
-  args: { onCardClick: fn(), onSetClick: fn(), onPin: fn(), onAddToDeck: fn(), onPageChange: fn() },
+  args: { onCardClick: fn(), onSetClick: fn(), onPin: fn(), onAddToDeck: fn(), onPageChange: fn(), onSearch: fn() },
   parameters: { layout: "padded" },
   decorators: [(Story) => <div className="bg-bg-primary p-6 max-w-6xl"><Story /></div>],
 };

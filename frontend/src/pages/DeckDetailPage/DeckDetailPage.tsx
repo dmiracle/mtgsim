@@ -15,7 +15,7 @@ type DeckDetailPageProps = {
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [],
-  ownership: "all", sort: "name", order: "asc", unique: false,
+  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min",
 };
 
 export function DeckDetailPage({ deck, availableTags = [], onBack, onCardClick, onSetClick }: DeckDetailPageProps) {
