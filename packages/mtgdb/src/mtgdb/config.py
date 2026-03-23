@@ -1,9 +1,10 @@
 """Database path configuration."""
 
+import os
 from pathlib import Path
 
-# Base directories
-MTGDB_HOME = Path.home() / ".mtgsim"
+# Base directories — override with MTGSIM_HOME env var for containers
+MTGDB_HOME = Path(os.environ.get("MTGSIM_HOME", Path.home() / ".mtgsim"))
 REFERENCE_DIR = MTGDB_HOME / "reference"
 MTGJSON_DIR = REFERENCE_DIR / "mtgjson"
 SCRYFALL_DIR = REFERENCE_DIR / "scryfall"

@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: mtgsim/Dockerfile
+      target: api
+    ports:
+      - "8001:8001"
+    volumes:
+      - mtgsim-data:/data/mtgsim
+      - srs-data:/data/srs
+    environment:
+      - MTGSIM_HOME=/data/mtgsim
+      - SRS_DB_PATH=/data/srs/srs.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mtgsim-data:
+  srs-data:
