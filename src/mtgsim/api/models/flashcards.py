@@ -1,0 +1,48 @@
+"""Flashcard Pydantic request/response models."""
+
+from pydantic import BaseModel, Field
+
+
+class GenerateRequest(BaseModel):
+    user_id: str
+    card_type: str  # keyword_definition, card_oracle, card_mana_cost, card_stats
+    set_code: str | None = None
+    rarity: str | None = None
+
+
+class GenerateResponse(BaseModel):
+    created: int
+    collection: str
+
+
+class FlashcardQuestion(BaseModel):
+    flashcard_id: int
+    question: dict
+    collection: str | None = None
+
+
+class ReviewRequest(BaseModel):
+    user_id: str
+    flashcard_id: int
+    rating: int = Field(ge=0, le=5)
+    response_time_ms: int = Field(ge=0)
+
+
+class ReviewResponse(BaseModel):
+    next_review_at: str | None = None
+    interval: int
+    ease_factor: float
+
+
+class CollectionInfo(BaseModel):
+    id: int
+    name: str
+    card_count: int
+
+
+class StudyStats(BaseModel):
+    total_cards: int
+    cards_due: int
+    cards_new: int
+    reviews_today: int
+    collections: list[CollectionInfo]

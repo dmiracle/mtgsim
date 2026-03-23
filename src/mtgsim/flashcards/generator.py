@@ -1,0 +1,231 @@
+"""Generate MTG flashcards and push them to the SRS system."""
+
+import logging
+
+from mtgdb.models import MJCard, MJCardIdentifier, MJKeyword
+from mtgdb.session import get_session
+from sqlmodel import func, select
+from srs import SRSClient
+
+from mtgsim.flashcards.keyword_definitions import KEYWORD_DEFINITIONS
+
+logger = logging.getLogger(__name__)
+
+APP_NAME = "mtgsim"
+
+
+def _get_or_create_app(client: SRSClient, user_id: str):
+    try:
+        rows = client.db.conn.execute(
+            "SELECT id FROM applications WHERE user_id = ? AND name = ?",
+            (user_id, APP_NAME),
+        ).fetchone()
+        if rows:
+            return client.get_application(rows[0])
+    except Exception:
+        pass
+    return client.create_application(user_id, APP_NAME)
+
+
+def _get_or_create_collection(client: SRSClient, user_id: str, name: str, app_id: int):
+    try:
+        rows = client.db.conn.execute(
+            "SELECT id FROM collections WHERE user_id = ? AND name = ? AND application_id = ?",
+            (user_id, name, app_id),
+        ).fetchone()
+        if rows:
+            return client.get_collection(rows[0])
+    except Exception:
+        pass
+    return client.create_collection(user_id, name, application_id=app_id)
+
+
+def _collection_has_flashcards(client: SRSClient, collection_id: int) -> bool:
+    row = client.db.conn.execute(
+        "SELECT COUNT(*) FROM flashcard_collections WHERE collection_id = ?",
+        (collection_id,),
+    ).fetchone()
+    return row[0] > 0
+
+
+def _build_image_url(scryfall_id: str | None) -> str | None:
+    if not scryfall_id:
+        return None
+    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
+
+
+def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
+    app = _get_or_create_app(client, user_id)
+
+    with get_session() as session:
+        keywords = session.exec(select(MJKeyword)).all()
+
+    created = 0
+    by_type: dict[str, list[dict]] = {}
+    for kw in keywords:
+        by_type.setdefault(kw.type, []).append(kw)
+
+    for kw_type, kw_list in by_type.items():
+        col = _get_or_create_collection(client, user_id, f"keywords_{kw_type}", app.id)
+        if _collection_has_flashcards(client, col.id):
+            logger.info(f"Collection keywords_{kw_type} already populated, skipping")
+            continue
+
+        cards = []
+        for kw in kw_list:
+            definition = KEYWORD_DEFINITIONS.get(kw.name, f"Look up '{kw.name}' in the MTG comprehensive rules.")
+            cards.append(
+                {
+                    "question": {
+                        "card_type": "keyword_definition",
+                        "keyword": kw.name,
+                        "keyword_type": kw.type,
+                    },
+                    "answer": {"definition": definition},
+                }
+            )
+
+        if cards:
+            client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
+            created += len(cards)
+            logger.info(f"Created {len(cards)} keyword flashcards for {kw_type}")
+
+    return created
+
+
+def generate_card_oracle_flashcards(client: SRSClient, user_id: str, set_code: str, rarity: str | None = None) -> int:
+    app = _get_or_create_app(client, user_id)
+    col_name = f"card_oracle_{set_code}"
+    col = _get_or_create_collection(client, user_id, col_name, app.id)
+
+    if _collection_has_flashcards(client, col.id):
+        logger.info(f"Collection {col_name} already populated, skipping")
+        return 0
+
+    with get_session() as session:
+        query = (
+            select(MJCard.name, MJCard.oracle_text, MJCard.mana_cost, MJCard.type_line, MJCardIdentifier.scryfall_id)
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+            .where(MJCard.set_code == set_code)
+            .where(MJCard.oracle_text.is_not(None))
+        )
+        if rarity:
+            query = query.where(MJCard.rarity == rarity)
+
+        # Deduplicate by name
+        subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
+        query = query.where(MJCard.uuid.in_(subq))
+
+        results = session.exec(query).all()
+
+    cards = []
+    for name, oracle_text, mana_cost, type_line, scryfall_id in results:
+        cards.append(
+            {
+                "question": {
+                    "card_type": "card_oracle",
+                    "card_name": name,
+                    "set_code": set_code,
+                    "image_url": _build_image_url(scryfall_id),
+                },
+                "answer": {
+                    "oracle_text": oracle_text,
+                    "mana_cost": mana_cost,
+                    "type_line": type_line,
+                },
+            }
+        )
+
+    if cards:
+        client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
+        logger.info(f"Created {len(cards)} oracle flashcards for {set_code}")
+
+    return len(cards)
+
+
+def generate_card_mana_cost_flashcards(client: SRSClient, user_id: str, set_code: str) -> int:
+    app = _get_or_create_app(client, user_id)
+    col_name = f"card_mana_cost_{set_code}"
+    col = _get_or_create_collection(client, user_id, col_name, app.id)
+
+    if _collection_has_flashcards(client, col.id):
+        logger.info(f"Collection {col_name} already populated, skipping")
+        return 0
+
+    with get_session() as session:
+        subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
+        query = (
+            select(MJCard.name, MJCard.oracle_text, MJCard.mana_cost, MJCard.mana_value, MJCard.type_line)
+            .where(MJCard.set_code == set_code)
+            .where(MJCard.mana_cost.is_not(None))
+            .where(MJCard.mana_cost != "")
+            .where(MJCard.uuid.in_(subq))
+        )
+        results = session.exec(query).all()
+
+    cards = []
+    for name, oracle_text, mana_cost, mana_value, type_line in results:
+        cards.append(
+            {
+                "question": {
+                    "card_type": "card_mana_cost",
+                    "card_name": name,
+                    "oracle_text": oracle_text,
+                    "type_line": type_line,
+                },
+                "answer": {
+                    "mana_cost": mana_cost,
+                    "mana_value": mana_value,
+                },
+            }
+        )
+
+    if cards:
+        client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
+        logger.info(f"Created {len(cards)} mana cost flashcards for {set_code}")
+
+    return len(cards)
+
+
+def generate_card_stats_flashcards(client: SRSClient, user_id: str, set_code: str) -> int:
+    app = _get_or_create_app(client, user_id)
+    col_name = f"card_stats_{set_code}"
+    col = _get_or_create_collection(client, user_id, col_name, app.id)
+
+    if _collection_has_flashcards(client, col.id):
+        logger.info(f"Collection {col_name} already populated, skipping")
+        return 0
+
+    with get_session() as session:
+        subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
+        query = (
+            select(MJCard.name, MJCard.oracle_text, MJCard.type_line, MJCard.power, MJCard.toughness)
+            .where(MJCard.set_code == set_code)
+            .where(MJCard.power.is_not(None))
+            .where(MJCard.toughness.is_not(None))
+            .where(MJCard.uuid.in_(subq))
+        )
+        results = session.exec(query).all()
+
+    cards = []
+    for name, oracle_text, type_line, power, toughness in results:
+        cards.append(
+            {
+                "question": {
+                    "card_type": "card_stats",
+                    "card_name": name,
+                    "oracle_text": oracle_text,
+                    "type_line": type_line,
+                },
+                "answer": {
+                    "power": power,
+                    "toughness": toughness,
+                },
+            }
+        )
+
+    if cards:
+        client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
+        logger.info(f"Created {len(cards)} stats flashcards for {set_code}")
+
+    return len(cards)
