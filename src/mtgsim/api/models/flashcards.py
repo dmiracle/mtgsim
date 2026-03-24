@@ -8,6 +8,7 @@ class GenerateRequest(BaseModel):
     card_type: str  # keyword_definition, card_oracle, card_mana_cost, card_stats
     set_code: str | None = None
     rarity: str | None = None
+    collection_name: str | None = None
 
 
 class GenerateResponse(BaseModel):
@@ -39,6 +40,19 @@ class CollectionInfo(BaseModel):
     id: int
     name: str
     card_count: int
+
+
+class MergeCollectionsRequest(BaseModel):
+    user_id: str
+    collection_ids: list[int] = Field(min_length=1)
+    name: str
+    delete_originals: bool = False
+
+
+class MergeCollectionsResponse(BaseModel):
+    collection: CollectionInfo
+    merged_from: int
+    delete_originals: bool
 
 
 class DeleteCollectionResponse(BaseModel):

@@ -147,6 +147,89 @@ class TestListCollections:
         assert "card_count" in data[0]
 
 
+class TestGenerateWithCollectionName:
+    """Tests for collection_name parameter on generate."""
+
+    def test_generate_with_custom_collection_name(self, client, flashcard_user_id):
+        response = client.post(
+            "/api/flashcards/generate",
+            json={
+                "user_id": flashcard_user_id,
+                "card_type": "card_oracle",
+                "set_code": "KLD",
+                "collection_name": "KLD Study Deck",
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["collection"] == "KLD Study Deck"
+        assert response.json()["created"] > 0
+
+    def test_generate_multiple_types_into_same_collection(self, client, flashcard_user_id):
+        for card_type in ["card_oracle", "card_mana_cost"]:
+            client.post(
+                "/api/flashcards/generate",
+                json={
+                    "user_id": flashcard_user_id,
+                    "card_type": card_type,
+                    "set_code": "KLD",
+                    "collection_name": "KLD Combined",
+                },
+            )
+        collections = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        combined = [c for c in collections if c["name"] == "KLD Combined"]
+        assert len(combined) == 1
+        assert combined[0]["card_count"] > 0
+
+
+class TestMergeCollections:
+    """Tests for POST /api/flashcards/collections/merge."""
+
+    def test_merge_collections_returns_200(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        collections = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_ids = [c["id"] for c in collections[:2]]
+
+        response = client.post(
+            "/api/flashcards/collections/merge",
+            json={"user_id": flashcard_user_id, "collection_ids": col_ids, "name": "Merged Keywords"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["collection"]["name"] == "Merged Keywords"
+        assert data["merged_from"] == 2
+        assert data["collection"]["card_count"] > 0
+
+    def test_merge_with_delete_originals(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        before = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_ids = [c["id"] for c in before[:2]]
+
+        client.post(
+            "/api/flashcards/collections/merge",
+            json={
+                "user_id": flashcard_user_id,
+                "collection_ids": col_ids,
+                "name": "Merged All",
+                "delete_originals": True,
+            },
+        )
+        after = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        assert len(after) < len(before)
+
+    def test_merge_not_found(self, client, flashcard_user_id):
+        response = client.post(
+            "/api/flashcards/collections/merge",
+            json={"user_id": flashcard_user_id, "collection_ids": [99999], "name": "Bad Merge"},
+        )
+        assert response.status_code == 404
+
+
 class TestDeleteCollection:
     """Tests for DELETE /api/flashcards/collections/{id}."""
 

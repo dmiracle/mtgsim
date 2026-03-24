@@ -11,11 +11,13 @@ from mtgsim.api.models.flashcards import (
     DeleteCollectionResponse,
     FlashcardQuestion,
     GenerateResponse,
+    MergeCollectionsResponse,
     ReviewResponse,
     StudyStats,
 )
 from mtgsim.flashcards.generator import (
     _get_or_create_app,
+    _get_or_create_collection,
     generate_card_mana_cost_flashcards,
     generate_card_oracle_flashcards,
     generate_card_stats_flashcards,
@@ -25,21 +27,25 @@ from mtgsim.flashcards.generator import (
 logger = logging.getLogger("mtgsim.api.services.flashcard")
 
 GENERATORS = {
-    "keyword_definition": lambda client, user_id, **kw: generate_keyword_flashcards(client, user_id),
+    "keyword_definition": lambda client, user_id, **kw: generate_keyword_flashcards(
+        client, user_id, collection_name=kw.get("collection_name")
+    ),
     "card_oracle": lambda client, user_id, **kw: generate_card_oracle_flashcards(
-        client, user_id, kw.get("set_code", ""), kw.get("rarity")
+        client, user_id, kw.get("set_code", ""), kw.get("rarity"), collection_name=kw.get("collection_name")
     ),
     "card_mana_cost": lambda client, user_id, **kw: generate_card_mana_cost_flashcards(
-        client, user_id, kw.get("set_code", "")
+        client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
     ),
-    "card_stats": lambda client, user_id, **kw: generate_card_stats_flashcards(client, user_id, kw.get("set_code", "")),
+    "card_stats": lambda client, user_id, **kw: generate_card_stats_flashcards(
+        client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
+    ),
 }
 
 COLLECTION_NAMES = {
-    "keyword_definition": lambda **kw: "keywords_keywordAbilities",
-    "card_oracle": lambda **kw: f"card_oracle_{kw.get('set_code', '')}",
-    "card_mana_cost": lambda **kw: f"card_mana_cost_{kw.get('set_code', '')}",
-    "card_stats": lambda **kw: f"card_stats_{kw.get('set_code', '')}",
+    "keyword_definition": lambda **kw: kw.get("collection_name") or "keywords_keywordAbilities",
+    "card_oracle": lambda **kw: kw.get("collection_name") or f"card_oracle_{kw.get('set_code', '')}",
+    "card_mana_cost": lambda **kw: kw.get("collection_name") or f"card_mana_cost_{kw.get('set_code', '')}",
+    "card_stats": lambda **kw: kw.get("collection_name") or f"card_stats_{kw.get('set_code', '')}",
 }
 
 
@@ -48,17 +54,22 @@ class FlashcardService:
         return SRSClient()
 
     async def generate(
-        self, user_id: str, card_type: str, set_code: str | None = None, rarity: str | None = None
+        self,
+        user_id: str,
+        card_type: str,
+        set_code: str | None = None,
+        rarity: str | None = None,
+        collection_name: str | None = None,
     ) -> GenerateResponse:
         gen_fn = GENERATORS.get(card_type)
         if not gen_fn:
             return GenerateResponse(created=0, collection="unknown")
 
         col_fn = COLLECTION_NAMES.get(card_type)
-        col_name = col_fn(set_code=set_code) if col_fn else card_type
+        col_name = col_fn(set_code=set_code, collection_name=collection_name) if col_fn else card_type
 
         with self._get_client() as client:
-            created = gen_fn(client, user_id, set_code=set_code, rarity=rarity)
+            created = gen_fn(client, user_id, set_code=set_code, rarity=rarity, collection_name=collection_name)
 
         return GenerateResponse(created=created, collection=col_name)
 
@@ -158,6 +169,59 @@ class FlashcardService:
             cards_new=cards_new,
             reviews_today=reviews_today,
             collections=collections,
+        )
+
+    async def merge_collections(
+        self, user_id: str, collection_ids: list[int], name: str, delete_originals: bool = False
+    ) -> MergeCollectionsResponse | None:
+        with self._get_client() as client:
+            app = _get_or_create_app(client, user_id)
+
+            # Verify all source collections exist and belong to user
+            for cid in collection_ids:
+                row = client.db.conn.execute(
+                    "SELECT id FROM collections WHERE id = ? AND user_id = ?", (cid, user_id)
+                ).fetchone()
+                if not row:
+                    return None
+
+            # Create target collection
+            target = _get_or_create_collection(client, user_id, name, app.id)
+
+            # Copy flashcard links to target collection
+            for cid in collection_ids:
+                fc_rows = client.db.conn.execute(
+                    "SELECT flashcard_id FROM flashcard_collections WHERE collection_id = ?", (cid,)
+                ).fetchall()
+                for (fid,) in fc_rows:
+                    existing = client.db.conn.execute(
+                        "SELECT 1 FROM flashcard_collections WHERE flashcard_id = ? AND collection_id = ?",
+                        (fid, target.id),
+                    ).fetchone()
+                    if not existing:
+                        client.db.conn.execute(
+                            "INSERT INTO flashcard_collections (flashcard_id, collection_id) VALUES (?, ?)",
+                            (fid, target.id),
+                        )
+
+            # Delete originals if requested
+            if delete_originals:
+                for cid in collection_ids:
+                    if cid != target.id:
+                        client.db.conn.execute("DELETE FROM flashcard_collections WHERE collection_id = ?", (cid,))
+                        client.db.conn.execute("DELETE FROM collections WHERE id = ?", (cid,))
+
+            client.db.conn.commit()
+
+            # Get final card count
+            card_count = client.db.conn.execute(
+                "SELECT COUNT(*) FROM flashcard_collections WHERE collection_id = ?", (target.id,)
+            ).fetchone()[0]
+
+        return MergeCollectionsResponse(
+            collection=CollectionInfo(id=target.id, name=name, card_count=card_count),
+            merged_from=len(collection_ids),
+            delete_originals=delete_originals,
         )
 
     async def delete_collection(self, user_id: str, collection_id: int) -> DeleteCollectionResponse | None:

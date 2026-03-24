@@ -10,6 +10,8 @@ from mtgsim.api.models.flashcards import (
     FlashcardQuestion,
     GenerateRequest,
     GenerateResponse,
+    MergeCollectionsRequest,
+    MergeCollectionsResponse,
     ReviewRequest,
     ReviewResponse,
     StudyStats,
@@ -36,6 +38,7 @@ async def generate_flashcards(req: GenerateRequest) -> GenerateResponse:
         card_type=req.card_type,
         set_code=req.set_code,
         rarity=req.rarity,
+        collection_name=req.collection_name,
     )
 
 
@@ -75,6 +78,24 @@ async def list_collections(
 ) -> list[CollectionInfo]:
     """List flashcard collections for a user."""
     return await flashcard_service.get_collections(user_id=user_id)
+
+
+@router.post("/collections/merge", response_model=MergeCollectionsResponse)
+async def merge_collections(req: MergeCollectionsRequest) -> MergeCollectionsResponse:
+    """Merge multiple collections into a single named collection.
+
+    Copies all flashcards from source collections into a new/existing collection.
+    Set delete_originals=true to remove source collections after merge.
+    """
+    result = await flashcard_service.merge_collections(
+        user_id=req.user_id,
+        collection_ids=req.collection_ids,
+        name=req.name,
+        delete_originals=req.delete_originals,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="One or more source collections not found")
+    return result
 
 
 @router.delete("/collections/{collection_id}", response_model=DeleteCollectionResponse)

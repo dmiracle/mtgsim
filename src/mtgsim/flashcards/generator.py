@@ -52,12 +52,11 @@ def _build_image_url(scryfall_id: str | None) -> str | None:
     return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
 
 
-def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
+def generate_keyword_flashcards(client: SRSClient, user_id: str, collection_name: str | None = None) -> int:
     app = _get_or_create_app(client, user_id)
 
     with get_session() as session:
         keywords = session.exec(select(MJKeyword)).all()
-        # Load definitions from DB
         defs_rows = session.exec(select(MJKeywordDefinition.keyword, MJKeywordDefinition.definition)).all()
         definitions = dict(defs_rows)
 
@@ -67,9 +66,11 @@ def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
         by_type.setdefault(kw.type, []).append(kw)
 
     for kw_type, kw_list in by_type.items():
-        col = _get_or_create_collection(client, user_id, f"keywords_{kw_type}", app.id)
-        if _collection_has_flashcards(client, col.id):
-            logger.info(f"Collection keywords_{kw_type} already populated, skipping")
+        col_name = collection_name or f"keywords_{kw_type}"
+        col = _get_or_create_collection(client, user_id, col_name, app.id)
+        # Only skip if using auto-generated name and already populated
+        if not collection_name and _collection_has_flashcards(client, col.id):
+            logger.info(f"Collection {col_name} already populated, skipping")
             continue
 
         cards = []
@@ -94,12 +95,14 @@ def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
     return created
 
 
-def generate_card_oracle_flashcards(client: SRSClient, user_id: str, set_code: str, rarity: str | None = None) -> int:
+def generate_card_oracle_flashcards(
+    client: SRSClient, user_id: str, set_code: str, rarity: str | None = None, collection_name: str | None = None
+) -> int:
     app = _get_or_create_app(client, user_id)
-    col_name = f"card_oracle_{set_code}"
+    col_name = collection_name or f"card_oracle_{set_code}"
     col = _get_or_create_collection(client, user_id, col_name, app.id)
 
-    if _collection_has_flashcards(client, col.id):
+    if not collection_name and _collection_has_flashcards(client, col.id):
         logger.info(f"Collection {col_name} already populated, skipping")
         return 0
 
@@ -144,12 +147,14 @@ def generate_card_oracle_flashcards(client: SRSClient, user_id: str, set_code: s
     return len(cards)
 
 
-def generate_card_mana_cost_flashcards(client: SRSClient, user_id: str, set_code: str) -> int:
+def generate_card_mana_cost_flashcards(
+    client: SRSClient, user_id: str, set_code: str, collection_name: str | None = None
+) -> int:
     app = _get_or_create_app(client, user_id)
-    col_name = f"card_mana_cost_{set_code}"
+    col_name = collection_name or f"card_mana_cost_{set_code}"
     col = _get_or_create_collection(client, user_id, col_name, app.id)
 
-    if _collection_has_flashcards(client, col.id):
+    if not collection_name and _collection_has_flashcards(client, col.id):
         logger.info(f"Collection {col_name} already populated, skipping")
         return 0
 
@@ -188,12 +193,14 @@ def generate_card_mana_cost_flashcards(client: SRSClient, user_id: str, set_code
     return len(cards)
 
 
-def generate_card_stats_flashcards(client: SRSClient, user_id: str, set_code: str) -> int:
+def generate_card_stats_flashcards(
+    client: SRSClient, user_id: str, set_code: str, collection_name: str | None = None
+) -> int:
     app = _get_or_create_app(client, user_id)
-    col_name = f"card_stats_{set_code}"
+    col_name = collection_name or f"card_stats_{set_code}"
     col = _get_or_create_collection(client, user_id, col_name, app.id)
 
-    if _collection_has_flashcards(client, col.id):
+    if not collection_name and _collection_has_flashcards(client, col.id):
         logger.info(f"Collection {col_name} already populated, skipping")
         return 0
 
