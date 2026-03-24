@@ -68,15 +68,12 @@ class FlashcardService:
 
             collection_id = None
             if collection:
-                try:
-                    row = client.db.conn.execute(
-                        "SELECT id FROM collections WHERE user_id = ? AND name = ? AND application_id = ?",
-                        (user_id, collection, app.id),
-                    ).fetchone()
-                    if row:
-                        collection_id = row[0]
-                except Exception:
-                    pass
+                row = client.db.conn.execute(
+                    "SELECT id FROM collections WHERE user_id = ? AND name = ? AND application_id = ?",
+                    (user_id, collection, app.id),
+                ).fetchone()
+                if row:
+                    collection_id = row[0]
 
             try:
                 card = client.get_next_flashcard(user_id, application_id=app.id, collection_id=collection_id)

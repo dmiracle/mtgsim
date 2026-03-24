@@ -46,6 +46,9 @@ async def get_next_flashcard(
 ) -> FlashcardQuestion | None:
     """Get the next flashcard to study.
 
+    Uses SM-2 scheduling with randomization among due/new cards to avoid
+    returning the same card repeatedly.
+
     Returns null if no cards are available (all reviewed, none generated).
     """
     return await flashcard_service.get_next(user_id=user_id, collection=collection)
