@@ -359,7 +359,7 @@ const KEYWORD_DEFINITIONS = {
     "Behold": "Look at or reveal cards for an effect.",
     "Disappear": "Remove this permanent from the battlefield temporarily.",
     "Renew": "Restore or refresh a permanent's state.",
-    "Sneak": "Put this creature onto the battlefield attacking, then return it.",
+    "Sneak": "You may cast this spell for its sneak cost if you also return an unblocked attacker you control to hand during the declare blockers step.",
     "Solved": "This Case has met its conditions and is now solved, enabling its final ability.",
     "Specialize": "Discard a card to transform this creature into a specialized version based on the card's color.",
     "Station": "A location-based ability.",
