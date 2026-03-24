@@ -57,6 +57,24 @@ class TestGenerateFlashcards:
         )
         assert response.status_code == 400
 
+    def test_generate_keywords_filtered_by_set(self, client, flashcard_user_id):
+        """Keywords with set_code should only include keywords from that set."""
+        all_resp = client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition", "collection_name": "all_kw"},
+        )
+        set_resp = client.post(
+            "/api/flashcards/generate",
+            json={
+                "user_id": flashcard_user_id,
+                "card_type": "keyword_definition",
+                "set_code": "KLD",
+                "collection_name": "kld_kw",
+            },
+        )
+        assert set_resp.json()["created"] < all_resp.json()["created"]
+        assert set_resp.json()["created"] > 0
+
     def test_generate_idempotent(self, client, flashcard_user_id):
         """Second generation of same type should create 0 cards."""
         client.post(

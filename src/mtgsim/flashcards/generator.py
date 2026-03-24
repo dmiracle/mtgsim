@@ -52,13 +52,29 @@ def _build_image_url(scryfall_id: str | None) -> str | None:
     return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
 
 
-def generate_keyword_flashcards(client: SRSClient, user_id: str, collection_name: str | None = None) -> int:
+def generate_keyword_flashcards(
+    client: SRSClient,
+    user_id: str,
+    collection_name: str | None = None,
+    set_code: str | None = None,
+) -> int:
     app = _get_or_create_app(client, user_id)
 
     with get_session() as session:
         keywords = session.exec(select(MJKeyword)).all()
         defs_rows = session.exec(select(MJKeywordDefinition.keyword, MJKeywordDefinition.definition)).all()
         definitions = dict(defs_rows)
+
+        # If set_code provided, filter to keywords that appear on cards in that set
+        if set_code:
+            query = select(MJCard.keywords).where(
+                MJCard.set_code == set_code, MJCard.keywords.is_not(None)
+            )
+            set_keywords: set[str] = set()
+            for kw_list in session.exec(query).all():
+                if isinstance(kw_list, list):
+                    set_keywords.update(kw_list)
+            keywords = [kw for kw in keywords if kw.name in set_keywords]
 
     created = 0
     by_type: dict[str, list[dict]] = {}

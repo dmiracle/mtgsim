@@ -28,7 +28,7 @@ logger = logging.getLogger("mtgsim.api.services.flashcard")
 
 GENERATORS = {
     "keyword_definition": lambda client, user_id, **kw: generate_keyword_flashcards(
-        client, user_id, collection_name=kw.get("collection_name")
+        client, user_id, collection_name=kw.get("collection_name"), set_code=kw.get("set_code")
     ),
     "card_oracle": lambda client, user_id, **kw: generate_card_oracle_flashcards(
         client, user_id, kw.get("set_code", ""), kw.get("rarity"), collection_name=kw.get("collection_name")
