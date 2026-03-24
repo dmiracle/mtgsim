@@ -18,6 +18,7 @@ class GenerateResponse(BaseModel):
 class FlashcardQuestion(BaseModel):
     flashcard_id: int
     question: dict
+    answer: dict | None = None
     collection: str | None = None
 
 

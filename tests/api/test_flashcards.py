@@ -84,6 +84,8 @@ class TestGetNextFlashcard:
         data = response.json()
         assert "flashcard_id" in data
         assert "question" in data
+        assert "answer" in data
+        assert data["answer"] is not None
         assert "card_type" in data["question"]
 
     def test_next_with_collection_filter(self, client, flashcard_user_id):

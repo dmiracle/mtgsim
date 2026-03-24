@@ -85,6 +85,7 @@ class FlashcardService:
             return FlashcardQuestion(
                 flashcard_id=card.id,
                 question=card.question,
+                answer=card.answer,
                 collection=collection,
             )
 
