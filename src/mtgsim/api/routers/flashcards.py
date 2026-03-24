@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from mtgsim.api.models.flashcards import (
     CollectionInfo,
+    DeleteCollectionResponse,
     FlashcardQuestion,
     GenerateRequest,
     GenerateResponse,
@@ -71,6 +72,18 @@ async def list_collections(
 ) -> list[CollectionInfo]:
     """List flashcard collections for a user."""
     return await flashcard_service.get_collections(user_id=user_id)
+
+
+@router.delete("/collections/{collection_id}", response_model=DeleteCollectionResponse)
+async def delete_collection(
+    collection_id: int,
+    user_id: str = Query(..., description="User ID"),
+) -> DeleteCollectionResponse:
+    """Delete a flashcard collection and its orphaned flashcards."""
+    result = await flashcard_service.delete_collection(user_id=user_id, collection_id=collection_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    return result
 
 
 @router.get("/stats", response_model=StudyStats)

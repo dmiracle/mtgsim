@@ -93,9 +93,7 @@ class TestGetNextFlashcard:
             "/api/flashcards/generate",
             json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
         )
-        response = client.get(
-            f"/api/flashcards/next?user_id={flashcard_user_id}&collection=keywords_keywordAbilities"
-        )
+        response = client.get(f"/api/flashcards/next?user_id={flashcard_user_id}&collection=keywords_keywordAbilities")
         assert response.status_code == 200
 
     def test_next_no_cards_returns_null(self, client):
@@ -147,6 +145,40 @@ class TestListCollections:
         assert len(data) > 0
         assert "name" in data[0]
         assert "card_count" in data[0]
+
+
+class TestDeleteCollection:
+    """Tests for DELETE /api/flashcards/collections/{id}."""
+
+    def test_delete_collection_returns_200(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        collections = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_id = collections[0]["id"]
+        card_count = collections[0]["card_count"]
+
+        response = client.delete(f"/api/flashcards/collections/{col_id}?user_id={flashcard_user_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted"] is True
+        assert data["cards_removed"] == card_count
+
+    def test_delete_collection_not_found(self, client, flashcard_user_id):
+        response = client.delete(f"/api/flashcards/collections/99999?user_id={flashcard_user_id}")
+        assert response.status_code == 404
+
+    def test_delete_collection_reduces_count(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        before = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_id = before[0]["id"]
+        client.delete(f"/api/flashcards/collections/{col_id}?user_id={flashcard_user_id}")
+        after = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        assert len(after) == len(before) - 1
 
 
 class TestStudyStats:

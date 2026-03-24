@@ -8,6 +8,7 @@ from srs.exceptions import NoFlashcardsAvailableError
 
 from mtgsim.api.models.flashcards import (
     CollectionInfo,
+    DeleteCollectionResponse,
     FlashcardQuestion,
     GenerateResponse,
     ReviewResponse,
@@ -161,6 +162,49 @@ class FlashcardService:
             reviews_today=reviews_today,
             collections=collections,
         )
+
+    async def delete_collection(self, user_id: str, collection_id: int) -> DeleteCollectionResponse | None:
+        with self._get_client() as client:
+            # Verify collection exists and belongs to user
+            row = client.db.conn.execute(
+                "SELECT id, name FROM collections WHERE id = ? AND user_id = ?",
+                (collection_id, user_id),
+            ).fetchone()
+            if not row:
+                return None
+
+            col_name = row[1]
+
+            # Get flashcard IDs in this collection
+            fc_rows = client.db.conn.execute(
+                "SELECT flashcard_id FROM flashcard_collections WHERE collection_id = ?",
+                (collection_id,),
+            ).fetchall()
+            flashcard_ids = [r[0] for r in fc_rows]
+            cards_removed = len(flashcard_ids)
+
+            # Remove flashcard-collection links
+            client.db.conn.execute(
+                "DELETE FROM flashcard_collections WHERE collection_id = ?",
+                (collection_id,),
+            )
+
+            # Delete orphaned flashcards (not in any other collection)
+            for fid in flashcard_ids:
+                other = client.db.conn.execute(
+                    "SELECT COUNT(*) FROM flashcard_collections WHERE flashcard_id = ?",
+                    (fid,),
+                ).fetchone()[0]
+                if other == 0:
+                    client.db.conn.execute("DELETE FROM srs_state WHERE flashcard_id = ?", (fid,))
+                    client.db.conn.execute("DELETE FROM review_events WHERE flashcard_id = ?", (fid,))
+                    client.db.conn.execute("DELETE FROM flashcards WHERE id = ?", (fid,))
+
+            # Delete the collection
+            client.db.conn.execute("DELETE FROM collections WHERE id = ?", (collection_id,))
+            client.db.conn.commit()
+
+        return DeleteCollectionResponse(deleted=True, collection=col_name, cards_removed=cards_removed)
 
 
 flashcard_service = FlashcardService()

@@ -41,6 +41,12 @@ class CollectionInfo(BaseModel):
     card_count: int
 
 
+class DeleteCollectionResponse(BaseModel):
+    deleted: bool
+    collection: str
+    cards_removed: int
+
+
 class StudyStats(BaseModel):
     total_cards: int
     cards_due: int
