@@ -61,6 +61,79 @@ class DeleteCollectionResponse(BaseModel):
     cards_removed: int
 
 
+# =============================================================================
+# Analytics models
+# =============================================================================
+
+
+class DailyReviewStats(BaseModel):
+    date: str
+    reviews: int
+    average_rating: float | None = None
+    average_response_ms: int | None = None
+    new_cards_learned: int = 0
+
+
+class ReviewHistoryResponse(BaseModel):
+    daily: list[DailyReviewStats]
+    days: int
+
+
+class CardDifficulty(BaseModel):
+    flashcard_id: int
+    question: dict
+    ease_factor: float
+    interval: int
+    repetitions: int
+    total_reviews: int
+
+
+class CardDifficultyResponse(BaseModel):
+    hardest: list[CardDifficulty]
+    easiest: list[CardDifficulty]
+    most_reviewed: list[CardDifficulty]
+
+
+class CollectionBreakdown(BaseModel):
+    id: int
+    name: str
+    card_count: int
+    cards_reviewed: int
+    completion_pct: float
+    win_rate: float | None = None
+    average_ease: float | None = None
+    cards_due: int = 0
+
+
+class SessionAnalytics(BaseModel):
+    total_study_time_ms: int
+    avg_cards_per_minute: float | None = None
+    accuracy_by_card_type: dict[str, float]
+
+
+class RetentionBucket(BaseModel):
+    interval_label: str
+    total_reviews: int
+    passed: int
+    pass_rate: float
+
+
+class RetentionCurveResponse(BaseModel):
+    buckets: list[RetentionBucket]
+
+
+class KeywordInsight(BaseModel):
+    keyword: str
+    ease_factor: float
+    total_reviews: int
+    pass_rate: float
+
+
+class KeywordInsightsResponse(BaseModel):
+    hardest: list[KeywordInsight]
+    easiest: list[KeywordInsight]
+
+
 class StudyStats(BaseModel):
     total_cards: int
     cards_due: int

@@ -5,17 +5,24 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 
 from mtgsim.api.models.flashcards import (
+    CardDifficultyResponse,
+    CollectionBreakdown,
     CollectionInfo,
     DeleteCollectionResponse,
     FlashcardQuestion,
     GenerateRequest,
     GenerateResponse,
+    KeywordInsightsResponse,
     MergeCollectionsRequest,
     MergeCollectionsResponse,
+    RetentionCurveResponse,
+    ReviewHistoryResponse,
     ReviewRequest,
     ReviewResponse,
+    SessionAnalytics,
     StudyStats,
 )
+from mtgsim.api.services import flashcard_analytics
 from mtgsim.api.services.flashcard_service import flashcard_service
 
 logger = logging.getLogger("mtgsim.api.routers.flashcards")
@@ -116,3 +123,59 @@ async def get_study_stats(
 ) -> StudyStats:
     """Get study statistics for a user."""
     return await flashcard_service.get_stats(user_id=user_id)
+
+
+# =============================================================================
+# Analytics endpoints
+# =============================================================================
+
+
+@router.get("/analytics/review-history", response_model=ReviewHistoryResponse)
+async def review_history(
+    user_id: str = Query(..., description="User ID"),
+    days: int = Query(30, ge=1, le=365, description="Number of days"),
+) -> ReviewHistoryResponse:
+    """Daily review counts, ratings, and response times."""
+    return await flashcard_analytics.get_review_history(user_id, days=days)
+
+
+@router.get("/analytics/card-difficulty", response_model=CardDifficultyResponse)
+async def card_difficulty(
+    user_id: str = Query(..., description="User ID"),
+    limit: int = Query(10, ge=1, le=50, description="Cards per list"),
+) -> CardDifficultyResponse:
+    """Hardest, easiest, and most-reviewed cards."""
+    return await flashcard_analytics.get_card_difficulty(user_id, limit=limit)
+
+
+@router.get("/analytics/collections", response_model=list[CollectionBreakdown])
+async def collection_breakdown(
+    user_id: str = Query(..., description="User ID"),
+) -> list[CollectionBreakdown]:
+    """Per-collection stats: completion, win rate, ease, cards due."""
+    return await flashcard_analytics.get_collection_breakdown(user_id)
+
+
+@router.get("/analytics/sessions", response_model=SessionAnalytics)
+async def session_analytics(
+    user_id: str = Query(..., description="User ID"),
+) -> SessionAnalytics:
+    """Study time, review velocity, and accuracy by card type."""
+    return await flashcard_analytics.get_session_analytics(user_id)
+
+
+@router.get("/analytics/retention", response_model=RetentionCurveResponse)
+async def retention_curve(
+    user_id: str = Query(..., description="User ID"),
+) -> RetentionCurveResponse:
+    """Pass rate by interval bucket (retention curve)."""
+    return await flashcard_analytics.get_retention_curve(user_id)
+
+
+@router.get("/analytics/keywords", response_model=KeywordInsightsResponse)
+async def keyword_insights(
+    user_id: str = Query(..., description="User ID"),
+    limit: int = Query(10, ge=1, le=50, description="Keywords per list"),
+) -> KeywordInsightsResponse:
+    """Hardest and easiest keywords by ease factor."""
+    return await flashcard_analytics.get_keyword_insights(user_id, limit=limit)
