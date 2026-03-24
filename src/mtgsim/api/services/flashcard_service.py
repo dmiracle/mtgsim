@@ -147,12 +147,11 @@ class FlashcardService:
                 (user_id, now.isoformat()),
             ).fetchone()[0]
 
-            # New cards (no srs_state entry yet)
-            cards_with_state = client.db.conn.execute(
-                "SELECT COUNT(*) FROM srs_state WHERE user_id = ?",
+            # New cards (have srs_state but never reviewed: next_review_at IS NULL, repetitions = 0)
+            cards_new = client.db.conn.execute(
+                "SELECT COUNT(*) FROM srs_state WHERE user_id = ? AND next_review_at IS NULL AND repetitions = 0",
                 (user_id,),
             ).fetchone()[0]
-            cards_new = total - cards_with_state
 
             # Reviews today
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
