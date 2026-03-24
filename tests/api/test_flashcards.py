@@ -298,3 +298,33 @@ class TestStudyStats:
         assert "cards_new" in data
         assert "reviews_today" in data
         assert data["total_cards"] > 0
+
+    def test_stats_has_mastery_fields(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        data = client.get(f"/api/flashcards/stats?user_id={flashcard_user_id}").json()
+        assert "cards_learning" in data
+        assert "cards_young" in data
+        assert "cards_mature" in data
+
+    def test_stats_has_performance_fields(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        data = client.get(f"/api/flashcards/stats?user_id={flashcard_user_id}").json()
+        assert "average_ease" in data
+        assert "total_reviews" in data
+        assert "streak_days" in data
+        assert data["average_ease"] >= 1.3
+
+    def test_stats_has_forecast_fields(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        data = client.get(f"/api/flashcards/stats?user_id={flashcard_user_id}").json()
+        assert "due_tomorrow" in data
+        assert "due_this_week" in data

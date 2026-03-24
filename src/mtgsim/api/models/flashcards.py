@@ -67,3 +67,14 @@ class StudyStats(BaseModel):
     cards_new: int
     reviews_today: int
     collections: list[CollectionInfo]
+    # Mastery distribution
+    cards_learning: int = 0
+    cards_young: int = 0
+    cards_mature: int = 0
+    # Performance
+    average_ease: float = 2.5
+    total_reviews: int = 0
+    streak_days: int = 0
+    # Forecast
+    due_tomorrow: int = 0
+    due_this_week: int = 0

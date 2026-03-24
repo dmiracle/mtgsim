@@ -1,7 +1,7 @@
 """Flashcard service — bridges SRS client with MTG data generation."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from srs import SRSClient
 from srs.exceptions import NoFlashcardsAvailableError
@@ -161,6 +161,58 @@ class FlashcardService:
                 (user_id, today_start.isoformat()),
             ).fetchone()[0]
 
+            # Mastery distribution (based on interval)
+            cards_learning = client.db.conn.execute(
+                "SELECT COUNT(*) FROM srs_state WHERE user_id = ? AND repetitions > 0 AND interval < 1",
+                (user_id,),
+            ).fetchone()[0]
+            cards_young = client.db.conn.execute(
+                "SELECT COUNT(*) FROM srs_state WHERE user_id = ? AND interval >= 1 AND interval <= 21",
+                (user_id,),
+            ).fetchone()[0]
+            cards_mature = client.db.conn.execute(
+                "SELECT COUNT(*) FROM srs_state WHERE user_id = ? AND interval > 21",
+                (user_id,),
+            ).fetchone()[0]
+
+            # Performance
+            ease_row = client.db.conn.execute(
+                "SELECT AVG(ease_factor) FROM srs_state WHERE user_id = ? AND repetitions > 0",
+                (user_id,),
+            ).fetchone()
+            average_ease = round(ease_row[0], 2) if ease_row[0] else 2.5
+
+            total_reviews = client.db.conn.execute(
+                "SELECT COUNT(*) FROM review_events WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()[0]
+
+            # Streak: consecutive days with reviews (counting back from today)
+            streak_days = 0
+            day = today_start
+            while True:
+                day_end = day + timedelta(days=1)
+                has_reviews = client.db.conn.execute(
+                    "SELECT COUNT(*) FROM review_events WHERE user_id = ? AND created_at >= ? AND created_at < ?",
+                    (user_id, day.isoformat(), day_end.isoformat()),
+                ).fetchone()[0]
+                if has_reviews == 0:
+                    break
+                streak_days += 1
+                day = day - timedelta(days=1)
+
+            # Forecast
+            tomorrow = (now + timedelta(days=1)).isoformat()
+            next_week = (now + timedelta(days=7)).isoformat()
+            due_tomorrow = client.db.conn.execute(
+                "SELECT COUNT(*) FROM srs_state WHERE user_id = ? AND next_review_at <= ?",
+                (user_id, tomorrow),
+            ).fetchone()[0]
+            due_this_week = client.db.conn.execute(
+                "SELECT COUNT(*) FROM srs_state WHERE user_id = ? AND next_review_at <= ?",
+                (user_id, next_week),
+            ).fetchone()[0]
+
             collections = await self.get_collections(user_id)
 
         return StudyStats(
@@ -169,6 +221,14 @@ class FlashcardService:
             cards_new=cards_new,
             reviews_today=reviews_today,
             collections=collections,
+            cards_learning=cards_learning,
+            cards_young=cards_young,
+            cards_mature=cards_mature,
+            average_ease=average_ease,
+            total_reviews=total_reviews,
+            streak_days=streak_days,
+            due_tomorrow=due_tomorrow,
+            due_this_week=due_this_week,
         )
 
     async def merge_collections(
