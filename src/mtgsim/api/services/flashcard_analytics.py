@@ -11,7 +11,6 @@ from mtgsim.api.models.flashcards import (
     CardDifficulty,
     CardDifficultyResponse,
     CollectionBreakdown,
-    DailyReviewStats,
     KeywordInsight,
     KeywordInsightsResponse,
     RetentionBucket,
@@ -36,51 +35,65 @@ def _parse_question(raw) -> dict:
     return {}
 
 
-async def get_review_history(user_id: str, days: int = 30) -> ReviewHistoryResponse:
+async def get_review_history(user_id: str, days: int = 30, granularity: str = "daily") -> ReviewHistoryResponse:
     with _get_client() as client:
         now = datetime.now(UTC)
-        daily = []
 
-        for i in range(days - 1, -1, -1):
-            day = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = day + timedelta(days=1)
-            day_str = day.strftime("%Y-%m-%d")
+        if granularity == "hourly":
+            hours = days * 24
+            buckets = _build_buckets(client, user_id, now, hours, timedelta(hours=1), "%Y-%m-%dT%H:00:00")
+        else:
+            buckets = _build_buckets(client, user_id, now, days, timedelta(days=1), "%Y-%m-%d")
 
-            rows = client.db.conn.execute(
-                "SELECT rating, response_time_ms FROM review_events WHERE user_id = ? AND created_at >= ? AND created_at < ?",
-                (user_id, day.isoformat(), day_end.isoformat()),
-            ).fetchall()
+    return ReviewHistoryResponse(buckets=buckets, granularity=granularity, days=days)
 
-            reviews = len(rows)
-            if reviews == 0:
-                daily.append(DailyReviewStats(date=day_str, reviews=0))
-                continue
 
-            avg_rating = round(sum(r["rating"] for r in rows) / reviews, 2)
-            avg_ms = int(sum(r["response_time_ms"] for r in rows) / reviews)
+def _build_buckets(client, user_id: str, now, count: int, step: timedelta, fmt: str) -> list:
+    from mtgsim.api.models.flashcards import ReviewBucket
 
-            # New cards learned: first review for a card on this day
-            new_learned = client.db.conn.execute(
-                """SELECT COUNT(DISTINCT flashcard_id) FROM review_events
-                   WHERE user_id = ? AND created_at >= ? AND created_at < ?
-                   AND flashcard_id NOT IN (
-                       SELECT DISTINCT flashcard_id FROM review_events
-                       WHERE user_id = ? AND created_at < ?
-                   )""",
-                (user_id, day.isoformat(), day_end.isoformat(), user_id, day.isoformat()),
-            ).fetchone()[0]
+    buckets = []
+    for i in range(count - 1, -1, -1):
+        start = now - step * i
+        if step >= timedelta(days=1):
+            start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start = start.replace(minute=0, second=0, microsecond=0)
+        end = start + step
+        label = start.strftime(fmt)
 
-            daily.append(
-                DailyReviewStats(
-                    date=day_str,
-                    reviews=reviews,
-                    average_rating=avg_rating,
-                    average_response_ms=avg_ms,
-                    new_cards_learned=new_learned,
-                )
+        rows = client.db.conn.execute(
+            "SELECT rating, response_time_ms FROM review_events WHERE user_id = ? AND created_at >= ? AND created_at < ?",
+            (user_id, start.isoformat(), end.isoformat()),
+        ).fetchall()
+
+        reviews = len(rows)
+        if reviews == 0:
+            buckets.append(ReviewBucket(date=label, reviews=0))
+            continue
+
+        avg_rating = round(sum(r["rating"] for r in rows) / reviews, 2)
+        avg_ms = int(sum(r["response_time_ms"] for r in rows) / reviews)
+
+        new_learned = client.db.conn.execute(
+            """SELECT COUNT(DISTINCT flashcard_id) FROM review_events
+               WHERE user_id = ? AND created_at >= ? AND created_at < ?
+               AND flashcard_id NOT IN (
+                   SELECT DISTINCT flashcard_id FROM review_events
+                   WHERE user_id = ? AND created_at < ?
+               )""",
+            (user_id, start.isoformat(), end.isoformat(), user_id, start.isoformat()),
+        ).fetchone()[0]
+
+        buckets.append(
+            ReviewBucket(
+                date=label,
+                reviews=reviews,
+                average_rating=avg_rating,
+                average_response_ms=avg_ms,
+                new_cards_learned=new_learned,
             )
-
-    return ReviewHistoryResponse(daily=daily, days=days)
+        )
+    return buckets
 
 
 async def get_card_difficulty(user_id: str, limit: int = 10) -> CardDifficultyResponse:

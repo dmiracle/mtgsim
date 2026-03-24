@@ -39,18 +39,33 @@ class TestReviewHistory:
         response = client.get(f"/api/flashcards/analytics/review-history?user_id={user_with_reviews}")
         assert response.status_code == 200
         data = response.json()
-        assert "daily" in data
-        assert len(data["daily"]) == 30
+        assert "buckets" in data
+        assert data["granularity"] == "daily"
+        assert len(data["buckets"]) == 30
 
     def test_today_has_reviews(self, client, user_with_reviews):
         data = client.get(f"/api/flashcards/analytics/review-history?user_id={user_with_reviews}").json()
-        today = data["daily"][-1]
+        today = data["buckets"][-1]
         assert today["reviews"] > 0
         assert today["average_rating"] is not None
 
     def test_custom_days(self, client, user_with_reviews):
         data = client.get(f"/api/flashcards/analytics/review-history?user_id={user_with_reviews}&days=7").json()
-        assert len(data["daily"]) == 7
+        assert len(data["buckets"]) == 7
+
+    def test_hourly_granularity(self, client, user_with_reviews):
+        data = client.get(
+            f"/api/flashcards/analytics/review-history?user_id={user_with_reviews}&days=1&granularity=hourly"
+        ).json()
+        assert data["granularity"] == "hourly"
+        assert len(data["buckets"]) == 24
+        assert "T" in data["buckets"][0]["date"]
+
+    def test_invalid_granularity_rejected(self, client, user_with_reviews):
+        response = client.get(
+            f"/api/flashcards/analytics/review-history?user_id={user_with_reviews}&granularity=weekly"
+        )
+        assert response.status_code == 422
 
 
 class TestCardDifficulty:

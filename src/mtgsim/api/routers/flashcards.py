@@ -134,9 +134,15 @@ async def get_study_stats(
 async def review_history(
     user_id: str = Query(..., description="User ID"),
     days: int = Query(30, ge=1, le=365, description="Number of days"),
+    granularity: str = Query("daily", pattern="^(daily|hourly)$", description="Bucket granularity"),
 ) -> ReviewHistoryResponse:
-    """Daily review counts, ratings, and response times."""
-    return await flashcard_analytics.get_review_history(user_id, days=days)
+    """Review counts, ratings, and response times bucketed by time.
+
+    Granularity:
+    - **daily** (default): one bucket per day
+    - **hourly**: one bucket per hour (days × 24 buckets)
+    """
+    return await flashcard_analytics.get_review_history(user_id, days=days, granularity=granularity)
 
 
 @router.get("/analytics/card-difficulty", response_model=CardDifficultyResponse)

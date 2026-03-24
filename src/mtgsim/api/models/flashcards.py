@@ -66,7 +66,7 @@ class DeleteCollectionResponse(BaseModel):
 # =============================================================================
 
 
-class DailyReviewStats(BaseModel):
+class ReviewBucket(BaseModel):
     date: str
     reviews: int
     average_rating: float | None = None
@@ -74,8 +74,13 @@ class DailyReviewStats(BaseModel):
     new_cards_learned: int = 0
 
 
+# Keep old name as alias for backwards compat
+DailyReviewStats = ReviewBucket
+
+
 class ReviewHistoryResponse(BaseModel):
-    daily: list[DailyReviewStats]
+    buckets: list[ReviewBucket]
+    granularity: str
     days: int
 
 
