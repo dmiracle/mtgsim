@@ -124,7 +124,10 @@ def generate_card_oracle_flashcards(
 
     with get_session() as session:
         query = (
-            select(MJCard.name, MJCard.oracle_text, MJCard.mana_cost, MJCard.type_line, MJCardIdentifier.scryfall_id)
+            select(
+                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.mana_cost,
+                MJCard.type_line, MJCardIdentifier.scryfall_id,
+            )
             .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
             .where(MJCard.oracle_text.is_not(None))
@@ -139,12 +142,13 @@ def generate_card_oracle_flashcards(
         results = session.exec(query).all()
 
     cards = []
-    for name, oracle_text, mana_cost, type_line, scryfall_id in results:
+    for uuid, name, oracle_text, mana_cost, type_line, scryfall_id in results:
         cards.append(
             {
                 "question": {
                     "card_type": "card_oracle",
                     "card_name": name,
+                    "uuid": uuid,
                     "set_code": set_code,
                     "image_url": _build_image_url(scryfall_id),
                 },
@@ -177,7 +181,11 @@ def generate_card_mana_cost_flashcards(
     with get_session() as session:
         subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
         query = (
-            select(MJCard.name, MJCard.oracle_text, MJCard.mana_cost, MJCard.mana_value, MJCard.type_line)
+            select(
+                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.mana_cost,
+                MJCard.mana_value, MJCard.type_line, MJCardIdentifier.scryfall_id,
+            )
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
             .where(MJCard.mana_cost.is_not(None))
             .where(MJCard.mana_cost != "")
@@ -186,12 +194,15 @@ def generate_card_mana_cost_flashcards(
         results = session.exec(query).all()
 
     cards = []
-    for name, oracle_text, mana_cost, mana_value, type_line in results:
+    for uuid, name, oracle_text, mana_cost, mana_value, type_line, scryfall_id in results:
         cards.append(
             {
                 "question": {
                     "card_type": "card_mana_cost",
                     "card_name": name,
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "image_url": _build_image_url(scryfall_id),
                     "oracle_text": oracle_text,
                     "type_line": type_line,
                 },
@@ -223,7 +234,11 @@ def generate_card_stats_flashcards(
     with get_session() as session:
         subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
         query = (
-            select(MJCard.name, MJCard.oracle_text, MJCard.type_line, MJCard.power, MJCard.toughness)
+            select(
+                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.type_line,
+                MJCard.power, MJCard.toughness, MJCardIdentifier.scryfall_id,
+            )
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
             .where(MJCard.power.is_not(None))
             .where(MJCard.toughness.is_not(None))
@@ -232,12 +247,15 @@ def generate_card_stats_flashcards(
         results = session.exec(query).all()
 
     cards = []
-    for name, oracle_text, type_line, power, toughness in results:
+    for uuid, name, oracle_text, type_line, power, toughness, scryfall_id in results:
         cards.append(
             {
                 "question": {
                     "card_type": "card_stats",
                     "card_name": name,
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "image_url": _build_image_url(scryfall_id),
                     "oracle_text": oracle_text,
                     "type_line": type_line,
                 },
