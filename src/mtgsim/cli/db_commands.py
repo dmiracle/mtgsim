@@ -146,11 +146,17 @@ def db_sync(
                 # Also sync keyword definitions from src/mtgsim/data/
                 from pathlib import Path as _Path
 
-                from mtgdb.sync.tables import sync_keyword_definitions
+                from mtgdb.sync.tables import check_missing_keyword_definitions, sync_keyword_definitions
 
                 defs_file = _Path(__file__).parent.parent / "data" / "keyword-definitions.json"
                 if defs_file.exists():
                     sync_keyword_definitions(defs_file)
+                # Check for keywords without definitions
+                missing = check_missing_keyword_definitions()
+                if missing:
+                    typer.echo(f"Warning: {len(missing)} keywords have no definition:")
+                    for m in missing:
+                        typer.echo(f"  [{m['type']}] {m['name']}")
                 typer.echo("Keywords sync complete.")
 
             if tags_only:

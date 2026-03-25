@@ -7,7 +7,7 @@ import uuid as uuid_lib
 from datetime import datetime
 from pathlib import Path
 
-from sqlmodel import Session, delete
+from sqlmodel import Session, delete, select
 
 from mtgdb.models import (
     MJCard,
@@ -464,3 +464,29 @@ def sync_keyword_definitions(definitions_file: Path):
         session.commit()
 
     logger.info(f"Synced {count} keyword definitions")
+
+
+def check_missing_keyword_definitions() -> list[dict]:
+    """Check for keywords in mj_keyword that have no definition in mj_keyword_definition.
+
+    Returns list of dicts with 'name' and 'type' for keywords missing definitions.
+    """
+    engine = get_engine()
+    with Session(engine) as session:
+        keywords = session.exec(select(MJKeyword)).all()
+        defined = set(session.exec(select(MJKeywordDefinition.keyword)).all())
+
+    missing = [
+        {"name": kw.name, "type": kw.type}
+        for kw in keywords
+        if kw.name not in defined
+    ]
+
+    if missing:
+        logger.warning(f"{len(missing)} keywords have no definition:")
+        for m in missing:
+            logger.warning(f"  [{m['type']}] {m['name']}")
+    else:
+        logger.info("All keywords have definitions")
+
+    return missing
