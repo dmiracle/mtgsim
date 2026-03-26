@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import type { CardSummary, Pagination as PaginationType, TagCount, KeywordFrequencies } from "@/types/api";
+import type { CardSummary, Pagination as PaginationType, TagCount, KeywordFrequencies, CardStatsResponse } from "@/types/api";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { CardGrid } from "@/components/CardGrid/CardGrid";
 import { CardTable } from "@/components/CardTable/CardTable";
 import { KeywordCloud } from "@/components/KeywordCloud/KeywordCloud";
+import { VBarChart } from "@/components/charts/VBarChart/VBarChart";
+import { DonutChart } from "@/components/charts/DonutChart/DonutChart";
+import { StatCard } from "@/components/StatCard/StatCard";
 
 export type CardSearchParams = {
   q?: string;
@@ -17,6 +20,7 @@ export type CardSearchParams = {
   type?: string;
   tags?: string;
   keywords?: string;
+  mana_value?: string;
   owns?: boolean;
   unique?: boolean;
   sort?: string;
@@ -26,6 +30,7 @@ export type CardSearchParams = {
 
 type CardBrowserPageProps = {
   cards: CardSummary[];
+  cardStats?: CardStatsResponse;
   pagination: PaginationType;
   availableTags: TagCount[];
   keywordFrequencies: KeywordFrequencies;
@@ -34,17 +39,19 @@ type CardBrowserPageProps = {
   onSetClick: (code: string) => void;
   onPin: (uuid: string) => void;
   onAddToDeck: (uuid: string) => void;
+  onAddToCollection?: (uuid: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: CardSearchParams) => void;
 };
 
 const emptyFilters: CardFilters = {
-  text: "", colors: [], rarities: [], types: [], tags: [],
-  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min",
+  text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
+  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 export function CardBrowserPage({
   cards,
+  cardStats,
   pagination,
   availableTags,
   keywordFrequencies,
@@ -53,6 +60,7 @@ export function CardBrowserPage({
   onSetClick,
   onPin,
   onAddToDeck,
+  onAddToCollection,
   onPageChange,
   onSearch,
 }: CardBrowserPageProps) {
@@ -63,7 +71,7 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.tags.length || selectedKeywords.length);
+  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || selectedKeywords.length);
 
   // Build and emit search params whenever any filter changes
   useEffect(() => {
@@ -75,8 +83,12 @@ export function CardBrowserPage({
     if (filters.colors.length) params.colors = filters.colors.join("");
     if (filters.rarities.length) params.rarity = filters.rarities.join(",");
     if (filters.types.length) params.type = filters.types.join(",");
+    if (filters.subtype) params.type = [filters.types.join(","), filters.subtype].filter(Boolean).join(",");
+    if (filters.sets.length) params.sets = filters.sets.join(",");
+    if (filters.formats.length) params.format = filters.formats.join(",");
     if (filters.tags.length) params.tags = filters.tags.join(",");
     if (selectedKeywords.length) params.keywords = selectedKeywords.join(",");
+    if (filters.manaValue.length) params.mana_value = filters.manaValue.join(",");
     if (filters.ownership === "owned") params.owns = true;
     if (filters.ownership === "not_owned") params.owns = false;
     if (filters.unique) params.unique = true;
@@ -174,6 +186,7 @@ export function CardBrowserPage({
               onSetClick={onSetClick}
               onPin={onPin}
               onAddToDeck={onAddToDeck}
+              onAddToCollection={onAddToCollection}
               onPageChange={onPageChange}
             />
           ) : (
@@ -189,8 +202,11 @@ export function CardBrowserPage({
           )}
         </div>
 
-        {/* Keyword sidebar */}
+        {/* Sidebar: stats + keywords */}
         <div className="space-y-4">
+          {hasActiveFilter && cardStats && (
+            <CardResultStats stats={cardStats} />
+          )}
           <KeywordCloud
             frequencies={keywordFrequencies}
             selectedKeywords={selectedKeywords}
@@ -198,6 +214,52 @@ export function CardBrowserPage({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Stats from /api/cards/stats endpoint ---
+
+function CardResultStats({ stats }: { stats: CardStatsResponse }) {
+  const manaCurveData = Object.entries(stats.mana_curve)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([label, value]) => ({ label, value }));
+
+  const typeData = Object.entries(stats.type_distribution)
+    .sort(([, a], [, b]) => b - a)
+    .map(([label, value]) => ({ label, value }));
+
+  const rarityData = Object.entries(stats.rarity_distribution)
+    .map(([label, value]) => ({ label, value }));
+
+  const colorMap: Record<string, string> = {
+    W: "#f9faf4", U: "#0e68ab", B: "#150b00", R: "#d3202a", G: "#00733e", C: "#9ca3af",
+  };
+  const colorData = Object.entries(stats.color_distribution)
+    .map(([label, value]) => ({ label, value, color: colorMap[label] ?? "#9ca3af" }));
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <StatCard label="Total" value={stats.total.toLocaleString()} />
+        <StatCard label="Avg Price" value={stats.price_stats.average > 0 ? `$${stats.price_stats.average.toFixed(2)}` : "—"} />
+      </div>
+
+      {manaCurveData.length > 0 && (
+        <VBarChart title="Mana Curve" data={manaCurveData} color="accent" height={120} animate={false} />
+      )}
+
+      {colorData.length > 0 && (
+        <DonutChart title="Colors" data={colorData} size={140} showLegend animate={false} />
+      )}
+
+      {rarityData.length > 0 && (
+        <DonutChart title="Rarity" data={rarityData} size={140} showLegend animate={false} />
+      )}
+
+      {typeData.length > 0 && (
+        <DonutChart title="Types" data={typeData} size={140} showLegend animate={false} />
+      )}
     </div>
   );
 }

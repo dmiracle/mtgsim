@@ -1,11 +1,14 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCardTags, useKeywordFrequencies } from "@/api/hooks";
+import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useAddToCollection } from "@/api/hooks";
+import { useActiveDeck } from "@/context/ActiveDeckContext";
 import { CardBrowserPage } from "./CardBrowserPage";
 import type { CardSearchParams } from "./CardBrowserPage";
 
 export function CardBrowserRoute() {
   const navigate = useNavigate();
+  const { quickAddCard } = useActiveDeck();
+  const addToCollection = useAddToCollection();
   const [pinnedIds, setPinnedIds] = useState(() => {
     const stored = localStorage.getItem("pinnedCards");
     return new Set<string>(stored ? JSON.parse(stored) : []);
@@ -14,6 +17,7 @@ export function CardBrowserRoute() {
   const [searchParams, setSearchParams] = useState<CardSearchParams>({});
 
   const { data: cardsData } = useCards({ ...searchParams, page, limit: 50 });
+  const { data: cardStats } = useCardStats(searchParams);
   const { data: tags } = useCardTags({
     format: searchParams.format,
     colors: searchParams.colors,
@@ -43,6 +47,7 @@ export function CardBrowserRoute() {
   return (
     <CardBrowserPage
       cards={cardsData?.data ?? []}
+      cardStats={cardStats ?? undefined}
       pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
       availableTags={tags ?? []}
       keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
@@ -50,7 +55,8 @@ export function CardBrowserRoute() {
       onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
       onSetClick={(code) => navigate(`/sets/${code}`)}
       onPin={togglePin}
-      onAddToDeck={() => {}}
+      onAddToDeck={quickAddCard}
+      onAddToCollection={(uuid) => addToCollection.mutate(uuid)}
       onPageChange={setPage}
       onSearch={handleSearch}
     />

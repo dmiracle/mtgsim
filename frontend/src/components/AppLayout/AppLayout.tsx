@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { ActiveDeckProvider, useActiveDeck } from "@/context/ActiveDeckContext";
 
 const navItems = [
   { id: "home", path: "/", iconClass: "ms-planeswalker", iconFont: "ms", label: "Home" },
@@ -9,6 +10,7 @@ const navItems = [
   { id: "prices", path: "/prices", iconClass: "ms-loyalty-up", iconFont: "ms", label: "Prices" },
   { id: "draft", path: "/draft", iconClass: "ms-chaos", iconFont: "ms", label: "Draft" },
   { id: "reference", path: "/reference", iconClass: "ms-ability-activated", iconFont: "ms", label: "Reference" },
+  { id: "flashcards", path: "/flashcards", iconClass: "ms-flashback", iconFont: "ms", label: "Study" },
 ];
 
 export function AppLayout() {
@@ -86,9 +88,34 @@ export function AppLayout() {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <Outlet />
-        </main>
+        <ActiveDeckProvider>
+          <ActiveDeckBar />
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <Outlet />
+          </main>
+        </ActiveDeckProvider>
+      </div>
+    </div>
+  );
+}
+
+function ActiveDeckBar() {
+  const { activeDeck, setActiveDeck, openPicker } = useActiveDeck();
+  if (!activeDeck) return null;
+  return (
+    <div className="shrink-0 flex items-center justify-between px-4 py-1.5 bg-accent/10 border-b border-accent/20 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="text-text-muted">Active deck:</span>
+        <span className="text-accent font-medium">{activeDeck.name}</span>
+        <span className="text-text-muted">({activeDeck.card_count})</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={() => openPicker()} className="text-text-muted hover:text-accent transition-colors">
+          Switch
+        </button>
+        <button onClick={() => setActiveDeck(null)} className="text-text-muted hover:text-danger transition-colors">
+          ×
+        </button>
       </div>
     </div>
   );

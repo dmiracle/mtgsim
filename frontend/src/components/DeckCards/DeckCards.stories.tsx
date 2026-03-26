@@ -5,8 +5,8 @@ import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { deckDetail } from "@/fixtures";
 
 const emptyFilters: CardFilters = {
-  text: "", colors: [], rarities: [], types: [], tags: [],
-  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min",
+  text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
+  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 const meta: Meta<typeof DeckCards> = {

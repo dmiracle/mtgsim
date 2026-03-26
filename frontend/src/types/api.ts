@@ -307,6 +307,22 @@ export type SetDetail = {
   };
 };
 
+// --- Card Stats (aggregated) ---
+
+export type CardStatsResponse = {
+  total: number;
+  mana_curve: Record<string, number>;
+  type_distribution: Record<string, number>;
+  rarity_distribution: Record<string, number>;
+  color_distribution: Record<string, number>;
+  price_stats: {
+    total: number;
+    average: number;
+    median: number;
+    count_with_price: number;
+  };
+};
+
 // --- Prices ---
 
 export type PriceSummary = {
