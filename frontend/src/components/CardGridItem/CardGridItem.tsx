@@ -9,6 +9,7 @@ type CardGridItemProps = {
   quantity?: number;
   onPin?: (uuid: string) => void;
   onAddToDeck?: (uuid: string) => void;
+  onAddToCollection?: (uuid: string) => void;
   onClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
 };
@@ -42,6 +43,7 @@ export function CardGridItem({
   quantity,
   onPin,
   onAddToDeck,
+  onAddToCollection,
   onClick,
   onSetClick,
 }: CardGridItemProps) {
@@ -150,10 +152,24 @@ export function CardGridItem({
           <button
             onClick={() => onAddToDeck?.(card.uuid)}
             className="text-xs px-2 py-1 rounded bg-bg-tertiary text-text-muted hover:text-accent transition-colors"
-            title="Add to deck"
+            title="Add to active deck"
           >
             + Deck
           </button>
+          {!card.owns && onAddToCollection && (
+            <button
+              onClick={() => onAddToCollection(card.uuid)}
+              className="text-xs px-2 py-1 rounded bg-bg-tertiary text-text-muted hover:text-success transition-colors"
+              title="Add to collection"
+            >
+              Own
+            </button>
+          )}
+          {card.owns && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">
+              ✓
+            </span>
+          )}
           <button
             onClick={() => navigator.clipboard.writeText(card.uuid)}
             className="text-xs px-2 py-1 rounded bg-bg-tertiary text-text-muted hover:text-text-secondary transition-colors ml-auto"

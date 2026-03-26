@@ -1,5 +1,11 @@
+import React from 'react'
 import type { Preview } from '@storybook/react-vite'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '../src/index.css'
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+})
 
 const THEMES = [
   // Dark - clean
@@ -81,7 +87,11 @@ const preview: Preview = {
       const font = context.globals.font || 'system';
       document.documentElement.setAttribute('data-theme', theme);
       document.documentElement.setAttribute('data-font', font);
-      return Story();
+      return (
+        <QueryClientProvider client={queryClient}>
+          <Story />
+        </QueryClientProvider>
+      );
     },
   ],
   parameters: {

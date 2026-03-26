@@ -7,6 +7,7 @@ import type {
   UserDeckResponse,
   DeckImportResult,
   CardListResponse,
+  CardStatsResponse,
   CardDetail,
   TagCount,
   KeywordFrequencies,
@@ -103,6 +104,16 @@ export function useCards(params: Record<string, string | number | boolean | null
   return useQuery({
     queryKey: ["cards", params],
     queryFn: () => apiFetch<CardListResponse>(`/cards${buildParams(params)}`),
+    enabled: hasFilter,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCardStats(params: Record<string, string | number | boolean | null | undefined>) {
+  const hasFilter = Object.values(params).some((v) => v !== undefined && v !== null && v !== "");
+  return useQuery({
+    queryKey: ["cards", "stats", params],
+    queryFn: () => apiFetch<CardStatsResponse>(`/cards/stats${buildParams(params)}`),
     enabled: hasFilter,
     placeholderData: (prev) => prev,
   });
