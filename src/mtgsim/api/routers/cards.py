@@ -49,6 +49,7 @@ async def search_cards(
     format: str | None = Query(None, description="Filter by format legality (standard, modern, etc.)"),
     keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
     tags: str | None = Query(None, description="Filter by oracle tags (comma-separated, e.g. mana-dork,ramp)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated, e.g. 0,1,2). 7 means 7+"),
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
     owns: bool | None = Query(None, description="Filter by ownership"),
@@ -65,6 +66,7 @@ async def search_cards(
     set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
     keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+    mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
 
     logger.debug(f"search_cards: q={q} set={set} format={format} rarity={rarity}")
     return await card_service.search_cards(
@@ -75,6 +77,7 @@ async def search_cards(
         rarity=rarity,
         card_type=type,
         colors=color_list,
+        mana_values=mv_list,
         format_legal=format,
         keywords=keyword_list,
         tags=tag_list,
@@ -102,6 +105,7 @@ async def get_card_stats(
     format: str | None = Query(None, description="Filter by format legality"),
     keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
     tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated, 7 means 7+)"),
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
     owns: bool | None = Query(None, description="Filter by ownership"),
@@ -119,6 +123,7 @@ async def get_card_stats(
     set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
     keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+    mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
 
     stats = cards_data.get_card_stats(
         q=q,
@@ -127,6 +132,7 @@ async def get_card_stats(
         rarity=rarity,
         card_type=type,
         colors=color_list,
+        mana_values=mv_list,
         format_legal=format,
         keywords=keyword_list,
         tags=tag_list,
