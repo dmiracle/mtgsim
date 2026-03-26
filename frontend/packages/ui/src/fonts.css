@@ -1,0 +1,2 @@
+/* Fonts loaded via <link> tags in index.html and .storybook/preview-head.html */
+/* CSS @import url() for external Google Fonts does not work reliably with Vite/Tailwind CSS processing */
