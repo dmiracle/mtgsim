@@ -20,6 +20,7 @@ export type CardSearchParams = {
   type?: string;
   tags?: string;
   keywords?: string;
+  mana_value?: string;
   owns?: boolean;
   unique?: boolean;
   sort?: string;
@@ -44,7 +45,7 @@ type CardBrowserPageProps = {
 };
 
 const emptyFilters: CardFilters = {
-  text: "", colors: [], rarities: [], types: [], tags: [],
+  text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
   ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
@@ -70,7 +71,7 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || selectedKeywords.length);
+  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || selectedKeywords.length);
 
   // Build and emit search params whenever any filter changes
   useEffect(() => {
@@ -87,6 +88,7 @@ export function CardBrowserPage({
     if (filters.formats.length) params.format = filters.formats.join(",");
     if (filters.tags.length) params.tags = filters.tags.join(",");
     if (selectedKeywords.length) params.keywords = selectedKeywords.join(",");
+    if (filters.manaValue.length) params.mana_value = filters.manaValue.join(",");
     if (filters.ownership === "owned") params.owns = true;
     if (filters.ownership === "not_owned") params.owns = false;
     if (filters.unique) params.unique = true;

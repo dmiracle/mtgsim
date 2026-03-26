@@ -23,7 +23,7 @@ const emptyFilters: CardFilters = {
   ownership: "all",
   sort: "name",
   order: "asc",
-  unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  unique: false, priceMode: "min", subtype: "", sets: [], formats: [], manaValue: [],
 };
 
 const meta: Meta<typeof CardFilterBar> = {
@@ -62,7 +62,7 @@ export const Interactive: Story = {
       ownership: "all",
       sort: "name",
       order: "asc",
-      unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+      unique: false, priceMode: "min", subtype: "", sets: [], formats: [], manaValue: [],
     });
     return (
       <div className="space-y-4">

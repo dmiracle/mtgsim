@@ -16,6 +16,7 @@ export type SetCardSearchParams = {
   text?: string;
   tags?: string;
   format?: string;
+  mana_value?: string;
   owns?: boolean;
   unique?: boolean;
   sort?: string;
@@ -36,7 +37,7 @@ type SetDetailPageProps = {
 };
 
 const emptyFilters: CardFilters = {
-  text: "", colors: [], rarities: [], types: [], tags: [],
+  text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
   ownership: "all", sort: "number", order: "asc", unique: true, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
@@ -61,6 +62,7 @@ export function SetDetailPage({ set, cards, cardPagination, availableTags = [], 
     if (filters.sort !== "number") params.sort = filters.sort;
     if (filters.order !== "asc") params.order = filters.order;
     if (filters.priceMode !== "min") params.price_mode = filters.priceMode;
+    if (filters.manaValue.length) params.mana_value = filters.manaValue.join(",");
     onCardFiltersChange(params);
   }, [filters, formatFilter, onCardFiltersChange]);
 

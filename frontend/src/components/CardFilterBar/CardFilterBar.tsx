@@ -18,6 +18,7 @@ type CardFilters = {
   sets: string[];
   formats: string[];
   tags: string[];
+  manaValue: number[];
   ownership: "all" | "owned" | "not_owned";
   sort: string;
   order: "asc" | "desc";
@@ -88,6 +89,13 @@ export function CardFilterBar({
     update({ formats: next });
   }
 
+  function toggleManaValue(mv: number) {
+    const next = filters.manaValue.includes(mv)
+      ? filters.manaValue.filter((v) => v !== mv)
+      : [...filters.manaValue, mv].sort((a, b) => a - b);
+    update({ manaValue: next });
+  }
+
   function update(partial: Partial<CardFilters>) {
     onChange({ ...filters, ...partial });
   }
@@ -101,6 +109,7 @@ export function CardFilterBar({
     filters.sets.length +
     filters.formats.length +
     filters.tags.length +
+    (filters.manaValue.length > 0 ? 1 : 0) +
     (filters.ownership !== "all" ? 1 : 0);
 
   return (
@@ -298,6 +307,30 @@ export function CardFilterBar({
               />
             </div>
 
+            {/* Mana Value */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5">
+              <span className="text-[10px] uppercase tracking-widest text-text-muted font-semibold sm:w-10">MV</span>
+              <div className="flex gap-1">
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((mv) => {
+                  const active = filters.manaValue.includes(mv);
+                  return (
+                    <button
+                      key={mv}
+                      onClick={() => toggleManaValue(mv)}
+                      className={`w-7 h-7 rounded-full text-xs font-bold transition-colors ${
+                        active
+                          ? "bg-accent text-white"
+                          : "bg-bg-tertiary border border-border text-text-muted hover:border-border-hover hover:text-text-secondary"
+                      }`}
+                      title={mv === 7 ? "Mana value 7+" : `Mana value ${mv}`}
+                    >
+                      {mv === 7 ? "7+" : mv}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Tags + Ownership + Unique — row that wraps */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <OracleTagsDropdown
@@ -332,6 +365,7 @@ export function CardFilterBar({
                       sets: [],
                       formats: [],
                       tags: [],
+                      manaValue: [],
                       ownership: "all",
                       sort: filters.sort,
                       order: filters.order,
