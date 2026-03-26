@@ -6,7 +6,7 @@ serve:
 
 # Start with debug logging
 serve-debug:
-    uv run mtgsim-api --debug
+    uv run mtgsim-api --debug --reload
 
 # Run tests
 test *args:
