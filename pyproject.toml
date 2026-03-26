@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn>=0.34.0",
     "llmex",
     "rapidfuzz>=3.14.3",
+    "srs",
 ]
 
 [tool.uv.workspace]
@@ -53,6 +54,7 @@ line-ending = "auto"
 [tool.uv.sources]
 mtgdb = { workspace = true }
 llmex = { path = "../llmex" }
+srs = { path = "../srs", editable = true }
 
 
 [project.scripts]

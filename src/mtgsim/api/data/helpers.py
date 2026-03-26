@@ -28,6 +28,7 @@ def apply_card_filters(
     card_type: str | None = None,
     text: str | None = None,
     colors: list[str] | None = None,
+    mana_values: list[int] | None = None,
     keywords: list[str] | None = None,
     tags: list[str] | None = None,
     owns: bool | None = None,
@@ -49,6 +50,16 @@ def apply_card_filters(
         from sqlalchemy import or_
 
         query = query.where(or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors]))
+    if mana_values:
+        from sqlalchemy import or_
+
+        mv_conditions = []
+        for mv in mana_values:
+            if mv >= 7:
+                mv_conditions.append(MJCard.mana_value >= 7)
+            else:
+                mv_conditions.append(MJCard.mana_value == mv)
+        query = query.where(or_(*mv_conditions))
     if keywords:
         for kw in keywords:
             query = query.where(func.json_extract(MJCard.keywords, "$").contains(f'"{kw}"'))

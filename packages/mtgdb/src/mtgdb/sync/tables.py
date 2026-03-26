@@ -7,7 +7,7 @@ import uuid as uuid_lib
 from datetime import datetime
 from pathlib import Path
 
-from sqlmodel import Session, delete
+from sqlmodel import Session, delete, select
 
 from mtgdb.models import (
     MJCard,
@@ -25,6 +25,39 @@ from mtgdb.session import get_engine
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 10000
+
+
+class SyncResult:
+    """Tracks before/after counts for a sync operation."""
+
+    def __init__(self, table_name: str, before: int = 0, after: int = 0):
+        self.table_name = table_name
+        self.before = before
+        self.after = after
+
+    @property
+    def new(self) -> int:
+        return max(0, self.after - self.before)
+
+    @property
+    def removed(self) -> int:
+        return max(0, self.before - self.after)
+
+    def summary(self) -> str:
+        parts = [f"{self.after:,} total"]
+        if self.new:
+            parts.append(f"{self.new:,} new")
+        if self.removed:
+            parts.append(f"{self.removed:,} removed")
+        if not self.new and not self.removed and self.before > 0:
+            parts.append("no changes")
+        return f"{self.table_name}: {', '.join(parts)}"
+
+
+def _count_rows(session, model) -> int:
+    from sqlmodel import func
+
+    return session.exec(select(func.count()).select_from(model)).one()
 
 
 def _parse_json_array(value) -> list:
@@ -59,13 +92,14 @@ def _connect(db_path: Path):
 # =============================================================================
 
 
-def sync_sets(source_db: Path):
+def sync_sets(source_db: Path) -> SyncResult:
     """Sync sets table from AllPrintings.sqlite to mj_set."""
     logger.info("Syncing sets...")
     conn = _connect(source_db)
     engine = get_engine()
 
     with Session(engine) as session:
+        before = _count_rows(session, MJSet)
         session.exec(delete(MJSet))
         session.commit()
 
@@ -99,7 +133,9 @@ def sync_sets(source_db: Path):
         session.commit()
 
     conn.close()
-    logger.info(f"Synced {count} sets")
+    result = SyncResult("Sets", before, count)
+    logger.info(result.summary())
+    return result
 
 
 # =============================================================================
@@ -107,20 +143,24 @@ def sync_sets(source_db: Path):
 # =============================================================================
 
 
-def sync_cards(source_db: Path):
+def sync_cards(source_db: Path) -> SyncResult:
     """Sync cards, identifiers, and legalities from AllPrintings.sqlite."""
     conn = _connect(source_db)
     engine = get_engine()
 
-    _sync_cards_table(conn, engine)
+    with Session(engine) as session:
+        before = _count_rows(session, MJCard)
+
+    result_cards = _sync_cards_table(conn, engine)
     _sync_identifiers(conn, engine)
     _sync_legalities(conn, engine)
 
     conn.close()
+    return SyncResult("Cards", before, result_cards)
 
 
-def _sync_cards_table(conn, engine):
-    """Sync main cards table."""
+def _sync_cards_table(conn, engine) -> int:
+    """Sync main cards table. Returns count of cards synced."""
     logger.info("Syncing cards...")
 
     with Session(engine) as session:
@@ -181,6 +221,7 @@ def _sync_cards_table(conn, engine):
         session.commit()
 
     logger.info(f"Synced {count} cards")
+    return count
 
 
 def _sync_identifiers(conn, engine):
@@ -263,13 +304,14 @@ def _sync_legalities(conn, engine):
 # =============================================================================
 
 
-def sync_prices(source_db: Path):
+def sync_prices(source_db: Path) -> SyncResult:
     """Sync prices from AllPricesToday.sqlite to mj_card_price."""
     logger.info("Syncing prices...")
     conn = _connect(source_db)
     engine = get_engine()
 
     with Session(engine) as session:
+        before = _count_rows(session, MJCardPrice)
         session.exec(delete(MJCardPrice))
         session.commit()
 
@@ -304,7 +346,9 @@ def sync_prices(source_db: Path):
         session.commit()
 
     conn.close()
-    logger.info(f"Synced {count} prices")
+    result = SyncResult("Prices", before, count)
+    logger.info(result.summary())
+    return result
 
 
 # =============================================================================
@@ -312,18 +356,19 @@ def sync_prices(source_db: Path):
 # =============================================================================
 
 
-def sync_decks(deck_dir: Path):
+def sync_decks(deck_dir: Path) -> SyncResult:
     """Sync preconstructed decks from AllDeckFiles directory."""
     logger.info("Syncing decks...")
 
     if not deck_dir.exists():
         logger.warning(f"Deck directory not found: {deck_dir}")
-        return
+        return SyncResult("Decks", 0, 0)
 
     files = list(deck_dir.glob("*.json"))
     engine = get_engine()
 
     with Session(engine) as session:
+        before = _count_rows(session, MJDeck)
         session.exec(delete(MJDeckCard))
         session.exec(delete(MJDeck))
         session.commit()
@@ -337,7 +382,9 @@ def sync_decks(deck_dir: Path):
 
         session.commit()
 
-    logger.info(f"Synced {len(files)} decks")
+    result = SyncResult("Decks", before, len(files))
+    logger.info(result.summary())
+    return result
 
 
 def _sync_deck_file(session: Session, file_path: Path):
@@ -389,13 +436,13 @@ def _sync_deck_file(session: Session, file_path: Path):
 # =============================================================================
 
 
-def sync_keywords(keywords_file: Path):
+def sync_keywords(keywords_file: Path) -> SyncResult:
     """Sync keywords from Keywords.json to mj_keyword."""
     logger.info("Syncing keywords...")
 
     if not keywords_file.exists():
         logger.warning(f"Keywords file not found: {keywords_file}")
-        return
+        return SyncResult("Keywords", 0, 0)
 
     with open(keywords_file) as f:
         content = json.load(f)
@@ -404,6 +451,7 @@ def sync_keywords(keywords_file: Path):
     engine = get_engine()
 
     with Session(engine) as session:
+        before = _count_rows(session, MJKeyword)
         session.exec(delete(MJKeyword))
         session.commit()
 
@@ -415,10 +463,12 @@ def sync_keywords(keywords_file: Path):
 
         session.commit()
 
-    logger.info(f"Synced {count} keywords")
+    result = SyncResult("Keywords", before, count)
+    logger.info(result.summary())
+    return result
 
 
-def sync_keyword_definitions(definitions_file: Path):
+def sync_keyword_definitions(definitions_file: Path) -> SyncResult:
     """Sync keyword definitions from a JS or JSON definitions file.
 
     Supports:
@@ -431,22 +481,22 @@ def sync_keyword_definitions(definitions_file: Path):
 
     if not definitions_file.exists():
         logger.warning(f"Definitions file not found: {definitions_file}")
-        return
+        return SyncResult("Keyword Definitions", 0, 0)
 
     content = definitions_file.read_text()
 
     if definitions_file.suffix == ".json":
         definitions = json.loads(content)
     else:
-        # Parse JS object with "key": "value" pairs
         definitions = dict(re.findall(r'"([^"]+)":\s*"([^"]+)"', content))
 
     if not definitions:
         logger.warning("No definitions found")
-        return
+        return SyncResult("Keyword Definitions", 0, 0)
 
     engine = get_engine()
     with Session(engine) as session:
+        before = _count_rows(session, MJKeywordDefinition)
         session.exec(delete(MJKeywordDefinition))
         session.commit()
 
@@ -463,4 +513,32 @@ def sync_keyword_definitions(definitions_file: Path):
 
         session.commit()
 
-    logger.info(f"Synced {count} keyword definitions")
+    result = SyncResult("Keyword Definitions", before, count)
+    logger.info(result.summary())
+    return result
+
+
+def check_missing_keyword_definitions() -> list[dict]:
+    """Check for keywords in mj_keyword that have no definition in mj_keyword_definition.
+
+    Returns list of dicts with 'name' and 'type' for keywords missing definitions.
+    """
+    engine = get_engine()
+    with Session(engine) as session:
+        keywords = session.exec(select(MJKeyword)).all()
+        defined = set(session.exec(select(MJKeywordDefinition.keyword)).all())
+
+    missing = [
+        {"name": kw.name, "type": kw.type}
+        for kw in keywords
+        if kw.name not in defined
+    ]
+
+    if missing:
+        logger.warning(f"{len(missing)} keywords have no definition:")
+        for m in missing:
+            logger.warning(f"  [{m['type']}] {m['name']}")
+    else:
+        logger.info("All keywords have definitions")
+
+    return missing

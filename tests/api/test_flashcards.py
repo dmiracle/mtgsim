@@ -57,6 +57,24 @@ class TestGenerateFlashcards:
         )
         assert response.status_code == 400
 
+    def test_generate_keywords_filtered_by_set(self, client, flashcard_user_id):
+        """Keywords with set_code should only include keywords from that set."""
+        all_resp = client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition", "collection_name": "all_kw"},
+        )
+        set_resp = client.post(
+            "/api/flashcards/generate",
+            json={
+                "user_id": flashcard_user_id,
+                "card_type": "keyword_definition",
+                "set_code": "KLD",
+                "collection_name": "kld_kw",
+            },
+        )
+        assert set_resp.json()["created"] < all_resp.json()["created"]
+        assert set_resp.json()["created"] > 0
+
     def test_generate_idempotent(self, client, flashcard_user_id):
         """Second generation of same type should create 0 cards."""
         client.post(
@@ -84,6 +102,8 @@ class TestGetNextFlashcard:
         data = response.json()
         assert "flashcard_id" in data
         assert "question" in data
+        assert "answer" in data
+        assert data["answer"] is not None
         assert "card_type" in data["question"]
 
     def test_next_with_collection_filter(self, client, flashcard_user_id):
@@ -91,9 +111,7 @@ class TestGetNextFlashcard:
             "/api/flashcards/generate",
             json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
         )
-        response = client.get(
-            f"/api/flashcards/next?user_id={flashcard_user_id}&collection=keywords_keywordAbilities"
-        )
+        response = client.get(f"/api/flashcards/next?user_id={flashcard_user_id}&collection=keywords_keywordAbilities")
         assert response.status_code == 200
 
     def test_next_no_cards_returns_null(self, client):
@@ -147,6 +165,123 @@ class TestListCollections:
         assert "card_count" in data[0]
 
 
+class TestGenerateWithCollectionName:
+    """Tests for collection_name parameter on generate."""
+
+    def test_generate_with_custom_collection_name(self, client, flashcard_user_id):
+        response = client.post(
+            "/api/flashcards/generate",
+            json={
+                "user_id": flashcard_user_id,
+                "card_type": "card_oracle",
+                "set_code": "KLD",
+                "collection_name": "KLD Study Deck",
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["collection"] == "KLD Study Deck"
+        assert response.json()["created"] > 0
+
+    def test_generate_multiple_types_into_same_collection(self, client, flashcard_user_id):
+        for card_type in ["card_oracle", "card_mana_cost"]:
+            client.post(
+                "/api/flashcards/generate",
+                json={
+                    "user_id": flashcard_user_id,
+                    "card_type": card_type,
+                    "set_code": "KLD",
+                    "collection_name": "KLD Combined",
+                },
+            )
+        collections = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        combined = [c for c in collections if c["name"] == "KLD Combined"]
+        assert len(combined) == 1
+        assert combined[0]["card_count"] > 0
+
+
+class TestMergeCollections:
+    """Tests for POST /api/flashcards/collections/merge."""
+
+    def test_merge_collections_returns_200(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        collections = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_ids = [c["id"] for c in collections[:2]]
+
+        response = client.post(
+            "/api/flashcards/collections/merge",
+            json={"user_id": flashcard_user_id, "collection_ids": col_ids, "name": "Merged Keywords"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["collection"]["name"] == "Merged Keywords"
+        assert data["merged_from"] == 2
+        assert data["collection"]["card_count"] > 0
+
+    def test_merge_with_delete_originals(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        before = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_ids = [c["id"] for c in before[:2]]
+
+        client.post(
+            "/api/flashcards/collections/merge",
+            json={
+                "user_id": flashcard_user_id,
+                "collection_ids": col_ids,
+                "name": "Merged All",
+                "delete_originals": True,
+            },
+        )
+        after = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        assert len(after) < len(before)
+
+    def test_merge_not_found(self, client, flashcard_user_id):
+        response = client.post(
+            "/api/flashcards/collections/merge",
+            json={"user_id": flashcard_user_id, "collection_ids": [99999], "name": "Bad Merge"},
+        )
+        assert response.status_code == 404
+
+
+class TestDeleteCollection:
+    """Tests for DELETE /api/flashcards/collections/{id}."""
+
+    def test_delete_collection_returns_200(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        collections = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_id = collections[0]["id"]
+        card_count = collections[0]["card_count"]
+
+        response = client.delete(f"/api/flashcards/collections/{col_id}?user_id={flashcard_user_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted"] is True
+        assert data["cards_removed"] == card_count
+
+    def test_delete_collection_not_found(self, client, flashcard_user_id):
+        response = client.delete(f"/api/flashcards/collections/99999?user_id={flashcard_user_id}")
+        assert response.status_code == 404
+
+    def test_delete_collection_reduces_count(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        before = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        col_id = before[0]["id"]
+        client.delete(f"/api/flashcards/collections/{col_id}?user_id={flashcard_user_id}")
+        after = client.get(f"/api/flashcards/collections?user_id={flashcard_user_id}").json()
+        assert len(after) == len(before) - 1
+
+
 class TestStudyStats:
     """Tests for GET /api/flashcards/stats."""
 
@@ -163,3 +298,33 @@ class TestStudyStats:
         assert "cards_new" in data
         assert "reviews_today" in data
         assert data["total_cards"] > 0
+
+    def test_stats_has_mastery_fields(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        data = client.get(f"/api/flashcards/stats?user_id={flashcard_user_id}").json()
+        assert "cards_learning" in data
+        assert "cards_young" in data
+        assert "cards_mature" in data
+
+    def test_stats_has_performance_fields(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        data = client.get(f"/api/flashcards/stats?user_id={flashcard_user_id}").json()
+        assert "average_ease" in data
+        assert "total_reviews" in data
+        assert "streak_days" in data
+        assert data["average_ease"] >= 1.3
+
+    def test_stats_has_forecast_fields(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        data = client.get(f"/api/flashcards/stats?user_id={flashcard_user_id}").json()
+        assert "due_tomorrow" in data
+        assert "due_this_week" in data

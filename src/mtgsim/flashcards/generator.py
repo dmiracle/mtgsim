@@ -52,14 +52,29 @@ def _build_image_url(scryfall_id: str | None) -> str | None:
     return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
 
 
-def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
+def generate_keyword_flashcards(
+    client: SRSClient,
+    user_id: str,
+    collection_name: str | None = None,
+    set_code: str | None = None,
+) -> int:
     app = _get_or_create_app(client, user_id)
 
     with get_session() as session:
         keywords = session.exec(select(MJKeyword)).all()
-        # Load definitions from DB
         defs_rows = session.exec(select(MJKeywordDefinition.keyword, MJKeywordDefinition.definition)).all()
         definitions = dict(defs_rows)
+
+        # If set_code provided, filter to keywords that appear on cards in that set
+        if set_code:
+            query = select(MJCard.keywords).where(
+                MJCard.set_code == set_code, MJCard.keywords.is_not(None)
+            )
+            set_keywords: set[str] = set()
+            for kw_list in session.exec(query).all():
+                if isinstance(kw_list, list):
+                    set_keywords.update(kw_list)
+            keywords = [kw for kw in keywords if kw.name in set_keywords]
 
     created = 0
     by_type: dict[str, list[dict]] = {}
@@ -67,9 +82,11 @@ def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
         by_type.setdefault(kw.type, []).append(kw)
 
     for kw_type, kw_list in by_type.items():
-        col = _get_or_create_collection(client, user_id, f"keywords_{kw_type}", app.id)
-        if _collection_has_flashcards(client, col.id):
-            logger.info(f"Collection keywords_{kw_type} already populated, skipping")
+        col_name = collection_name or f"keywords_{kw_type}"
+        col = _get_or_create_collection(client, user_id, col_name, app.id)
+        # Only skip if using auto-generated name and already populated
+        if not collection_name and _collection_has_flashcards(client, col.id):
+            logger.info(f"Collection {col_name} already populated, skipping")
             continue
 
         cards = []
@@ -94,18 +111,23 @@ def generate_keyword_flashcards(client: SRSClient, user_id: str) -> int:
     return created
 
 
-def generate_card_oracle_flashcards(client: SRSClient, user_id: str, set_code: str, rarity: str | None = None) -> int:
+def generate_card_oracle_flashcards(
+    client: SRSClient, user_id: str, set_code: str, rarity: str | None = None, collection_name: str | None = None
+) -> int:
     app = _get_or_create_app(client, user_id)
-    col_name = f"card_oracle_{set_code}"
+    col_name = collection_name or f"card_oracle_{set_code}"
     col = _get_or_create_collection(client, user_id, col_name, app.id)
 
-    if _collection_has_flashcards(client, col.id):
+    if not collection_name and _collection_has_flashcards(client, col.id):
         logger.info(f"Collection {col_name} already populated, skipping")
         return 0
 
     with get_session() as session:
         query = (
-            select(MJCard.name, MJCard.oracle_text, MJCard.mana_cost, MJCard.type_line, MJCardIdentifier.scryfall_id)
+            select(
+                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.mana_cost,
+                MJCard.type_line, MJCardIdentifier.scryfall_id,
+            )
             .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
             .where(MJCard.oracle_text.is_not(None))
@@ -120,12 +142,13 @@ def generate_card_oracle_flashcards(client: SRSClient, user_id: str, set_code: s
         results = session.exec(query).all()
 
     cards = []
-    for name, oracle_text, mana_cost, type_line, scryfall_id in results:
+    for uuid, name, oracle_text, mana_cost, type_line, scryfall_id in results:
         cards.append(
             {
                 "question": {
                     "card_type": "card_oracle",
                     "card_name": name,
+                    "uuid": uuid,
                     "set_code": set_code,
                     "image_url": _build_image_url(scryfall_id),
                 },
@@ -144,19 +167,25 @@ def generate_card_oracle_flashcards(client: SRSClient, user_id: str, set_code: s
     return len(cards)
 
 
-def generate_card_mana_cost_flashcards(client: SRSClient, user_id: str, set_code: str) -> int:
+def generate_card_mana_cost_flashcards(
+    client: SRSClient, user_id: str, set_code: str, collection_name: str | None = None
+) -> int:
     app = _get_or_create_app(client, user_id)
-    col_name = f"card_mana_cost_{set_code}"
+    col_name = collection_name or f"card_mana_cost_{set_code}"
     col = _get_or_create_collection(client, user_id, col_name, app.id)
 
-    if _collection_has_flashcards(client, col.id):
+    if not collection_name and _collection_has_flashcards(client, col.id):
         logger.info(f"Collection {col_name} already populated, skipping")
         return 0
 
     with get_session() as session:
         subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
         query = (
-            select(MJCard.name, MJCard.oracle_text, MJCard.mana_cost, MJCard.mana_value, MJCard.type_line)
+            select(
+                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.mana_cost,
+                MJCard.mana_value, MJCard.type_line, MJCardIdentifier.scryfall_id,
+            )
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
             .where(MJCard.mana_cost.is_not(None))
             .where(MJCard.mana_cost != "")
@@ -165,12 +194,15 @@ def generate_card_mana_cost_flashcards(client: SRSClient, user_id: str, set_code
         results = session.exec(query).all()
 
     cards = []
-    for name, oracle_text, mana_cost, mana_value, type_line in results:
+    for uuid, name, oracle_text, mana_cost, mana_value, type_line, scryfall_id in results:
         cards.append(
             {
                 "question": {
                     "card_type": "card_mana_cost",
                     "card_name": name,
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "image_url": _build_image_url(scryfall_id),
                     "oracle_text": oracle_text,
                     "type_line": type_line,
                 },
@@ -188,19 +220,25 @@ def generate_card_mana_cost_flashcards(client: SRSClient, user_id: str, set_code
     return len(cards)
 
 
-def generate_card_stats_flashcards(client: SRSClient, user_id: str, set_code: str) -> int:
+def generate_card_stats_flashcards(
+    client: SRSClient, user_id: str, set_code: str, collection_name: str | None = None
+) -> int:
     app = _get_or_create_app(client, user_id)
-    col_name = f"card_stats_{set_code}"
+    col_name = collection_name or f"card_stats_{set_code}"
     col = _get_or_create_collection(client, user_id, col_name, app.id)
 
-    if _collection_has_flashcards(client, col.id):
+    if not collection_name and _collection_has_flashcards(client, col.id):
         logger.info(f"Collection {col_name} already populated, skipping")
         return 0
 
     with get_session() as session:
         subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
         query = (
-            select(MJCard.name, MJCard.oracle_text, MJCard.type_line, MJCard.power, MJCard.toughness)
+            select(
+                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.type_line,
+                MJCard.power, MJCard.toughness, MJCardIdentifier.scryfall_id,
+            )
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
             .where(MJCard.power.is_not(None))
             .where(MJCard.toughness.is_not(None))
@@ -209,12 +247,15 @@ def generate_card_stats_flashcards(client: SRSClient, user_id: str, set_code: st
         results = session.exec(query).all()
 
     cards = []
-    for name, oracle_text, type_line, power, toughness in results:
+    for uuid, name, oracle_text, type_line, power, toughness, scryfall_id in results:
         cards.append(
             {
                 "question": {
                     "card_type": "card_stats",
                     "card_name": name,
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "image_url": _build_image_url(scryfall_id),
                     "oracle_text": oracle_text,
                     "type_line": type_line,
                 },

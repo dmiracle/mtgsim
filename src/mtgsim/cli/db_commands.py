@@ -122,36 +122,43 @@ def db_sync(
 
             if sets_only:
                 download_and_extract_xz(ALL_PRINTINGS_URL, printings_db, force)
-                sync_sets(printings_db)
-                typer.echo("Sets sync complete.")
+                result = sync_sets(printings_db)
+                typer.echo(result.summary())
 
             if cards_only:
                 download_and_extract_xz(ALL_PRINTINGS_URL, printings_db, force)
-                sync_cards(printings_db)
-                typer.echo("Cards sync complete.")
+                result = sync_cards(printings_db)
+                typer.echo(result.summary())
 
             if prices_only:
                 download_and_extract_xz(ALL_PRICES_URL, prices_db, force)
-                sync_prices(prices_db)
-                typer.echo("Prices sync complete.")
+                result = sync_prices(prices_db)
+                typer.echo(result.summary())
 
             if decks_only:
                 download_and_extract_tar_xz(ALL_DECK_FILES_URL, ALL_DECK_FILES_DIR, force)
-                sync_decks(ALL_DECK_FILES_DIR)
-                typer.echo("Decks sync complete.")
+                result = sync_decks(ALL_DECK_FILES_DIR)
+                typer.echo(result.summary())
 
             if keywords_only:
                 download_and_extract_xz(KEYWORDS_URL, keywords_file, force)
-                sync_keywords(keywords_file)
-                # Also sync keyword definitions from web/keyword-definitions.js
-                from mtgdb.sync.tables import sync_keyword_definitions
+                result = sync_keywords(keywords_file)
+                typer.echo(result.summary())
+                # Also sync keyword definitions from src/mtgsim/data/
+                from pathlib import Path as _Path
 
-                from mtgsim.config import get_web_dir
+                from mtgdb.sync.tables import check_missing_keyword_definitions, sync_keyword_definitions
 
-                defs_file = get_web_dir() / "keyword-definitions.js"
+                defs_file = _Path(__file__).parent.parent / "data" / "keyword-definitions.json"
                 if defs_file.exists():
-                    sync_keyword_definitions(defs_file)
-                typer.echo("Keywords sync complete.")
+                    defs_result = sync_keyword_definitions(defs_file)
+                    typer.echo(defs_result.summary())
+                # Check for keywords without definitions
+                missing = check_missing_keyword_definitions()
+                if missing:
+                    typer.echo(f"Warning: {len(missing)} keywords have no definition:")
+                    for m in missing:
+                        typer.echo(f"  [{m['type']}] {m['name']}")
 
             if tags_only:
                 tag_data = fetch_all_tags(force=force)
