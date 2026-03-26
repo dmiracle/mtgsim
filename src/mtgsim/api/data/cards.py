@@ -250,6 +250,201 @@ class CardsData:
 
             return cards, total
 
+    def get_card_stats(
+        self,
+        q: str | None = None,
+        text: str | None = None,
+        set_code: str | None = None,
+        set_codes: list[str] | None = None,
+        rarity: str | None = None,
+        card_type: str | None = None,
+        colors: list[str] | None = None,
+        format_legal: str | None = None,
+        keywords: list[str] | None = None,
+        tags: list[str] | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        owns: bool | None = None,
+        wants: bool | None = None,
+        unique: bool = False,
+    ) -> dict:
+        """Get aggregated stats for filtered cards."""
+        with get_session() as session:
+            # Build base filtered query (same filters as search_cards)
+            query = select(MJCard.uuid).outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
+            query, price_col = add_price_join(query)
+
+            if format_legal:
+                query = query.join(
+                    MJCardLegality,
+                    (MJCard.uuid == MJCardLegality.card_uuid)
+                    & (MJCardLegality.format == format_legal)
+                    & (MJCardLegality.status == "Legal"),
+                )
+                query = query.join(MJSet, MJCard.set_code == MJSet.code).where(MJSet.type.in_(["expansion", "core"]))
+                if format_legal == "standard":
+                    cutoff = _standard_cutoff_date(session)
+                    if cutoff:
+                        query = query.where(MJSet.release_date >= cutoff)
+
+            if q:
+                query = query.where(
+                    (MJCard.name.contains(q)) | (MJCard.type_line.contains(q)) | (MJCard.oracle_text.contains(q))
+                )
+            if set_code:
+                query = query.where(MJCard.set_code == set_code)
+            if set_codes:
+                query = query.where(MJCard.set_code.in_(set_codes))
+
+            query = apply_card_filters(
+                query,
+                rarity=rarity,
+                card_type=card_type,
+                text=text,
+                colors=colors,
+                keywords=keywords,
+                tags=tags,
+                owns=owns,
+                wants=wants,
+            )
+
+            if price_min is not None:
+                query = query.where(price_col >= price_min)
+            if price_max is not None:
+                query = query.where(price_col <= price_max)
+
+            if unique:
+                subq = select(func.min(MJCard.uuid)).group_by(MJCard.name)
+                if set_code:
+                    subq = subq.where(MJCard.set_code == set_code)
+                if set_codes:
+                    subq = subq.where(MJCard.set_code.in_(set_codes))
+                query = query.where(MJCard.uuid.in_(subq))
+
+            # Build subquery of matching UUIDs
+            filtered_uuids = query.subquery()
+
+            # Total count
+            total = session.exec(select(func.count()).select_from(filtered_uuids)).one()
+
+            # Mana curve: count by mana_value
+            mv_rows = session.exec(
+                select(MJCard.mana_value, func.count())
+                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
+                .where(MJCard.mana_value.is_not(None))
+                .group_by(MJCard.mana_value)
+                .order_by(MJCard.mana_value)
+            ).all()
+            mana_curve = {str(int(mv)): cnt for mv, cnt in mv_rows if mv is not None}
+
+            # Type distribution
+            type_rows = session.exec(
+                select(MJCard.type_line, func.count())
+                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
+                .group_by(MJCard.type_line)
+            ).all()
+            # Simplify type_line to primary type
+            type_dist: dict[str, int] = {}
+            for type_line, cnt in type_rows:
+                if not type_line:
+                    continue
+                primary = type_line.split("—")[0].split("//")[0].strip()
+                for t in [
+                    "Creature",
+                    "Instant",
+                    "Sorcery",
+                    "Enchantment",
+                    "Artifact",
+                    "Planeswalker",
+                    "Land",
+                    "Battle",
+                ]:
+                    if t in primary:
+                        type_dist[t] = type_dist.get(t, 0) + cnt
+                        break
+                else:
+                    type_dist["Other"] = type_dist.get("Other", 0) + cnt
+
+            # Rarity distribution
+            rarity_rows = session.exec(
+                select(MJCard.rarity, func.count())
+                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
+                .group_by(MJCard.rarity)
+            ).all()
+            rarity_dist = {r: cnt for r, cnt in rarity_rows if r}
+
+            # Color distribution
+            color_rows = session.exec(
+                select(MJCard.colors)
+                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
+                .where(MJCard.colors.is_not(None))
+            ).all()
+            color_dist: dict[str, int] = {}
+            for colors_json in color_rows:
+                if isinstance(colors_json, list):
+                    for c in colors_json:
+                        color_dist[c] = color_dist.get(c, 0) + 1
+                    if not colors_json:
+                        color_dist["C"] = color_dist.get("C", 0) + 1
+
+            # Price stats
+            price_query = (
+                select(
+                    func.count(price_col),
+                    func.sum(price_col),
+                    func.avg(price_col),
+                )
+                .select_from(MJCard)
+                .outerjoin(
+                    MJCardPrice,
+                    (MJCardPrice.card_uuid == MJCard.uuid)
+                    & (MJCardPrice.provider == "tcgplayer")
+                    & (MJCardPrice.finish == "normal")
+                    & (MJCardPrice.listing_type == "retail"),
+                )
+                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
+                .where(price_col.is_not(None))
+            )
+            price_row = session.exec(price_query).one()
+            price_count = price_row[0] or 0
+            price_total = round(price_row[1] or 0, 2)
+            price_avg = round(price_row[2] or 0, 2)
+
+            # Median price via sorted list
+            if price_count > 0:
+                all_prices = session.exec(
+                    select(price_col)
+                    .select_from(MJCard)
+                    .outerjoin(
+                        MJCardPrice,
+                        (MJCardPrice.card_uuid == MJCard.uuid)
+                        & (MJCardPrice.provider == "tcgplayer")
+                        & (MJCardPrice.finish == "normal")
+                        & (MJCardPrice.listing_type == "retail"),
+                    )
+                    .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
+                    .where(price_col.is_not(None))
+                    .order_by(price_col)
+                ).all()
+                mid = len(all_prices) // 2
+                price_median = round(all_prices[mid], 2) if all_prices else 0
+            else:
+                price_median = 0
+
+            return {
+                "total": total,
+                "mana_curve": mana_curve,
+                "type_distribution": type_dist,
+                "rarity_distribution": rarity_dist,
+                "color_distribution": color_dist,
+                "price_stats": {
+                    "total": price_total,
+                    "average": price_avg,
+                    "median": price_median,
+                    "count_with_price": price_count,
+                },
+            }
+
     def get_available_tags(
         self,
         set_code: str | None = None,

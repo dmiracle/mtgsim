@@ -33,6 +33,24 @@ class CardListResponse(BaseModel):
     pagination: Pagination
 
 
+class PriceStats(BaseModel):
+    total: float = 0
+    average: float = 0
+    median: float = 0
+    count_with_price: int = 0
+
+
+class CardStatsResponse(BaseModel):
+    """Aggregated statistics for filtered cards."""
+
+    total: int
+    mana_curve: dict[str, int]
+    type_distribution: dict[str, int]
+    rarity_distribution: dict[str, int]
+    color_distribution: dict[str, int]
+    price_stats: PriceStats
+
+
 class CardPriceEntry(BaseModel):
     """Single price entry from a provider."""
 

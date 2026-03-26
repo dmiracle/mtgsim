@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from mtgsim.api.models.card import CardDetail, CardListResponse
+from mtgsim.api.models.card import CardDetail, CardListResponse, CardStatsResponse
 from mtgsim.api.services.card_service import card_service
 
 logger = logging.getLogger("mtgsim.api.routers.cards")
@@ -89,6 +89,54 @@ async def search_cards(
         page=page,
         limit=limit,
     )
+
+
+@router.get("/stats", response_model=CardStatsResponse)
+async def get_card_stats(
+    q: str | None = Query(None, description="Search by name, type, or oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by colors (e.g. WUB)"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    price_min: float | None = Query(None, ge=0, description="Minimum price"),
+    price_max: float | None = Query(None, ge=0, description="Maximum price"),
+    owns: bool | None = Query(None, description="Filter by ownership"),
+    wants: bool | None = Query(None, description="Filter by want status"),
+    unique: bool = Query(False, description="One printing per card name"),
+) -> CardStatsResponse:
+    """Get aggregated statistics for filtered cards.
+
+    Accepts the same filter parameters as GET /api/cards but returns
+    mana curve, type/rarity/color distributions, and price stats.
+    """
+    from mtgsim.api.data.cards import cards_data
+
+    color_list = list(colors.upper()) if colors else None
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+
+    stats = cards_data.get_card_stats(
+        q=q,
+        set_code=set,
+        set_codes=set_code_list,
+        rarity=rarity,
+        card_type=type,
+        colors=color_list,
+        format_legal=format,
+        keywords=keyword_list,
+        tags=tag_list,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        wants=wants,
+        unique=unique,
+    )
+    return CardStatsResponse(**stats)
 
 
 @router.get("/tags")

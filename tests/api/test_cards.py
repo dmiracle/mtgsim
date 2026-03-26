@@ -184,6 +184,58 @@ class TestSearchCards:
             assert isinstance(card["tags"], list)
 
 
+class TestCardStats:
+    """Tests for GET /api/cards/stats endpoint."""
+
+    def test_stats_returns_200(self, client):
+        response = client.get("/api/cards/stats")
+        assert response.status_code == 200
+
+    def test_stats_response_structure(self, client):
+        data = client.get("/api/cards/stats").json()
+        assert "total" in data
+        assert "mana_curve" in data
+        assert "type_distribution" in data
+        assert "rarity_distribution" in data
+        assert "color_distribution" in data
+        assert "price_stats" in data
+        assert data["total"] > 0
+
+    def test_stats_with_set_filter(self, client, sample_set_code):
+        data = client.get(f"/api/cards/stats?set={sample_set_code}").json()
+        assert data["total"] > 0
+        assert len(data["mana_curve"]) > 0
+
+    def test_stats_with_rarity_filter(self, client):
+        data = client.get("/api/cards/stats?rarity=mythic").json()
+        assert data["total"] > 0
+        assert data["rarity_distribution"].get("mythic", 0) == data["total"]
+
+    def test_stats_mana_curve_is_dict(self, client, sample_set_code):
+        data = client.get(f"/api/cards/stats?set={sample_set_code}").json()
+        curve = data["mana_curve"]
+        assert isinstance(curve, dict)
+        for key in curve:
+            assert key.isdigit()
+
+    def test_stats_price_stats_fields(self, client, sample_set_code):
+        data = client.get(f"/api/cards/stats?set={sample_set_code}").json()
+        ps = data["price_stats"]
+        assert "total" in ps
+        assert "average" in ps
+        assert "median" in ps
+
+    def test_stats_with_type_filter(self, client, sample_set_code):
+        data = client.get(f"/api/cards/stats?set={sample_set_code}&type=Creature").json()
+        assert data["total"] > 0
+        assert "Creature" in data["type_distribution"]
+
+    def test_stats_unique_dedup(self, client, sample_set_code):
+        all_data = client.get(f"/api/cards/stats?set={sample_set_code}").json()
+        unique_data = client.get(f"/api/cards/stats?set={sample_set_code}&unique=true").json()
+        assert unique_data["total"] <= all_data["total"]
+
+
 class TestGetTags:
     """Tests for GET /api/cards/tags endpoint."""
 
