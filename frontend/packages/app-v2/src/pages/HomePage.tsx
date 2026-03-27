@@ -12,14 +12,20 @@ export function HomePage() {
     <StudyHome
       modes={[
         {
-          key: "flashcards",
+          key: "study",
           label: "Flashcard Study",
           description: "SRS-scheduled review from your collections",
           iconClass: "ms ms-flashback",
           badge: stats?.cards_due,
         },
+        {
+          key: "generate",
+          label: "Generate Card Recall",
+          description: "Create recall flashcards from sets",
+          iconClass: "ms ms-creature",
+        },
       ]}
-      onSelect={() => navigate("/study")}
+      onSelect={(key) => navigate(`/${key}`)}
     />
   );
 }

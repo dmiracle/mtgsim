@@ -3,10 +3,10 @@ import { FlipCard } from "@/components/FlipCard/FlipCard";
 import { TrafficLight } from "@/components/TrafficLight/TrafficLight";
 
 const RECALL_ASPECTS = [
-  { key: "manaValue", label: "MV", iconClass: "ms ms-x" },
-  { key: "type", label: "Type", iconClass: "ms ms-saga" },
-  { key: "stats", label: "Stats", iconClass: "ms ms-creature" },
-  { key: "oracle", label: "Oracle", iconClass: "ms ms-ability-activated" },
+  { key: "mana_cost", label: "MV", iconClass: "ms ms-x" },
+  { key: "type_line", label: "Type", iconClass: "ms ms-saga" },
+  { key: "power_toughness", label: "Stats", iconClass: "ms ms-creature" },
+  { key: "oracle_text", label: "Oracle", iconClass: "ms ms-ability-activated" },
 ];
 
 type RecallCard = {

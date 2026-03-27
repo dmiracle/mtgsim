@@ -2,7 +2,7 @@
 
 export type GenerateRequest = {
   user_id: string;
-  card_type: "keyword_definition" | "card_oracle" | "card_mana_cost" | "card_stats" | "card_rarity";
+  card_type: "keyword_definition" | "card_oracle" | "card_mana_cost" | "card_stats" | "card_rarity" | "card_recall";
   set_code?: string;
   rarity?: string;
   collection_name?: string;
@@ -40,11 +40,20 @@ export type CardStatsQuestion = {
   type_line: string;
 };
 
+export type CardRecallQuestion = {
+  card_type: "card_recall";
+  card_name: string;
+  uuid: string;
+  set_code: string;
+  image_url: string | null;
+};
+
 export type FlashcardQuestionData =
   | KeywordQuestion
   | CardOracleQuestion
   | CardManaCostQuestion
-  | CardStatsQuestion;
+  | CardStatsQuestion
+  | CardRecallQuestion;
 
 export type FlashcardAnswer = {
   definition?: string;
@@ -65,10 +74,13 @@ export type FlashcardQuestion = {
   collection: string | null;
 };
 
+export type AspectRating = "green" | "yellow" | "red";
+
 export type ReviewRequest = {
   user_id: string;
   flashcard_id: number;
-  rating: number;
+  rating?: number;
+  aspect_ratings?: Record<string, AspectRating>;
   response_time_ms: number;
 };
 

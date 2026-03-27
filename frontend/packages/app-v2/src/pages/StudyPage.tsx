@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FlashcardCard } from "@/components/FlashcardCard/FlashcardCard";
+import { CardRecallFlashcard } from "@/components/CardRecallFlashcard/CardRecallFlashcard";
 import { CollectionPicker } from "@/components/CollectionPicker/CollectionPicker";
 import { StudyFeed, StudyFeedEmpty, StudyFeedLoading } from "@/components/StudyFeed/StudyFeed";
 import {
@@ -8,6 +9,7 @@ import {
   useNextFlashcard,
   useRecordReview,
 } from "@/api/flashcard-hooks";
+import type { AspectRating } from "@/types/flashcards";
 
 const USER_ID = localStorage.getItem("flashcard_user_id") || "default_user";
 
@@ -31,6 +33,23 @@ export function StudyPage() {
           user_id: USER_ID,
           flashcard_id: flashcard.flashcard_id,
           rating,
+          response_time_ms: responseTimeMs,
+        },
+        { onSuccess: () => refetch() }
+      );
+    },
+    [flashcard, reviewMutation, refetch]
+  );
+
+  const handleRecallRate = useCallback(
+    (ratings: Record<string, number | string>, responseTimeMs: number) => {
+      if (!flashcard) return;
+      const aspectRatings = ratings as Record<string, AspectRating>;
+      reviewMutation.mutate(
+        {
+          user_id: USER_ID,
+          flashcard_id: flashcard.flashcard_id,
+          aspect_ratings: aspectRatings,
           response_time_ms: responseTimeMs,
         },
         { onSuccess: () => refetch() }
@@ -69,9 +88,22 @@ export function StudyPage() {
     return <StudyFeedLoading />;
   }
 
+  const isRecall = flashcard.question.card_type === "card_recall";
+
   return (
     <StudyFeed collection={collection} onBack={backToPicker}>
-      <FlashcardCard flashcard={flashcard} onRate={handleRate} />
+      {isRecall ? (
+        <CardRecallFlashcard
+          card={{
+            uuid: "uuid" in flashcard.question ? flashcard.question.uuid : String(flashcard.flashcard_id),
+            name: "card_name" in flashcard.question ? flashcard.question.card_name : "",
+            image_url: flashcard.answer?.image_url ?? ("image_url" in flashcard.question ? flashcard.question.image_url : null),
+          }}
+          onRate={handleRecallRate}
+        />
+      ) : (
+        <FlashcardCard flashcard={flashcard} onRate={handleRate} />
+      )}
     </StudyFeed>
   );
 }
