@@ -11,9 +11,12 @@ export default meta;
 type Story = StoryObj<typeof ManaValuePicker>;
 
 export const Default: Story = {
-  args: { onChange: (v) => console.log("MV:", v) },
+  args: { onChange: (v) => console.log("Cost:", v) },
 };
 
-export const Preselected: Story = {
-  args: { value: 3, onChange: (v) => console.log("MV:", v) },
+export const Prebuilt: Story = {
+  args: {
+    value: "{5}{R}{U}",
+    onChange: (v) => console.log("Cost:", v),
+  },
 };
