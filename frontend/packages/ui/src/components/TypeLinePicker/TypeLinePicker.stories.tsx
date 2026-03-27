@@ -20,3 +20,10 @@ export const Preselected: Story = {
     onChange: (v) => console.log("Type:", v),
   },
 };
+
+export const ArtifactCreature: Story = {
+  args: {
+    value: "Artifact Creature — Golem",
+    onChange: (v) => console.log("Type:", v),
+  },
+};

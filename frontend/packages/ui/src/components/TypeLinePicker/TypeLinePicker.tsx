@@ -1,122 +1,132 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type TypeLinePickerProps = {
   value?: string;
   onChange: (typeLine: string) => void;
 };
 
-const SUPERTYPES = ["Legendary", "Basic", "Snow"];
-
-const TYPES = [
-  "Creature",
-  "Instant",
-  "Sorcery",
-  "Enchantment",
-  "Artifact",
-  "Planeswalker",
-  "Land",
-  "Battle",
+const SUPERTYPES = [
+  { name: "Legendary", iconClass: "ms ms-planeswalker" },
 ];
 
+const TYPES = [
+  { name: "Creature", iconClass: "ms ms-creature" },
+  { name: "Instant", iconClass: "ms ms-instant" },
+  { name: "Sorcery", iconClass: "ms ms-sorcery" },
+  { name: "Enchantment", iconClass: "ms ms-enchantment" },
+  { name: "Artifact", iconClass: "ms ms-artifact" },
+  { name: "Planeswalker", iconClass: "ms ms-planeswalker" },
+  { name: "Land", iconClass: "ms ms-land" },
+  { name: "Battle", iconClass: "ms ms-saga" },
+];
+
+function buildTypeLine(supers: string[], types: string[], subtext: string): string {
+  const main = [...supers, ...types].join(" ");
+  return subtext ? `${main} — ${subtext}` : main;
+}
+
 export function TypeLinePicker({ value = "", onChange }: TypeLinePickerProps) {
-  const [selectedSupertypes, setSelectedSupertypes] = useState<string[]>(() => {
+  const [selectedSupers, setSelectedSupers] = useState<string[]>(() => {
     if (!value) return [];
-    return SUPERTYPES.filter((s) => value.includes(s));
+    return SUPERTYPES.map((s) => s.name).filter((s) => value.includes(s));
   });
-  const [selectedType, setSelectedType] = useState<string>(() => {
-    if (!value) return "";
-    return TYPES.find((t) => value.includes(t)) ?? "";
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(() => {
+    if (!value) return [];
+    return TYPES.map((t) => t.name).filter((t) => value.includes(t));
   });
-  const [subtype, setSubtype] = useState(() => {
+  const [subtext, setSubtext] = useState(() => {
     if (!value || !value.includes("—")) return "";
     return value.split("—")[1]?.trim() ?? "";
   });
 
-  function buildTypeLine(supers: string[], type: string, sub: string) {
-    const parts = [...supers, type].filter(Boolean).join(" ");
-    return sub ? `${parts} — ${sub}` : parts;
+  const typeLine = buildTypeLine(selectedSupers, selectedTypes, subtext);
+
+  useEffect(() => {
+    onChange(typeLine);
+  }, [typeLine, onChange]);
+
+  function toggleSuper(name: string) {
+    setSelectedSupers((prev) =>
+      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
+    );
   }
 
-  function emit(supers: string[], type: string, sub: string) {
-    onChange(buildTypeLine(supers, type, sub));
-  }
-
-  function toggleSupertype(s: string) {
-    const next = selectedSupertypes.includes(s)
-      ? selectedSupertypes.filter((x) => x !== s)
-      : [...selectedSupertypes, s];
-    setSelectedSupertypes(next);
-    emit(next, selectedType, subtype);
-  }
-
-  function selectType(t: string) {
-    const next = selectedType === t ? "" : t;
-    setSelectedType(next);
-    emit(selectedSupertypes, next, subtype);
-  }
-
-  function updateSubtype(s: string) {
-    setSubtype(s);
-    emit(selectedSupertypes, selectedType, s);
+  function toggleType(name: string) {
+    setSelectedTypes((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
   }
 
   return (
     <div className="space-y-2.5">
-      {/* Supertypes */}
-      <div className="flex gap-1 justify-center">
+      {/* Supertype + Type icons in one row */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
         {SUPERTYPES.map((s) => {
-          const active = selectedSupertypes.includes(s);
+          const active = selectedSupers.includes(s.name);
           return (
-            <button
-              key={s}
-              onClick={() => toggleSupertype(s)}
-              className={`px-2.5 py-1.5 text-[11px] font-medium rounded-lg border transition-all active:scale-95 ${
-                active
-                  ? "bg-accent/15 border-accent text-accent"
-                  : "bg-bg-tertiary border-border text-text-muted hover:border-border-hover"
-              }`}
-            >
-              {s}
-            </button>
+            <div key={s.name} className="relative group">
+              <button
+                onClick={() => toggleSuper(s.name)}
+                className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all active:scale-90 ${
+                  active
+                    ? "bg-accent/15 border-accent text-accent"
+                    : "bg-bg-tertiary border-border text-text-muted hover:border-border-hover"
+                }`}
+              >
+                <i className={s.iconClass} style={{ fontSize: "1.2em" }} />
+              </button>
+              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <div className="bg-bg-primary border border-border rounded px-2 py-0.5 text-[10px] font-semibold text-text-secondary whitespace-nowrap shadow-lg">
+                  {s.name}
+                </div>
+              </div>
+            </div>
           );
         })}
-      </div>
 
-      {/* Card types */}
-      <div className="flex flex-wrap gap-1 justify-center">
+        <div className="w-px h-6 bg-border mx-0.5" />
+
         {TYPES.map((t) => {
-          const active = selectedType === t;
+          const active = selectedTypes.includes(t.name);
           return (
-            <button
-              key={t}
-              onClick={() => selectType(t)}
-              className={`px-2.5 py-1.5 text-[11px] font-medium rounded-lg border transition-all active:scale-95 ${
-                active
-                  ? "bg-accent text-white border-accent"
-                  : "bg-bg-tertiary border-border text-text-muted hover:border-border-hover"
-              }`}
-            >
-              {t}
-            </button>
+            <div key={t.name} className="relative group">
+              <button
+                onClick={() => toggleType(t.name)}
+                className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all active:scale-90 ${
+                  active
+                    ? "bg-accent text-white border-accent"
+                    : "bg-bg-tertiary border-border text-text-muted hover:border-border-hover"
+                }`}
+              >
+                <i className={t.iconClass} style={{ fontSize: "1.2em" }} />
+              </button>
+              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <div className="bg-bg-primary border border-border rounded px-2 py-0.5 text-[10px] font-semibold text-text-secondary whitespace-nowrap shadow-lg">
+                  {t.name}
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>
 
-      {/* Subtype text input */}
+      {/* Editable type line */}
       <input
         type="text"
-        value={subtype}
-        onChange={(e) => updateSubtype(e.target.value)}
-        placeholder="Subtypes (e.g. Human Wizard)"
-        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
+        value={typeLine}
+        onChange={(e) => {
+          // Allow free editing — parse back into state
+          const raw = e.target.value;
+          const allNames = [...SUPERTYPES.map((s) => s.name), ...TYPES.map((t) => t.name)];
+          setSelectedSupers(SUPERTYPES.map((s) => s.name).filter((n) => raw.includes(n)));
+          setSelectedTypes(TYPES.map((t) => t.name).filter((n) => raw.includes(n)));
+          const dashIdx = raw.indexOf("—");
+          setSubtext(dashIdx >= 0 ? raw.slice(dashIdx + 1).trim() :
+            raw.split(" ").filter((w) => !allNames.includes(w)).join(" "));
+        }}
+        placeholder="Type line..."
+        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
       />
-
-      {/* Preview */}
-      {(selectedType || selectedSupertypes.length > 0) && (
-        <p className="text-[10px] text-text-muted text-center">
-          {buildTypeLine(selectedSupertypes, selectedType, subtype) || "—"}
-        </p>
-      )}
     </div>
   );
 }
