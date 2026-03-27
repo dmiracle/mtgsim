@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { CardListResponse } from "@/types/api";
+import { apiFetch, buildParams } from "@/api/client";
 import { FlipCard } from "@/components/FlipCard/FlipCard";
 import { TrafficLight } from "@/components/TrafficLight/TrafficLight";
+import { ImageCarousel } from "@/components/ImageCarousel/ImageCarousel";
 
 const RECALL_ASPECTS = [
   { key: "mana_cost", label: "MV", iconClass: "ms ms-x" },
@@ -26,6 +30,25 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
   const [revealTime, setRevealTime] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
   const [key, setKey] = useState(card.uuid);
+
+  // Fetch all printings when revealed
+  const { data: printingsData } = useQuery({
+    queryKey: ["card-printings", card.name],
+    queryFn: () => apiFetch<CardListResponse>(`/cards${buildParams({ q: card.name, limit: 20 })}`),
+    enabled: flipped && !!card.name,
+    staleTime: Infinity,
+  });
+
+  // Build carousel images: primary card first, then other printings
+  const allPrintings = printingsData?.data.filter(
+    (c) => c.name === card.name && c.image_url
+  ) ?? [];
+
+  const images = allPrintings.length > 1
+    ? allPrintings.map((c) => ({ url: c.image_url!, label: c.set_code.toUpperCase() }))
+    : card.image_url
+      ? [{ url: card.image_url }]
+      : [];
 
   useEffect(() => {
     setFlipped(false);
@@ -75,11 +98,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
 
   const back = (
     <div className="bg-bg-secondary border-2 border-success rounded-xl overflow-hidden">
-      {card.image_url && (
-        <div className="flex justify-center bg-bg-tertiary p-4">
-          <img src={card.image_url} alt={card.name} className="max-h-[480px] rounded-lg object-contain" />
-        </div>
-      )}
+      {images.length > 0 && <ImageCarousel images={images} />}
       <div className="p-4">
         {!completed && (
           <TrafficLight key={key} aspects={RECALL_ASPECTS} onComplete={handleComplete} />

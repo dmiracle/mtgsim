@@ -60,11 +60,11 @@ export function GeneratePage() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate("/")}
-          className="text-text-muted hover:text-accent transition-colors"
+          className="w-9 h-9 rounded-lg bg-bg-secondary border border-border flex items-center justify-center text-text-muted hover:text-accent hover:border-accent transition-colors shrink-0"
         >
           <i
             className="ms ms-ability-transform"
-            style={{ transform: "scaleX(-1)", display: "inline-block", fontSize: "1.2em" }}
+            style={{ transform: "scaleX(-1)", display: "inline-block", fontSize: "1em" }}
           />
         </button>
         <div>

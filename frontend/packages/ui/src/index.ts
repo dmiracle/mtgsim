@@ -89,6 +89,7 @@ export { StudyHome } from "./components/StudyHome/StudyHome";
 export { CollectionPicker } from "./components/CollectionPicker/CollectionPicker";
 export { StudyFeed, StudyFeedEmpty, StudyFeedLoading } from "./components/StudyFeed/StudyFeed";
 export { SetPicker } from "./components/SetPicker/SetPicker";
+export { ImageCarousel } from "./components/ImageCarousel/ImageCarousel";
 export { GenerateButton } from "./components/GenerateButton/GenerateButton";
 export { GenerateResult } from "./components/GenerateResult/GenerateResult";
 
