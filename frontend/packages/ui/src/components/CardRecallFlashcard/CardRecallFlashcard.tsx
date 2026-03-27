@@ -31,7 +31,7 @@ type CardRecallFlashcardProps = {
 
 export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) {
   const aspects = card.aspects ?? DEFAULT_ASPECTS;
-  const hasStats = aspects.some((a) => a.key === "power_toughness" && a.enabled);
+  // Always show stats on front (no hints about card type) — back side disables if N/A
   const [flipped, setFlipped] = useState(false);
   const [startTime] = useState(Date.now());
   const [revealTime, setRevealTime] = useState<number | null>(null);
@@ -89,7 +89,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
   const front = (
     <RecallGuessForm
       cardName={card.name}
-      showStats={hasStats}
+      showStats
       onReveal={handleReveal}
     />
   );

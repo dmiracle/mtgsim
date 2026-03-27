@@ -16,18 +16,9 @@ export default meta;
 
 type Story = StoryObj<typeof RecallGuessForm>;
 
-export const Creature: Story = {
+export const Default: Story = {
   args: {
     cardName: "Tarmogoyf",
-    showStats: true,
-    onReveal: (guess) => console.log("Guess:", guess),
-  },
-};
-
-export const Noncreature: Story = {
-  args: {
-    cardName: "Lightning Bolt",
-    showStats: false,
     onReveal: (guess) => console.log("Guess:", guess),
   },
 };
@@ -35,7 +26,6 @@ export const Noncreature: Story = {
 export const LongName: Story = {
   args: {
     cardName: "Emrakul, the Aeons Torn",
-    showStats: true,
     onReveal: (guess) => console.log("Guess:", guess),
   },
 };
