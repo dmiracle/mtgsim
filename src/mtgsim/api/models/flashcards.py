@@ -23,11 +23,23 @@ class FlashcardQuestion(BaseModel):
     collection: str | None = None
 
 
+ASPECT_RATING_MAP = {"green": 5, "yellow": 3, "red": 1}
+
+
 class ReviewRequest(BaseModel):
     user_id: str
     flashcard_id: int
-    rating: int = Field(ge=0, le=5)
+    rating: int | None = Field(default=None, ge=0, le=5)
+    aspect_ratings: dict[str, str] | None = None
     response_time_ms: int = Field(ge=0)
+
+    def effective_rating(self) -> int:
+        if self.rating is not None:
+            return self.rating
+        if self.aspect_ratings:
+            values = [ASPECT_RATING_MAP.get(v, 3) for v in self.aspect_ratings.values()]
+            return min(values)
+        return 3
 
 
 class ReviewResponse(BaseModel):

@@ -67,9 +67,7 @@ def generate_keyword_flashcards(
 
         # If set_code provided, filter to keywords that appear on cards in that set
         if set_code:
-            query = select(MJCard.keywords).where(
-                MJCard.set_code == set_code, MJCard.keywords.is_not(None)
-            )
+            query = select(MJCard.keywords).where(MJCard.set_code == set_code, MJCard.keywords.is_not(None))
             set_keywords: set[str] = set()
             for kw_list in session.exec(query).all():
                 if isinstance(kw_list, list):
@@ -125,8 +123,12 @@ def generate_card_oracle_flashcards(
     with get_session() as session:
         query = (
             select(
-                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.mana_cost,
-                MJCard.type_line, MJCardIdentifier.scryfall_id,
+                MJCard.uuid,
+                MJCard.name,
+                MJCard.oracle_text,
+                MJCard.mana_cost,
+                MJCard.type_line,
+                MJCardIdentifier.scryfall_id,
             )
             .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
@@ -182,8 +184,13 @@ def generate_card_mana_cost_flashcards(
         subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
         query = (
             select(
-                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.mana_cost,
-                MJCard.mana_value, MJCard.type_line, MJCardIdentifier.scryfall_id,
+                MJCard.uuid,
+                MJCard.name,
+                MJCard.oracle_text,
+                MJCard.mana_cost,
+                MJCard.mana_value,
+                MJCard.type_line,
+                MJCardIdentifier.scryfall_id,
             )
             .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
@@ -235,8 +242,13 @@ def generate_card_stats_flashcards(
         subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
         query = (
             select(
-                MJCard.uuid, MJCard.name, MJCard.oracle_text, MJCard.type_line,
-                MJCard.power, MJCard.toughness, MJCardIdentifier.scryfall_id,
+                MJCard.uuid,
+                MJCard.name,
+                MJCard.oracle_text,
+                MJCard.type_line,
+                MJCard.power,
+                MJCard.toughness,
+                MJCardIdentifier.scryfall_id,
             )
             .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
             .where(MJCard.set_code == set_code)
@@ -269,5 +281,66 @@ def generate_card_stats_flashcards(
     if cards:
         client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
         logger.info(f"Created {len(cards)} stats flashcards for {set_code}")
+
+    return len(cards)
+
+
+def generate_card_recall_flashcards(
+    client: SRSClient, user_id: str, set_code: str, collection_name: str | None = None
+) -> int:
+    app = _get_or_create_app(client, user_id)
+    col_name = collection_name or f"card_recall_{set_code}"
+    col = _get_or_create_collection(client, user_id, col_name, app.id)
+
+    if not collection_name and _collection_has_flashcards(client, col.id):
+        logger.info(f"Collection {col_name} already populated, skipping")
+        return 0
+
+    with get_session() as session:
+        subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
+        query = (
+            select(
+                MJCard.uuid,
+                MJCard.name,
+                MJCard.mana_cost,
+                MJCard.mana_value,
+                MJCard.type_line,
+                MJCard.oracle_text,
+                MJCard.power,
+                MJCard.toughness,
+                MJCardIdentifier.scryfall_id,
+            )
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+            .where(MJCard.set_code == set_code)
+            .where(MJCard.uuid.in_(subq))
+        )
+        results = session.exec(query).all()
+
+    cards = []
+    for uuid, name, mana_cost, mana_value, type_line, oracle_text, power, toughness, scryfall_id in results:
+        cards.append(
+            {
+                "question": {
+                    "card_type": "card_recall",
+                    "card_name": name,
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "image_url": _build_image_url(scryfall_id),
+                },
+                "answer": {
+                    "mana_cost": mana_cost,
+                    "mana_value": mana_value,
+                    "type_line": type_line,
+                    "oracle_text": oracle_text,
+                    "power": power,
+                    "toughness": toughness,
+                    "image_url": _build_image_url(scryfall_id),
+                },
+            }
+        )
+
+    if cards:
+        client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
+        logger.info(f"Created {len(cards)} recall flashcards for {set_code}")
 
     return len(cards)

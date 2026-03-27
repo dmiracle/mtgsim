@@ -34,10 +34,10 @@ router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 async def generate_flashcards(req: GenerateRequest) -> GenerateResponse:
     """Generate flashcards for a user from MTG data.
 
-    Card types: keyword_definition, card_oracle, card_mana_cost, card_stats.
-    Set-based types (card_oracle, card_mana_cost, card_stats) require set_code.
+    Card types: keyword_definition, card_oracle, card_mana_cost, card_stats, card_recall.
+    Set-based types require set_code.
     """
-    if req.card_type in ("card_oracle", "card_mana_cost", "card_stats") and not req.set_code:
+    if req.card_type in ("card_oracle", "card_mana_cost", "card_stats", "card_recall") and not req.set_code:
         raise HTTPException(status_code=400, detail="set_code required for card-based flashcards")
 
     return await flashcard_service.generate(
@@ -68,14 +68,21 @@ async def get_next_flashcard(
 async def record_review(req: ReviewRequest) -> ReviewResponse:
     """Record a flashcard review.
 
-    Rating scale (SM-2): 0=complete blackout, 1=incorrect but remembered on seeing answer,
-    2=incorrect but easy recall, 3=correct with difficulty, 4=correct, 5=perfect.
+    Accepts either a single `rating` (0-5 SM-2 scale) or `aspect_ratings`
+    (dict of aspect → green/yellow/red). When aspect_ratings is provided,
+    the effective SM-2 rating is derived from the worst aspect
+    (green=5, yellow=3, red=1).
     """
+    metadata = None
+    if req.aspect_ratings:
+        metadata = {"aspect_ratings": req.aspect_ratings}
+
     return await flashcard_service.record_review(
         user_id=req.user_id,
         flashcard_id=req.flashcard_id,
-        rating=req.rating,
+        rating=req.effective_rating(),
         response_time_ms=req.response_time_ms,
+        metadata=metadata,
     )
 
 
