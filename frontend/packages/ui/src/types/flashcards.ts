@@ -40,12 +40,20 @@ export type CardStatsQuestion = {
   type_line: string;
 };
 
+export type RecallAspect = {
+  key: string;
+  label: string;
+  icon_class: string;
+  enabled: boolean;
+};
+
 export type CardRecallQuestion = {
   card_type: "card_recall";
   card_name: string;
   uuid: string;
   set_code: string;
   image_url: string | null;
+  aspects: RecallAspect[];
 };
 
 export type FlashcardQuestionData =

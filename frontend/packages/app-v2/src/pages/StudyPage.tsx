@@ -95,9 +95,11 @@ export function StudyPage() {
       {isRecall ? (
         <CardRecallFlashcard
           card={{
-            uuid: "uuid" in flashcard.question ? flashcard.question.uuid : String(flashcard.flashcard_id),
-            name: "card_name" in flashcard.question ? flashcard.question.card_name : "",
-            image_url: flashcard.answer?.image_url ?? ("image_url" in flashcard.question ? flashcard.question.image_url : null),
+            uuid: flashcard.question.card_type === "card_recall" ? flashcard.question.uuid : String(flashcard.flashcard_id),
+            name: flashcard.question.card_type === "card_recall" ? flashcard.question.card_name : "",
+            image_url: flashcard.answer?.image_url ?? (flashcard.question.card_type === "card_recall" ? flashcard.question.image_url : null),
+            set_code: flashcard.question.card_type === "card_recall" ? flashcard.question.set_code : undefined,
+            aspects: flashcard.question.card_type === "card_recall" ? flashcard.question.aspects : undefined,
           }}
           onRate={handleRecallRate}
         />

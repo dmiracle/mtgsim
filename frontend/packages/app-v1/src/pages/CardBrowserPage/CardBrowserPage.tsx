@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { CardSummary, Pagination as PaginationType, TagCount, KeywordFrequencies, CardStatsResponse } from "@/types/api";
+import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse } from "@/types/api";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
@@ -33,6 +33,7 @@ type CardBrowserPageProps = {
   cardStats?: CardStatsResponse;
   pagination: PaginationType;
   availableTags: TagCount[];
+  availableSets?: SetSummary[];
   keywordFrequencies: KeywordFrequencies;
   pinnedIds: Set<string>;
   onCardClick: (uuid: string) => void;
@@ -54,6 +55,7 @@ export function CardBrowserPage({
   cardStats,
   pagination,
   availableTags,
+  availableSets,
   keywordFrequencies,
   pinnedIds,
   onCardClick,
@@ -141,6 +143,7 @@ export function CardBrowserPage({
                 filters={filters}
                 onChange={setFilters}
                 availableTags={availableTags}
+                availableSets={availableSets}
                 resultCount={pagination.total}
                 showUnique
               />

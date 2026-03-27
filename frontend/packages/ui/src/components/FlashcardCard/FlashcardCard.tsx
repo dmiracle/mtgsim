@@ -96,6 +96,15 @@ function QuestionContent({ question }: { question: FlashcardQuestion["question"]
           <p className="text-text-muted text-sm mt-4 text-center">What is the power/toughness?</p>
         </div>
       );
+
+    case "card_recall":
+      return (
+        <div className="text-center space-y-3">
+          <p className="text-[10px] uppercase tracking-widest text-text-muted font-semibold">Card Recall</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-text-primary">{question.card_name}</h2>
+          <p className="text-text-muted text-sm mt-4">What is the mana cost, type, stats, and oracle text?</p>
+        </div>
+      );
   }
 }
 
@@ -146,6 +155,21 @@ function AnswerContent({ question, answer }: { question: FlashcardQuestion["ques
             <p className="text-3xl font-bold text-text-primary">{answer.power}/{answer.toughness}</p>
           ) : (
             <p className="text-sm text-text-muted">—</p>
+          )}
+        </div>
+      );
+
+    case "card_recall":
+      return (
+        <div className="text-center space-y-2">
+          <h3 className="text-base font-bold text-text-primary">{name}</h3>
+          {answer?.type_line && <p className="text-xs text-text-secondary">{answer.type_line}</p>}
+          {answer?.mana_cost && (
+            <div className="flex justify-center"><ManaSymbols cost={answer.mana_cost} size="md" /></div>
+          )}
+          {answer?.oracle_text && <OracleTextBlock text={answer.oracle_text} />}
+          {answer?.power && answer?.toughness && (
+            <p className="text-lg font-bold text-text-primary">{answer.power}/{answer.toughness}</p>
           )}
         </div>
       );

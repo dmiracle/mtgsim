@@ -8,6 +8,7 @@ type Aspect = {
   key: string;
   label: string;
   iconClass: string;
+  disabled?: boolean;
 };
 
 type TrafficLightProps = {
@@ -23,8 +24,10 @@ const signalStyles: Record<Signal, string> = {
 };
 
 export function TrafficLight({ aspects, onComplete }: TrafficLightProps) {
+  const activeAspects = aspects.filter((a) => !a.disabled);
+
   const [signals, setSignals] = useState<Record<string, Signal>>(
-    () => Object.fromEntries(aspects.map((a) => [a.key, "none"]))
+    () => Object.fromEntries(activeAspects.map((a) => [a.key, "none"]))
   );
   const [submitted, setSubmitted] = useState(false);
 
@@ -40,10 +43,10 @@ export function TrafficLight({ aspects, onComplete }: TrafficLightProps) {
 
   function setAll(signal: Signal) {
     if (submitted) return;
-    setSignals(Object.fromEntries(aspects.map((a) => [a.key, signal])));
+    setSignals(Object.fromEntries(activeAspects.map((a) => [a.key, signal])));
   }
 
-  const allSet = aspects.every((a) => signals[a.key] !== "none");
+  const allSet = activeAspects.every((a) => signals[a.key] !== "none");
 
   function submit() {
     if (!allSet || submitted) return;
@@ -67,6 +70,21 @@ export function TrafficLight({ aspects, onComplete }: TrafficLightProps) {
 
         {/* Individual aspect icons */}
         {aspects.map((aspect) => {
+          if (aspect.disabled) {
+            return (
+              <div key={aspect.key} className="relative group">
+                <div className="w-10 h-10 rounded-lg border-2 border-border/30 bg-bg-tertiary/50 flex items-center justify-center opacity-30">
+                  <i className={aspect.iconClass} style={{ fontSize: "1.2em" }} />
+                </div>
+                <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <div className="bg-bg-primary border border-border rounded px-2 py-0.5 text-[10px] font-semibold text-text-muted whitespace-nowrap shadow-lg">
+                    {aspect.label} — N/A
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           const signal = signals[aspect.key];
           return (
             <div key={aspect.key} className="relative group">

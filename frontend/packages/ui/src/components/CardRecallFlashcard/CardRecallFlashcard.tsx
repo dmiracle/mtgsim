@@ -1,22 +1,25 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardListResponse } from "@/types/api";
+import type { RecallAspect } from "@/types/flashcards";
 import { apiFetch, buildParams } from "@/api/client";
 import { FlipCard } from "@/components/FlipCard/FlipCard";
 import { TrafficLight } from "@/components/TrafficLight/TrafficLight";
 import { ImageCarousel } from "@/components/ImageCarousel/ImageCarousel";
 
-const RECALL_ASPECTS = [
-  { key: "mana_cost", label: "MV", iconClass: "ms ms-x" },
-  { key: "type_line", label: "Type", iconClass: "ms ms-saga" },
-  { key: "power_toughness", label: "Stats", iconClass: "ms ms-creature" },
-  { key: "oracle_text", label: "Oracle", iconClass: "ms ms-ability-activated" },
+const DEFAULT_ASPECTS: RecallAspect[] = [
+  { key: "mana_cost", label: "MV", icon_class: "ms ms-x", enabled: true },
+  { key: "type_line", label: "Type", icon_class: "ms ms-saga", enabled: true },
+  { key: "power_toughness", label: "Stats", icon_class: "ms ms-creature", enabled: true },
+  { key: "oracle_text", label: "Oracle", icon_class: "ms ms-ability-activated", enabled: true },
 ];
 
 type RecallCard = {
   uuid: string;
   name: string;
   image_url: string | null;
+  set_code?: string;
+  aspects?: RecallAspect[];
 };
 
 type CardRecallFlashcardProps = {
@@ -25,30 +28,39 @@ type CardRecallFlashcardProps = {
 };
 
 export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) {
+  const aspects = card.aspects ?? DEFAULT_ASPECTS;
   const [flipped, setFlipped] = useState(false);
   const [startTime] = useState(Date.now());
   const [revealTime, setRevealTime] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
   const [key, setKey] = useState(card.uuid);
 
-  // Fetch all printings when revealed
+  // Fetch other versions from the same set when revealed
   const { data: printingsData } = useQuery({
-    queryKey: ["card-printings", card.name],
-    queryFn: () => apiFetch<CardListResponse>(`/cards${buildParams({ q: card.name, limit: 20 })}`),
-    enabled: flipped && !!card.name,
+    queryKey: ["card-printings", card.name, card.set_code],
+    queryFn: () => apiFetch<CardListResponse>(`/cards${buildParams({ q: card.name, sets: card.set_code, limit: 20 })}`),
+    enabled: flipped && !!card.name && !!card.set_code,
     staleTime: Infinity,
   });
 
-  // Build carousel images: primary card first, then other printings
-  const allPrintings = printingsData?.data.filter(
+  const sameSetPrintings = printingsData?.data.filter(
     (c) => c.name === card.name && c.image_url
   ) ?? [];
 
-  const images = allPrintings.length > 1
-    ? allPrintings.map((c) => ({ url: c.image_url!, label: c.set_code.toUpperCase() }))
+  const images = sameSetPrintings.length > 1
+    ? sameSetPrintings.map((c) => ({ url: c.image_url! }))
     : card.image_url
       ? [{ url: card.image_url }]
       : [];
+
+  const trafficAspects = aspects.map((a) => ({
+    key: a.key,
+    label: a.label,
+    iconClass: a.icon_class,
+    disabled: !a.enabled,
+  }));
+
+  const activeCount = aspects.filter((a) => a.enabled).length;
 
   useEffect(() => {
     setFlipped(false);
@@ -90,7 +102,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
         </p>
         <h2 className="text-2xl sm:text-3xl font-bold text-text-primary">{card.name}</h2>
         <p className="text-text-muted text-sm mt-6">
-          What is the mana cost, power/toughness, and oracle text?
+          Recall the card details: type, mana value, stats, oracle text
         </p>
       </div>
     </div>
@@ -101,7 +113,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
       {images.length > 0 && <ImageCarousel images={images} />}
       <div className="p-4">
         {!completed && (
-          <TrafficLight key={key} aspects={RECALL_ASPECTS} onComplete={handleComplete} />
+          <TrafficLight key={key} aspects={trafficAspects} onComplete={handleComplete} />
         )}
       </div>
     </div>
@@ -115,7 +127,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
       )}
       {flipped && !completed && (
         <p className="text-text-muted text-xs text-center">
-          Rate each aspect — advances when all four are rated
+          Rate each aspect — advances when all {activeCount} are rated
         </p>
       )}
     </div>

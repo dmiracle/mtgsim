@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useAddToCollection } from "@/api/hooks";
+import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection } from "@/api/hooks";
 import { useActiveDeck } from "@/context/ActiveDeckContext";
 import { CardBrowserPage } from "./CardBrowserPage";
 import type { CardSearchParams } from "./CardBrowserPage";
@@ -23,6 +23,7 @@ export function CardBrowserRoute() {
     colors: searchParams.colors,
     set: searchParams.sets,
   });
+  const { data: setsData } = useSets({ limit: 100 });
   const { data: kwFreqs } = useKeywordFrequencies({
     format: searchParams.format,
     sets: searchParams.sets,
@@ -50,6 +51,7 @@ export function CardBrowserRoute() {
       cardStats={cardStats ?? undefined}
       pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
       availableTags={tags ?? []}
+      availableSets={setsData?.data}
       keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
       pinnedIds={pinnedIds}
       onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
