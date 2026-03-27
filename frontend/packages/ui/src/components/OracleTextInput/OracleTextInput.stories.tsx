@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { OracleTextInput } from "./OracleTextInput";
 
 const meta: Meta<typeof OracleTextInput> = {
-  title: "App-v2/Recall Inputs/OracleTextInput",
+  title: "Flashcards/Recall Inputs/OracleTextInput",
   component: OracleTextInput,
   decorators: [(Story) => <div className="max-w-sm mx-auto p-4 bg-bg-primary"><Story /></div>],
 };

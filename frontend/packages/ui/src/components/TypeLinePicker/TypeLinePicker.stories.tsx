@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { TypeLinePicker } from "./TypeLinePicker";
 
 const meta: Meta<typeof TypeLinePicker> = {
-  title: "App-v2/Recall Inputs/TypeLinePicker",
+  title: "Flashcards/Recall Inputs/TypeLinePicker",
   component: TypeLinePicker,
   decorators: [(Story) => <div className="max-w-sm mx-auto p-4 bg-bg-primary"><Story /></div>],
 };

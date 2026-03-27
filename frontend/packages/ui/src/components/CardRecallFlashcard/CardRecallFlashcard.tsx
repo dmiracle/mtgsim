@@ -6,6 +6,8 @@ import { apiFetch, buildParams } from "@/api/client";
 import { FlipCard } from "@/components/FlipCard/FlipCard";
 import { TrafficLight } from "@/components/TrafficLight/TrafficLight";
 import { ImageCarousel } from "@/components/ImageCarousel/ImageCarousel";
+import { RecallGuessForm } from "@/components/RecallGuessForm/RecallGuessForm";
+import type { RecallGuess } from "@/components/RecallGuessForm/RecallGuessForm";
 
 const DEFAULT_ASPECTS: RecallAspect[] = [
   { key: "mana_cost", label: "MV", icon_class: "ms ms-x", enabled: true },
@@ -24,15 +26,17 @@ type RecallCard = {
 
 type CardRecallFlashcardProps = {
   card: RecallCard;
-  onRate: (ratings: Record<string, number | string>, responseTimeMs: number) => void;
+  onRate: (ratings: Record<string, number | string>, responseTimeMs: number, guess?: RecallGuess) => void;
 };
 
 export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) {
   const aspects = card.aspects ?? DEFAULT_ASPECTS;
+  const hasStats = aspects.some((a) => a.key === "power_toughness" && a.enabled);
   const [flipped, setFlipped] = useState(false);
   const [startTime] = useState(Date.now());
   const [revealTime, setRevealTime] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
+  const [guess, setGuess] = useState<RecallGuess | null>(null);
   const [key, setKey] = useState(card.uuid);
 
   // Fetch other versions from the same set when revealed
@@ -66,46 +70,28 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
     setFlipped(false);
     setRevealTime(null);
     setCompleted(false);
+    setGuess(null);
     setKey(card.uuid);
   }, [card.uuid]);
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.code === "Space" && !flipped) {
-        e.preventDefault();
-        setFlipped(true);
-        setRevealTime(Date.now());
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [flipped]);
-
-  function handleFlip() {
-    if (!flipped) {
-      setFlipped(true);
-      setRevealTime(Date.now());
-    }
+  function handleReveal(g: RecallGuess) {
+    setGuess(g);
+    setFlipped(true);
+    setRevealTime(Date.now());
   }
 
   function handleComplete(ratings: Record<string, number | string>) {
     setCompleted(true);
     const responseMs = revealTime ? Date.now() - revealTime : Date.now() - startTime;
-    onRate(ratings, responseMs);
+    onRate(ratings, responseMs, guess ?? undefined);
   }
 
   const front = (
-    <div className="bg-bg-secondary border-2 border-accent rounded-xl overflow-hidden p-8">
-      <div className="text-center space-y-3">
-        <p className="text-[10px] uppercase tracking-widest text-text-muted font-semibold">
-          Card Recall
-        </p>
-        <h2 className="text-2xl sm:text-3xl font-bold text-text-primary">{card.name}</h2>
-        <p className="text-text-muted text-sm mt-6">
-          Recall the card details: type, mana value, stats, oracle text
-        </p>
-      </div>
-    </div>
+    <RecallGuessForm
+      cardName={card.name}
+      showStats={hasStats}
+      onReveal={handleReveal}
+    />
   );
 
   const back = (
@@ -121,10 +107,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
 
   return (
     <div className="w-full max-w-[400px] mx-auto space-y-4">
-      <FlipCard flipped={flipped} onFlip={handleFlip} front={front} back={back} />
-      {!flipped && (
-        <p className="text-text-muted text-xs text-center">Click card or press Space to reveal</p>
-      )}
+      <FlipCard flipped={flipped} onFlip={() => {}} front={front} back={back} />
       {flipped && !completed && (
         <p className="text-text-muted text-xs text-center">
           Rate each aspect — advances when all {activeCount} are rated
