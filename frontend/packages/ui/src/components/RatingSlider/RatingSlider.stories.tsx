@@ -44,3 +44,22 @@ export const High: Story = {
     return <RatingSlider value={value} onChange={setValue} />;
   },
 };
+
+export const Horizontal: Story = {
+  render: () => {
+    const [value, setValue] = useState<number | null>(2.5);
+    return (
+      <div className="space-y-4">
+        <RatingSlider value={value} onChange={setValue} orientation="horizontal" />
+        <p className="text-text-muted text-sm">Value: {value?.toFixed(1)}</p>
+      </div>
+    );
+  },
+};
+
+export const HorizontalCompact: Story = {
+  render: () => {
+    const [value, setValue] = useState<number | null>(3.0);
+    return <RatingSlider value={value} onChange={setValue} orientation="horizontal" compact />;
+  },
+};
