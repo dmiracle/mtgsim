@@ -81,17 +81,19 @@ export function GeneratePage() {
         />
       ) : (
         <div className="space-y-4">
+          {selected.length > 0 && (
+            <GenerateButton
+              count={selected.length}
+              generating={generating}
+              progress={generating ? progress : undefined}
+              onClick={handleGenerate}
+            />
+          )}
           <SetPicker
             sets={sets}
             selected={selected}
             onToggle={toggle}
             onClear={() => setSelected([])}
-          />
-          <GenerateButton
-            count={selected.length}
-            generating={generating}
-            progress={generating ? progress : undefined}
-            onClick={handleGenerate}
           />
         </div>
       )}
