@@ -100,6 +100,7 @@ export function StudyPage() {
             image_url: flashcard.answer?.image_url ?? (flashcard.question.card_type === "card_recall" ? flashcard.question.image_url : null),
             set_code: flashcard.question.card_type === "card_recall" ? flashcard.question.set_code : undefined,
             aspects: flashcard.question.card_type === "card_recall" ? flashcard.question.aspects : undefined,
+            answer: flashcard.answer,
           }}
           onRate={handleRecallRate}
         />

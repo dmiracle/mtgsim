@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardListResponse } from "@/types/api";
-import type { RecallAspect } from "@/types/flashcards";
+import type { RecallAspect, FlashcardAnswer } from "@/types/flashcards";
 import { apiFetch, buildParams } from "@/api/client";
 import { FlipCard } from "@/components/FlipCard/FlipCard";
 import { TrafficLight } from "@/components/TrafficLight/TrafficLight";
 import { ImageCarousel } from "@/components/ImageCarousel/ImageCarousel";
 import { RecallGuessForm } from "@/components/RecallGuessForm/RecallGuessForm";
 import type { RecallGuess } from "@/components/RecallGuessForm/RecallGuessForm";
+import { scoreRecallGuess } from "@/components/RecallGuessForm/recallScorer";
 
 const DEFAULT_ASPECTS: RecallAspect[] = [
   { key: "mana_cost", label: "MV", icon_class: "ms ms-x", enabled: true },
@@ -22,6 +23,7 @@ type RecallCard = {
   image_url: string | null;
   set_code?: string;
   aspects?: RecallAspect[];
+  answer?: FlashcardAnswer | null;
 };
 
 type CardRecallFlashcardProps = {
@@ -31,12 +33,12 @@ type CardRecallFlashcardProps = {
 
 export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) {
   const aspects = card.aspects ?? DEFAULT_ASPECTS;
-  // Always show stats on front (no hints about card type) — back side disables if N/A
   const [flipped, setFlipped] = useState(false);
   const [startTime] = useState(Date.now());
   const [revealTime, setRevealTime] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
   const [guess, setGuess] = useState<RecallGuess | null>(null);
+  const [suggestedScores, setSuggestedScores] = useState<Record<string, "green" | "yellow" | "red"> | null>(null);
   const [key, setKey] = useState(card.uuid);
 
   // Fetch other versions from the same set when revealed
@@ -71,6 +73,7 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
     setRevealTime(null);
     setCompleted(false);
     setGuess(null);
+    setSuggestedScores(null);
     setKey(card.uuid);
   }, [card.uuid]);
 
@@ -78,6 +81,12 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
     setGuess(g);
     setFlipped(true);
     setRevealTime(Date.now());
+
+    // Auto-score if we have answer data
+    if (card.answer) {
+      const scores = scoreRecallGuess(g, card.answer);
+      setSuggestedScores(scores);
+    }
   }
 
   function handleComplete(ratings: Record<string, number | string>) {
@@ -99,7 +108,12 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
       {images.length > 0 && <ImageCarousel images={images} />}
       <div className="p-4">
         {!completed && (
-          <TrafficLight key={key} aspects={trafficAspects} onComplete={handleComplete} />
+          <TrafficLight
+            key={key}
+            aspects={trafficAspects}
+            initialSignals={suggestedScores ?? undefined}
+            onComplete={handleComplete}
+          />
         )}
       </div>
     </div>
@@ -110,7 +124,9 @@ export function CardRecallFlashcard({ card, onRate }: CardRecallFlashcardProps) 
       <FlipCard flipped={flipped} onFlip={() => {}} front={front} back={back} />
       {flipped && !completed && (
         <p className="text-text-muted text-xs text-center">
-          Rate each aspect — advances when all {activeCount} are rated
+          {suggestedScores
+            ? "Scores auto-filled — adjust if needed, then submit"
+            : `Rate each aspect — advances when all ${activeCount} are rated`}
         </p>
       )}
     </div>

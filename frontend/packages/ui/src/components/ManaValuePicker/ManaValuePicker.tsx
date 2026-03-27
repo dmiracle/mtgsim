@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ManaIcon, ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
+import { ManaIcon } from "@/components/ManaSymbols/ManaSymbols";
 
 type ManaValuePickerProps = {
   value?: string;

@@ -13,6 +13,7 @@ type Aspect = {
 
 type TrafficLightProps = {
   aspects: Aspect[];
+  initialSignals?: Record<string, Signal>;
   onComplete: (ratings: Record<string, Signal>) => void;
 };
 
@@ -23,11 +24,11 @@ const signalStyles: Record<Signal, string> = {
   red: "bg-danger/20 border-danger text-danger",
 };
 
-export function TrafficLight({ aspects, onComplete }: TrafficLightProps) {
+export function TrafficLight({ aspects, initialSignals, onComplete }: TrafficLightProps) {
   const activeAspects = aspects.filter((a) => !a.disabled);
 
   const [signals, setSignals] = useState<Record<string, Signal>>(
-    () => Object.fromEntries(activeAspects.map((a) => [a.key, "none"]))
+    () => Object.fromEntries(activeAspects.map((a) => [a.key, initialSignals?.[a.key] ?? "none"]))
   );
   const [submitted, setSubmitted] = useState(false);
 

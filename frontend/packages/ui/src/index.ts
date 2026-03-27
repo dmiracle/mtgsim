@@ -92,6 +92,8 @@ export { SetPicker } from "./components/SetPicker/SetPicker";
 export { ManaValuePicker } from "./components/ManaValuePicker/ManaValuePicker";
 export { RecallGuessForm } from "./components/RecallGuessForm/RecallGuessForm";
 export type { RecallGuess } from "./components/RecallGuessForm/RecallGuessForm";
+export { scoreRecallGuess } from "./components/RecallGuessForm/recallScorer";
+export type { RecallScore, AspectScore } from "./components/RecallGuessForm/recallScorer";
 export { TypeLinePicker } from "./components/TypeLinePicker/TypeLinePicker";
 export { StatsPicker } from "./components/StatsPicker/StatsPicker";
 export { OracleTextInput } from "./components/OracleTextInput/OracleTextInput";
