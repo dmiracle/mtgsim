@@ -88,6 +88,9 @@ export { LineChart } from "./components/charts/LineChart/LineChart";
 export { StudyHome } from "./components/StudyHome/StudyHome";
 export { CollectionPicker } from "./components/CollectionPicker/CollectionPicker";
 export { StudyFeed, StudyFeedEmpty, StudyFeedLoading } from "./components/StudyFeed/StudyFeed";
+export { SetPicker } from "./components/SetPicker/SetPicker";
+export { GenerateButton } from "./components/GenerateButton/GenerateButton";
+export { GenerateResult } from "./components/GenerateResult/GenerateResult";
 
 // Layout components
 export { CommandPaletteLayout } from "./components/CommandPaletteLayout/CommandPaletteLayout";
