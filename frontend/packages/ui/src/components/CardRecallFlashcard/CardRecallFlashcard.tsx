@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import type { CardDetail } from "@/types/api";
 import { FlipCard } from "@/components/FlipCard/FlipCard";
 import { TrafficLight } from "@/components/TrafficLight/TrafficLight";
 
@@ -10,8 +9,14 @@ const RECALL_ASPECTS = [
   { key: "oracle", label: "Oracle", iconClass: "ms ms-ability-activated" },
 ];
 
+type RecallCard = {
+  uuid: string;
+  name: string;
+  image_url: string | null;
+};
+
 type CardRecallFlashcardProps = {
-  card: CardDetail;
+  card: RecallCard;
   onRate: (ratings: Record<string, number | string>, responseTimeMs: number) => void;
 };
 
