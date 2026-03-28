@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FlashcardCard } from "@/components/FlashcardCard/FlashcardCard";
 import { CardRecallFlashcard } from "@/components/CardRecallFlashcard/CardRecallFlashcard";
 import { CollectionPicker } from "@/components/CollectionPicker/CollectionPicker";
@@ -15,8 +15,11 @@ const USER_ID = localStorage.getItem("flashcard_user_id") || "default_user";
 
 export function StudyPage() {
   const navigate = useNavigate();
-  const [studying, setStudying] = useState(false);
-  const [collection, setCollection] = useState<string | undefined>();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // State lives in the URL so it survives tab switches and reloads
+  const studying = searchParams.has("active");
+  const collection = searchParams.get("collection") ?? undefined;
 
   const { data: stats } = useFlashcardStats(USER_ID);
   const { data: flashcard, refetch } = useNextFlashcard(
@@ -59,13 +62,13 @@ export function StudyPage() {
   );
 
   function startStudy(col?: string) {
-    setCollection(col);
-    setStudying(true);
+    const params: Record<string, string> = { active: "1" };
+    if (col) params.collection = col;
+    setSearchParams(params);
   }
 
   function backToPicker() {
-    setStudying(false);
-    setCollection(undefined);
+    setSearchParams({});
   }
 
   if (!studying) {
