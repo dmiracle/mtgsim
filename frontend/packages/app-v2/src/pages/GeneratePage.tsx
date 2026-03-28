@@ -11,11 +11,12 @@ const USER_ID = localStorage.getItem("flashcard_user_id") || "default_user";
 export function GeneratePage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<{ set: string; created: number }[]>([]);
 
-  const { data: setsData } = useSets({ limit: 100 });
+  const { data: setsData } = useSets(search ? { q: search, limit: 30 } : { limit: 30 });
   const sets = setsData?.data ?? [];
   const generateMutation = useGenerateFlashcards();
 
@@ -92,6 +93,8 @@ export function GeneratePage() {
           <SetPicker
             sets={sets}
             selected={selected}
+            search={search}
+            onSearchChange={setSearch}
             onToggle={toggle}
             onClear={() => setSelected([])}
           />

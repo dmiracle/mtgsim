@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 type TypeLinePickerProps = {
   value?: string;
@@ -20,46 +20,52 @@ const TYPES = [
   { name: "Battle", iconClass: "ms ms-saga" },
 ];
 
-function buildTypeLine(supers: string[], types: string[], subtext: string): string {
-  const main = [...supers, ...types].join(" ");
-  return subtext ? `${main} — ${subtext}` : main;
+function parseValue(value: string) {
+  const supers = SUPERTYPES.map((s) => s.name).filter((n) => value.includes(n));
+  const types = TYPES.map((t) => t.name).filter((n) => value.includes(n));
+  const dashIdx = value.indexOf("—");
+  const subtype = dashIdx >= 0 ? value.slice(dashIdx + 1).trim() : "";
+  return { supers, types, subtype };
 }
 
 export function TypeLinePicker({ value = "", onChange }: TypeLinePickerProps) {
-  const [selectedSupers, setSelectedSupers] = useState<string[]>(() => {
-    if (!value) return [];
-    return SUPERTYPES.map((s) => s.name).filter((s) => value.includes(s));
-  });
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(() => {
-    if (!value) return [];
-    return TYPES.map((t) => t.name).filter((t) => value.includes(t));
-  });
-  const [subtext, setSubtext] = useState(() => {
-    if (!value || !value.includes("—")) return "";
-    return value.split("—")[1]?.trim() ?? "";
-  });
+  const parsed = parseValue(value);
+  const [selectedSupers, setSelectedSupers] = useState<string[]>(parsed.supers);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(parsed.types);
+  const [subtype, setSubtype] = useState(parsed.subtype);
 
-  const typeLine = buildTypeLine(selectedSupers, selectedTypes, subtext);
-
-  useEffect(() => {
-    onChange(typeLine);
-  }, [typeLine, onChange]);
+  const emit = useCallback((supers: string[], types: string[], sub: string) => {
+    const main = [...supers, ...types].join(" ");
+    const line = sub ? `${main} — ${sub}` : main;
+    onChange(line);
+  }, [onChange]);
 
   function toggleSuper(name: string) {
-    setSelectedSupers((prev) =>
-      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
-    );
+    const next = selectedSupers.includes(name)
+      ? selectedSupers.filter((s) => s !== name)
+      : [...selectedSupers, name];
+    setSelectedSupers(next);
+    emit(next, selectedTypes, subtype);
   }
 
   function toggleType(name: string) {
-    setSelectedTypes((prev) =>
-      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
-    );
+    const next = selectedTypes.includes(name)
+      ? selectedTypes.filter((t) => t !== name)
+      : [...selectedTypes, name];
+    setSelectedTypes(next);
+    emit(selectedSupers, next, subtype);
   }
+
+  function updateSubtype(s: string) {
+    setSubtype(s);
+    emit(selectedSupers, selectedTypes, s);
+  }
+
+  const prefix = [...selectedSupers, ...selectedTypes].join(" ");
 
   return (
     <div className="space-y-2.5">
-      {/* Supertype + Type icons in one row */}
+      {/* Supertype + Type icons */}
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {SUPERTYPES.map((s) => {
           const active = selectedSupers.includes(s.name);
@@ -110,23 +116,19 @@ export function TypeLinePicker({ value = "", onChange }: TypeLinePickerProps) {
         })}
       </div>
 
-      {/* Editable type line */}
-      <input
-        type="text"
-        value={typeLine}
-        onChange={(e) => {
-          // Allow free editing — parse back into state
-          const raw = e.target.value;
-          const allNames = [...SUPERTYPES.map((s) => s.name), ...TYPES.map((t) => t.name)];
-          setSelectedSupers(SUPERTYPES.map((s) => s.name).filter((n) => raw.includes(n)));
-          setSelectedTypes(TYPES.map((t) => t.name).filter((n) => raw.includes(n)));
-          const dashIdx = raw.indexOf("—");
-          setSubtext(dashIdx >= 0 ? raw.slice(dashIdx + 1).trim() :
-            raw.split(" ").filter((w) => !allNames.includes(w)).join(" "));
-        }}
-        placeholder="Type line..."
-        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
-      />
+      {/* Subtype input with type prefix */}
+      <div className="flex items-center gap-0 bg-bg-tertiary border border-border rounded-lg overflow-hidden focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/30 transition-all">
+        {prefix && (
+          <span className="pl-3 pr-1 text-sm text-text-secondary whitespace-nowrap">{prefix} —</span>
+        )}
+        <input
+          type="text"
+          value={subtype}
+          onChange={(e) => updateSubtype(e.target.value)}
+          placeholder={prefix ? "Subtypes..." : "Type line..."}
+          className="flex-1 bg-transparent px-2 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none"
+        />
+      </div>
     </div>
   );
 }

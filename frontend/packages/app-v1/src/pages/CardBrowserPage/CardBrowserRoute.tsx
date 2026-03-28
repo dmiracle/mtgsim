@@ -15,6 +15,7 @@ export function CardBrowserRoute() {
   });
   const [page, setPage] = useState(1);
   const [searchParams, setSearchParams] = useState<CardSearchParams>({});
+  const [setSearchQuery, setSetSearchQuery] = useState("");
 
   const { data: cardsData } = useCards({ ...searchParams, page, limit: 50 });
   const { data: cardStats } = useCardStats(searchParams);
@@ -23,7 +24,7 @@ export function CardBrowserRoute() {
     colors: searchParams.colors,
     set: searchParams.sets,
   });
-  const { data: setsData } = useSets({ limit: 100 });
+  const { data: setsData } = useSets(setSearchQuery ? { q: setSearchQuery, limit: 30 } : { limit: 30 });
   const { data: kwFreqs } = useKeywordFrequencies({
     format: searchParams.format,
     sets: searchParams.sets,
@@ -52,6 +53,7 @@ export function CardBrowserRoute() {
       pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
       availableTags={tags ?? []}
       availableSets={setsData?.data}
+      onSetSearch={setSetSearchQuery}
       keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
       pinnedIds={pinnedIds}
       onCardClick={(uuid) => navigate(`/cards/${uuid}`)}

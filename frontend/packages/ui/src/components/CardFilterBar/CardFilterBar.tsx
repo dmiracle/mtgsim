@@ -31,6 +31,7 @@ type CardFilterBarProps = {
   onChange: (filters: CardFilters) => void;
   availableTags?: TagCount[];
   availableSets?: SetSummary[];
+  onSetSearch?: (query: string) => void;
   resultCount?: number;
   showUnique?: boolean;
   sortOptions?: { value: string; label: string }[];
@@ -52,6 +53,7 @@ export function CardFilterBar({
   onChange,
   availableTags = [],
   availableSets = [],
+  onSetSearch,
   resultCount,
   showUnique = false,
   sortOptions = DEFAULT_SORT_OPTIONS,
@@ -71,9 +73,11 @@ export function CardFilterBar({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const filteredSets = setSearch
-    ? availableSets.filter((s) => s.name.toLowerCase().includes(setSearch.toLowerCase()) || s.code.toLowerCase().includes(setSearch.toLowerCase()))
-    : availableSets.slice(0, 15);
+  const filteredSets = onSetSearch
+    ? availableSets.slice(0, 15)
+    : setSearch
+      ? availableSets.filter((s) => s.name.toLowerCase().includes(setSearch.toLowerCase()) || s.code.toLowerCase().includes(setSearch.toLowerCase()))
+      : availableSets.slice(0, 15);
 
   function toggleSet(code: string) {
     const next = filters.sets.includes(code)
@@ -229,7 +233,7 @@ export function CardFilterBar({
                       <input
                         type="text"
                         value={setSearch}
-                        onChange={(e) => setSetSearch(e.target.value)}
+                        onChange={(e) => { setSetSearch(e.target.value); onSetSearch?.(e.target.value); }}
                         placeholder="Search sets..."
                         className="w-full bg-bg-tertiary border-none rounded px-2 py-1.5 text-xs text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
                         autoFocus

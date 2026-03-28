@@ -34,6 +34,7 @@ type CardBrowserPageProps = {
   pagination: PaginationType;
   availableTags: TagCount[];
   availableSets?: SetSummary[];
+  onSetSearch?: (query: string) => void;
   keywordFrequencies: KeywordFrequencies;
   pinnedIds: Set<string>;
   onCardClick: (uuid: string) => void;
@@ -56,6 +57,7 @@ export function CardBrowserPage({
   pagination,
   availableTags,
   availableSets,
+  onSetSearch,
   keywordFrequencies,
   pinnedIds,
   onCardClick,
@@ -144,6 +146,7 @@ export function CardBrowserPage({
                 onChange={setFilters}
                 availableTags={availableTags}
                 availableSets={availableSets}
+                onSetSearch={onSetSearch}
                 resultCount={pagination.total}
                 showUnique
               />

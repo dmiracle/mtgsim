@@ -1,4 +1,3 @@
-import { useState, useMemo } from "react";
 import { SetBadge } from "@/components/SetBadge/SetBadge";
 
 type SetItem = {
@@ -10,21 +9,13 @@ type SetItem = {
 type SetPickerProps = {
   sets: SetItem[];
   selected: string[];
+  search: string;
+  onSearchChange: (query: string) => void;
   onToggle: (code: string) => void;
   onClear?: () => void;
 };
 
-export function SetPicker({ sets, selected, onToggle, onClear }: SetPickerProps) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    if (!search) return sets.slice(0, 30);
-    const q = search.toLowerCase();
-    return sets.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
-    );
-  }, [sets, search]);
-
+export function SetPicker({ sets, selected, search, onSearchChange, onToggle, onClear }: SetPickerProps) {
   return (
     <div className="space-y-3">
       {/* Selected chips */}
@@ -57,7 +48,7 @@ export function SetPicker({ sets, selected, onToggle, onClear }: SetPickerProps)
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search sets..."
           className="w-full bg-bg-secondary border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
         />
@@ -65,7 +56,7 @@ export function SetPicker({ sets, selected, onToggle, onClear }: SetPickerProps)
 
       {/* Set list */}
       <div className="space-y-1.5">
-        {filtered.map((s) => {
+        {sets.map((s) => {
           const isSelected = selected.includes(s.code);
           return (
             <button
@@ -89,7 +80,7 @@ export function SetPicker({ sets, selected, onToggle, onClear }: SetPickerProps)
             </button>
           );
         })}
-        {filtered.length === 0 && (
+        {sets.length === 0 && (
           <p className="text-center text-text-muted text-sm py-6">No sets found</p>
         )}
       </div>

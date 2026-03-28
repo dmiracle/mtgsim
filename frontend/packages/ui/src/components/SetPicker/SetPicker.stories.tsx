@@ -9,12 +9,8 @@ const sampleSets = [
   { code: "DSK", name: "Duskmourn: House of Horror", base_set_size: 286 },
   { code: "BLB", name: "Bloomburrow", base_set_size: 281 },
   { code: "MH3", name: "Modern Horizons 3", base_set_size: 303 },
-  { code: "INR", name: "Innistrad Remastered", base_set_size: 287 },
+  { code: "STX", name: "Strixhaven: School of Mages", base_set_size: 275 },
   { code: "FDN", name: "Foundations", base_set_size: 291 },
-  { code: "EOE", name: "Edge of Eternities", base_set_size: 276 },
-  { code: "TMT", name: "Teenage Mutant Ninja Turtles", base_set_size: 260 },
-  { code: "TLA", name: "Avatar: The Last Airbender", base_set_size: 286 },
-  { code: "SPM", name: "Marvel's Spider-Man", base_set_size: 198 },
 ];
 
 const meta: Meta<typeof SetPicker> = {
@@ -35,10 +31,13 @@ type Story = StoryObj<typeof SetPicker>;
 export const Empty: Story = {
   render: () => {
     const [selected, setSelected] = useState<string[]>([]);
+    const [search, setSearch] = useState("");
     return (
       <SetPicker
         sets={sampleSets}
         selected={selected}
+        search={search}
+        onSearchChange={setSearch}
         onToggle={(code) =>
           setSelected((prev) =>
             prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
@@ -53,10 +52,13 @@ export const Empty: Story = {
 export const WithSelections: Story = {
   render: () => {
     const [selected, setSelected] = useState(["FIN", "TDM", "BLB"]);
+    const [search, setSearch] = useState("");
     return (
       <SetPicker
         sets={sampleSets}
         selected={selected}
+        search={search}
+        onSearchChange={setSearch}
         onToggle={(code) =>
           setSelected((prev) =>
             prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
@@ -69,9 +71,16 @@ export const WithSelections: Story = {
 };
 
 export const NoResults: Story = {
-  args: {
-    sets: [],
-    selected: [],
-    onToggle: () => {},
+  render: () => {
+    const [search, setSearch] = useState("");
+    return (
+      <SetPicker
+        sets={[]}
+        selected={[]}
+        search={search}
+        onSearchChange={setSearch}
+        onToggle={() => {}}
+      />
+    );
   },
 };
