@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/ui" },
-    { "path": "./packages/app-v1" },
-    { "path": "./packages/app-v2" }
+    { "path": "./packages/viewer" },
+    { "path": "./packages/flashcards" }
   ]
 }

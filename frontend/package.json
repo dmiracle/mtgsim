@@ -5,14 +5,14 @@
   "type": "module",
   "workspaces": [
     "packages/ui",
-    "packages/app-v1",
-    "packages/app-v2"
+    "packages/viewer",
+    "packages/flashcards"
   ],
   "scripts": {
-    "dev": "npm run dev -w @mtgsim/app-v1",
-    "dev:v2": "npm run dev -w @mtgsim/app-v2",
-    "build": "npm run build -w @mtgsim/app-v1",
-    "build:v2": "npm run build -w @mtgsim/app-v2",
+    "dev": "npm run dev -w @mtgsim/viewer",
+    "dev:flashcards": "npm run dev -w @mtgsim/flashcards",
+    "build": "npm run build -w @mtgsim/viewer",
+    "build:flashcards": "npm run build -w @mtgsim/flashcards",
     "storybook": "npm run storybook -w @mtgsim/ui",
     "build-storybook": "npm run build-storybook -w @mtgsim/ui",
     "typecheck": "npm run typecheck --workspaces",
