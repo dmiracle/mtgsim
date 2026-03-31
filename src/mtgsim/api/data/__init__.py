@@ -9,6 +9,7 @@ from mtgdb.session import close_db, init_db
 from .cards import cards_data
 from .decks import decks_data
 from .helpers import build_image_url, parse_json_column
+from .interactions import interactions_data
 from .keywords import keywords_data
 from .prices import prices_data
 from .sets import sets_data
@@ -22,6 +23,7 @@ __all__ = [
     "cards_data",
     "sets_data",
     "decks_data",
+    "interactions_data",
     "prices_data",
     "keywords_data",
     # Session management

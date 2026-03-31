@@ -508,3 +508,22 @@ class UserDeckCard(SQLModel, table=True):
     board: str = "main"  # main, side, commander, maybe
     count: int = 1
     is_foil: bool = False
+
+
+class UserCardInteraction(SQLModel, table=True):
+    """Interaction between two cards (combo, synergy, counter, etc.)."""
+
+    __tablename__ = "user_card_interaction"
+
+    id: int | None = Field(default=None, primary_key=True)
+    source_card_uuid: str = Field(foreign_key="mj_card.uuid", index=True)
+    target_card_uuid: str = Field(foreign_key="mj_card.uuid", index=True)
+
+    interaction_type: str = Field(index=True)
+    is_bidirectional: bool = True
+    description: str | None = None
+    strength: int | None = None
+    extra: dict = Field(default_factory=dict, sa_column=Column(JSON))
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
