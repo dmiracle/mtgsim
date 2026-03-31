@@ -20,6 +20,7 @@ from mtgsim.flashcards.generator import (
     _get_or_create_collection,
     generate_card_mana_cost_flashcards,
     generate_card_oracle_flashcards,
+    generate_card_recall_flashcards,
     generate_card_stats_flashcards,
     generate_keyword_flashcards,
 )
@@ -39,6 +40,9 @@ GENERATORS = {
     "card_stats": lambda client, user_id, **kw: generate_card_stats_flashcards(
         client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
     ),
+    "card_recall": lambda client, user_id, **kw: generate_card_recall_flashcards(
+        client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
+    ),
 }
 
 COLLECTION_NAMES = {
@@ -46,6 +50,7 @@ COLLECTION_NAMES = {
     "card_oracle": lambda **kw: kw.get("collection_name") or f"card_oracle_{kw.get('set_code', '')}",
     "card_mana_cost": lambda **kw: kw.get("collection_name") or f"card_mana_cost_{kw.get('set_code', '')}",
     "card_stats": lambda **kw: kw.get("collection_name") or f"card_stats_{kw.get('set_code', '')}",
+    "card_recall": lambda **kw: kw.get("collection_name") or f"card_recall_{kw.get('set_code', '')}",
 }
 
 
@@ -99,10 +104,17 @@ class FlashcardService:
             )
 
     async def record_review(
-        self, user_id: str, flashcard_id: int, rating: int, response_time_ms: int
+        self,
+        user_id: str,
+        flashcard_id: int,
+        rating: int,
+        response_time_ms: int,
+        metadata: dict | None = None,
     ) -> ReviewResponse:
         with self._get_client() as client:
-            client.record_review(user_id, flashcard_id, rating=rating, response_time_ms=response_time_ms)
+            client.record_review(
+                user_id, flashcard_id, rating=rating, response_time_ms=response_time_ms, metadata=metadata
+            )
             state = client.get_srs_state(user_id, flashcard_id)
 
         return ReviewResponse(

@@ -1198,7 +1198,7 @@ dev = [{ name = "pytest", specifier = ">=9.0.0" }]
 
 [[package]]
 name = "mtgsim"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -2400,7 +2400,7 @@ wheels = [
 
 [[package]]
 name = "srs"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "../srs" }
 dependencies = [
     { name = "pydantic" },

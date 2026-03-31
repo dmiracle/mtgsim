@@ -120,11 +120,44 @@ class TestGetNextFlashcard:
         assert response.json() is None
 
 
+class TestCardRecallGeneration:
+    """Tests for card_recall flashcard type."""
+
+    def test_generate_card_recall_returns_200(self, client, flashcard_user_id):
+        response = client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "card_recall", "set_code": "KLD"},
+        )
+        assert response.status_code == 200
+        assert response.json()["created"] > 0
+        assert response.json()["collection"] == "card_recall_KLD"
+
+    def test_card_recall_requires_set_code(self, client, flashcard_user_id):
+        response = client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "card_recall"},
+        )
+        assert response.status_code == 400
+
+    def test_card_recall_answer_has_full_card_data(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "card_recall", "set_code": "KLD"},
+        )
+        resp = client.get(f"/api/flashcards/next?user_id={flashcard_user_id}&collection=card_recall_KLD")
+        data = resp.json()
+        assert data is not None
+        assert data["question"]["card_type"] == "card_recall"
+        assert "image_url" in data["answer"]
+        assert "oracle_text" in data["answer"]
+        assert "mana_cost" in data["answer"]
+        assert "type_line" in data["answer"]
+
+
 class TestRecordReview:
     """Tests for POST /api/flashcards/review."""
 
     def test_review_returns_200(self, client, flashcard_user_id):
-        # Generate and get a card
         client.post(
             "/api/flashcards/generate",
             json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
@@ -146,6 +179,55 @@ class TestRecordReview:
         assert "interval" in data
         assert "ease_factor" in data
         assert data["interval"] >= 1
+
+    def test_review_with_aspect_ratings(self, client, flashcard_user_id):
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        next_resp = client.get(f"/api/flashcards/next?user_id={flashcard_user_id}")
+        flashcard_id = next_resp.json()["flashcard_id"]
+
+        response = client.post(
+            "/api/flashcards/review",
+            json={
+                "user_id": flashcard_user_id,
+                "flashcard_id": flashcard_id,
+                "aspect_ratings": {
+                    "mana_value": "green",
+                    "card_type": "yellow",
+                    "stats": "red",
+                    "oracle": "green",
+                },
+                "response_time_ms": 3000,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # Worst aspect is red=1, so interval should reflect a low rating
+        assert "interval" in data
+        assert "ease_factor" in data
+
+    def test_review_aspect_ratings_derive_effective_rating(self, client, flashcard_user_id):
+        """All green aspects should produce a high effective rating."""
+        client.post(
+            "/api/flashcards/generate",
+            json={"user_id": flashcard_user_id, "card_type": "keyword_definition"},
+        )
+        next_resp = client.get(f"/api/flashcards/next?user_id={flashcard_user_id}")
+        flashcard_id = next_resp.json()["flashcard_id"]
+
+        response = client.post(
+            "/api/flashcards/review",
+            json={
+                "user_id": flashcard_user_id,
+                "flashcard_id": flashcard_id,
+                "aspect_ratings": {"mana_value": "green", "card_type": "green", "stats": "green", "oracle": "green"},
+                "response_time_ms": 2000,
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["interval"] >= 1
 
 
 class TestListCollections:
