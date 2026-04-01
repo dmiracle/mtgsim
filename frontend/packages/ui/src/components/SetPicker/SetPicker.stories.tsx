@@ -14,7 +14,7 @@ const sampleSets = [
 ];
 
 const meta: Meta<typeof SetPicker> = {
-  title: "App-v2/SetPicker",
+  title: "Flashcards/SetPicker",
   component: SetPicker,
   decorators: [
     (Story) => (

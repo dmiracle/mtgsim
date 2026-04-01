@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { GenerateResult } from "./GenerateResult";
 
 const meta: Meta<typeof GenerateResult> = {
-  title: "App-v2/GenerateResult",
+  title: "Flashcards/GenerateResult",
   component: GenerateResult,
   decorators: [
     (Story) => (

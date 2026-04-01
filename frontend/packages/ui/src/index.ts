@@ -84,7 +84,7 @@ export { DonutChart } from "./components/charts/DonutChart/DonutChart";
 export { RadarChart } from "./components/charts/RadarChart/RadarChart";
 export { LineChart } from "./components/charts/LineChart/LineChart";
 
-// App-v2 components
+// Flashcards app components
 export { StudyHome } from "./components/StudyHome/StudyHome";
 export { CollectionPicker } from "./components/CollectionPicker/CollectionPicker";
 export { StudyFeed, StudyFeedEmpty, StudyFeedLoading } from "./components/StudyFeed/StudyFeed";

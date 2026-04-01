@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { StudyHome } from "./StudyHome";
 
 const meta: Meta<typeof StudyHome> = {
-  title: "App-v2/StudyHome",
+  title: "Flashcards/StudyHome",
   component: StudyHome,
 };
 export default meta;

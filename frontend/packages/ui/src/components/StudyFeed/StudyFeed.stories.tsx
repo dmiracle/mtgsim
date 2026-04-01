@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { StudyFeed, StudyFeedEmpty, StudyFeedLoading } from "./StudyFeed";
 
 const meta: Meta<typeof StudyFeed> = {
-  title: "App-v2/StudyFeed",
+  title: "Flashcards/StudyFeed",
   component: StudyFeed,
 };
 export default meta;

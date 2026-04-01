@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { ImageCarousel } from "./ImageCarousel";
 
 const meta: Meta<typeof ImageCarousel> = {
-  title: "App-v2/ImageCarousel",
+  title: "Flashcards/ImageCarousel",
   component: ImageCarousel,
   decorators: [
     (Story) => (

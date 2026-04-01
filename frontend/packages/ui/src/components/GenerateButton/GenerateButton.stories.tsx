@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { GenerateButton } from "./GenerateButton";
 
 const meta: Meta<typeof GenerateButton> = {
-  title: "App-v2/GenerateButton",
+  title: "Flashcards/GenerateButton",
   component: GenerateButton,
   decorators: [
     (Story) => (

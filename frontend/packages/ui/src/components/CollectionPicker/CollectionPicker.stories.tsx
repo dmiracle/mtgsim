@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { CollectionPicker } from "./CollectionPicker";
 
 const meta: Meta<typeof CollectionPicker> = {
-  title: "App-v2/CollectionPicker",
+  title: "Flashcards/CollectionPicker",
   component: CollectionPicker,
 };
 export default meta;
