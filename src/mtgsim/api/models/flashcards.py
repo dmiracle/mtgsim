@@ -32,6 +32,7 @@ class ReviewRequest(BaseModel):
     rating: int | None = Field(default=None, ge=0, le=5)
     aspect_ratings: dict[str, str] | None = None
     response_time_ms: int = Field(ge=0)
+    metadata: dict | None = None
 
     def effective_rating(self) -> int:
         if self.rating is not None:
