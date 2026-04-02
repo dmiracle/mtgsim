@@ -24,6 +24,7 @@ KEYWORD_DEFINITIONS: dict[str, str] = {
     "Trample": "This creature can deal excess combat damage to the player or planeswalker it's attacking.",
     "Vigilance": "Attacking doesn't cause this creature to tap.",
     "Ward": "Whenever this permanent becomes the target of a spell or ability an opponent controls, counter it unless that player pays the ward cost.",
+    "Warp": "An alternative cost you may pay when casting this card from your hand. If you do, exile it at the beginning of the next end step. Its owner may then cast it from exile for its regular mana cost.",
     # Evergreen keyword abilities
     "Convoke": "Your creatures can help cast this spell. Each creature you tap while casting reduces the cost by {1} or one mana of that creature's color.",
     "Cycling": "Discard this card and pay the cycling cost to draw a card.",
