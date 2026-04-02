@@ -194,7 +194,8 @@ class MJKeywordDefinition(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     keyword: str = Field(index=True, unique=True)
     definition: str
-    source: str = "generated"  # generated, comprehensive_rules, scryfall, manual
+    source: str = "generated"  # comprehensive_rules, manual, generated
+    last_verified_at: datetime | None = None
 
 
 class MJCardTag(SQLModel, table=True):

@@ -37,6 +37,9 @@ def db_sync(
     prices_only: bool = typer.Option(False, "--prices", help="Sync only prices"),
     decks_only: bool = typer.Option(False, "--decks", help="Sync only decks"),
     keywords_only: bool = typer.Option(False, "--keywords", help="Sync only keywords"),
+    keyword_definitions_only: bool = typer.Option(
+        False, "--keyword-definitions", help="Sync keyword definitions from Comprehensive Rules"
+    ),
     tags_only: bool = typer.Option(False, "--tags", help="Sync only Scryfall oracle tags"),
     seventeenlands: bool = typer.Option(False, "--17lands", help="Sync 17Lands public datasets"),
     seventeenlands_expansion: str | None = typer.Option(
@@ -112,7 +115,16 @@ def db_sync(
                 typer.echo(f"17Lands ingestion complete: {len(results)} datasets.")
             return
 
-        if cards_only or sets_only or prices_only or decks_only or keywords_only or tags_only:
+        any_specific = (
+            cards_only
+            or sets_only
+            or prices_only
+            or decks_only
+            or keywords_only
+            or keyword_definitions_only
+            or tags_only
+        )
+        if any_specific:
             ensure_dirs()
             init_db()
 
@@ -144,21 +156,10 @@ def db_sync(
                 download_and_extract_xz(KEYWORDS_URL, keywords_file, force)
                 result = sync_keywords(keywords_file)
                 typer.echo(result.summary())
-                # Also sync keyword definitions from src/mtgsim/data/
-                from pathlib import Path as _Path
+                _sync_keyword_definitions(force)
 
-                from mtgdb.sync.tables import check_missing_keyword_definitions, sync_keyword_definitions
-
-                defs_file = _Path(__file__).parent.parent / "data" / "keyword-definitions.json"
-                if defs_file.exists():
-                    defs_result = sync_keyword_definitions(defs_file)
-                    typer.echo(defs_result.summary())
-                # Check for keywords without definitions
-                missing = check_missing_keyword_definitions()
-                if missing:
-                    typer.echo(f"Warning: {len(missing)} keywords have no definition:")
-                    for m in missing:
-                        typer.echo(f"  [{m['type']}] {m['name']}")
+            if keyword_definitions_only:
+                _sync_keyword_definitions(force)
 
             if tags_only:
                 tag_data = fetch_all_tags(force=force)
@@ -172,6 +173,44 @@ def db_sync(
     except Exception as e:
         typer.echo(f"Error during sync: {e}")
         raise typer.Exit(1)
+
+
+def _sync_keyword_definitions(force: bool = False):
+    """Sync keyword definitions from Comprehensive Rules, with JSON fallback."""
+    from pathlib import Path as _Path
+
+    from mtgdb.sync.comprehensive_rules import sync_definitions_from_rules
+    from mtgdb.sync.tables import check_missing_keyword_definitions, sync_keyword_definitions
+
+    # Primary: Comprehensive Rules
+    rules_result = sync_definitions_from_rules(force)
+    typer.echo(rules_result.summary())
+
+    # Fallback: JSON file for keywords not in the rules (ability words, etc.)
+    defs_file = _Path(__file__).parent.parent / "data" / "keyword-definitions.json"
+    if defs_file.exists():
+        defs_result = sync_keyword_definitions(defs_file)
+        typer.echo(defs_result.summary())
+
+    # Report coverage
+    missing = check_missing_keyword_definitions()
+    if missing:
+        typer.echo(f"Warning: {len(missing)} keywords have no definition:")
+        for m in missing:
+            typer.echo(f"  [{m['type']}] {m['name']}")
+    else:
+        typer.echo("All keywords have definitions.")
+
+    # Report source breakdown
+    from mtgdb.models import MJKeywordDefinition
+    from mtgdb.session import get_session
+    from sqlmodel import func, select
+
+    with get_session() as session:
+        sources = session.exec(
+            select(MJKeywordDefinition.source, func.count()).group_by(MJKeywordDefinition.source)
+        ).all()
+        typer.echo("Definition sources: " + ", ".join(f"{s}={c}" for s, c in sources))
 
 
 @db_app.command("stats")

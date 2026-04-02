@@ -27,6 +27,9 @@ ALL_PRICES_URL = f"{MTGJSON_BASE_URL}/AllPricesToday.sqlite.xz"
 ALL_DECK_FILES_URL = f"{MTGJSON_BASE_URL}/AllDeckFiles.tar.xz"
 KEYWORDS_URL = f"{MTGJSON_BASE_URL}/Keywords.json.xz"
 
+# Comprehensive Rules
+COMPREHENSIVE_RULES_URL = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260227.txt"
+
 
 def ensure_dirs() -> None:
     """Ensure all required directories exist."""

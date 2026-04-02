@@ -38,6 +38,7 @@ from mtgdb.config import (
 from mtgdb.models import MJCard
 from mtgdb.session import get_engine, init_db
 
+from .comprehensive_rules import sync_definitions_from_rules
 from .download import download_and_extract_tar_xz, download_and_extract_xz
 from .scryfall import fetch_all_tags, sync_tags
 from .tables import sync_cards, sync_decks, sync_keyword_definitions, sync_keywords, sync_prices, sync_sets
@@ -52,6 +53,7 @@ __all__ = [
     "sync_decks",
     "sync_keywords",
     "sync_keyword_definitions",
+    "sync_definitions_from_rules",
     "fetch_all_tags",
     "sync_tags",
 ]
