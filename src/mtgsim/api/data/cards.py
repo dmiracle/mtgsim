@@ -227,9 +227,9 @@ class CardsData:
             total = session.exec(count_query).one()
 
             if order == "desc":
-                query = query.order_by(sort_field.desc())
+                query = query.order_by(sort_field.desc(), MJCard.name.asc())
             else:
-                query = query.order_by(sort_field.asc())
+                query = query.order_by(sort_field.asc(), MJCard.name.asc())
 
             # Pagination
             offset = (page - 1) * limit

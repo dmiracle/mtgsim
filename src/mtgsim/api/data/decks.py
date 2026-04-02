@@ -31,6 +31,7 @@ class DecksData:
         deck_type: str | None = None,
         source: str | None = None,
         colors: list[str] | None = None,
+        colors_mode: str = "subset",
         card_count_min: int | None = None,
         card_count_max: int | None = None,
         sort: str = "name",
@@ -63,6 +64,7 @@ class DecksData:
                     set_code,
                     deck_type,
                     colors,
+                    colors_mode,
                     card_count_min,
                     card_count_max,
                     sort,
@@ -78,6 +80,7 @@ class DecksData:
                     set_code,
                     deck_type,
                     colors,
+                    colors_mode,
                     card_count_min,
                     card_count_max,
                     sort,
@@ -110,6 +113,7 @@ class DecksData:
         set_code: str | None,
         deck_type: str | None,
         colors: list[str] | None,
+        colors_mode: str,
         card_count_min: int | None,
         card_count_max: int | None,
         sort: str,
@@ -161,9 +165,18 @@ class DecksData:
         for deck in results:
             deck_colors = colors_map.get(deck.uuid, [])
 
-            if colors and not all(c in deck_colors for c in colors):
-                total -= 1
-                continue
+            if colors:
+                color_set = set(deck_colors)
+                requested = set(colors)
+                if colors_mode == "subset" and not color_set.issubset(requested):
+                    total -= 1
+                    continue
+                elif colors_mode == "exact" and color_set != requested:
+                    total -= 1
+                    continue
+                elif colors_mode == "any" and not color_set & requested:
+                    total -= 1
+                    continue
 
             deck_dict = deck_to_api_dict(deck, deck_colors, price_map.get(deck.uuid))
             deck_dict["source"] = "precon"
