@@ -991,6 +991,14 @@ class DecksData:
             results = session.exec(query).all()
             return [c for c in results if c]
 
+    def get_available_formats(self) -> list[str]:
+        """Get list of distinct formats from card legality data."""
+        from mtgdb.models import MJCardLegality
+
+        with get_session() as session:
+            query = select(MJCardLegality.format).distinct().order_by(MJCardLegality.format)
+            return [f for f in session.exec(query).all() if f]
+
     def get_available_types(self) -> list[str]:
         """Get list of deck types."""
         with get_session() as session:

@@ -85,7 +85,7 @@ class DeckService:
             data=data,
             pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
             filters=DeckFilters(
-                formats=[],
+                formats=decks_data.get_available_formats(),
                 sets=decks_data.get_available_sets(),
                 color_combinations=[],
             ),
