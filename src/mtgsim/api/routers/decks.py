@@ -20,6 +20,9 @@ async def list_decks(
     set: str | None = Query(None, description="Filter by set code"),
     type: str | None = Query(None, description="Filter by deck type (60, 100)"),
     colors: str | None = Query(None, description="Filter by color identity (e.g., 'WU', 'BRG')"),
+    colors_mode: str = Query(
+        "subset", pattern="^(subset|exact|any)$", description="Color match: subset (default), exact, any"
+    ),
     card_count_min: int | None = Query(None, ge=0, description="Minimum card count"),
     card_count_max: int | None = Query(None, ge=0, description="Maximum card count"),
     price_min: float | None = Query(None, ge=0, description="Minimum deck price"),
@@ -53,6 +56,7 @@ async def list_decks(
         set_code=set,
         deck_type=type,
         colors=color_list,
+        colors_mode=colors_mode,
         card_count_min=card_count_min,
         card_count_max=card_count_max,
         price_min=price_min,
