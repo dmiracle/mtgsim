@@ -497,23 +497,31 @@ def sync_keyword_definitions(definitions_file: Path) -> SyncResult:
     engine = get_engine()
     with Session(engine) as session:
         before = _count_rows(session, MJKeywordDefinition)
-        session.exec(delete(MJKeywordDefinition))
-        session.commit()
+        existing = {d.keyword: d for d in session.exec(select(MJKeywordDefinition)).all()}
 
         count = 0
         for keyword, definition in definitions.items():
-            session.add(
-                MJKeywordDefinition(
-                    keyword=keyword,
-                    definition=definition,
-                    source="generated",
+            if keyword in existing:
+                row = existing[keyword]
+                # Only overwrite "generated" entries — preserve comprehensive_rules and manual
+                if row.source == "generated":
+                    row.definition = definition
+                    session.add(row)
+                    count += 1
+            else:
+                session.add(
+                    MJKeywordDefinition(
+                        keyword=keyword,
+                        definition=definition,
+                        source="generated",
+                    )
                 )
-            )
-            count += 1
+                count += 1
 
         session.commit()
+        after = _count_rows(session, MJKeywordDefinition)
 
-    result = SyncResult("Keyword Definitions", before, count)
+    result = SyncResult("Keyword Definitions", before, after)
     logger.info(result.summary())
     return result
 
