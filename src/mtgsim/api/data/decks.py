@@ -96,6 +96,20 @@ class DecksData:
                     sort,
                     order,
                 )
+                # Apply color filter to user decks
+                if colors:
+                    requested = set(colors)
+                    filtered_user = []
+                    for d in user_decks:
+                        deck_colors = set(d.get("colors", []))
+                        if colors_mode == "subset" and deck_colors.issubset(requested):
+                            filtered_user.append(d)
+                        elif colors_mode == "exact" and deck_colors == requested:
+                            filtered_user.append(d)
+                        elif colors_mode == "any" and deck_colors & requested:
+                            filtered_user.append(d)
+                    user_total = len(filtered_user)
+                    user_decks = filtered_user
                 # Prepend user decks on first page
                 if page == 1:
                     decks = user_decks + precon_decks
@@ -136,7 +150,12 @@ class DecksData:
         if card_count_max is not None:
             query = query.where((MJDeck.main_board_count + MJDeck.side_board_count) <= card_count_max)
 
-        # Count total
+        # Color filter: compute matching deck UUIDs first, then filter the query
+        if colors:
+            matching_uuids = self._filter_decks_by_color(session, query, colors, colors_mode)
+            query = query.where(MJDeck.uuid.in_(matching_uuids))
+
+        # Count total after color filter
         count_query = select(func.count()).select_from(query.subquery())
         total = session.exec(count_query).one()
 
@@ -164,25 +183,36 @@ class DecksData:
         decks = []
         for deck in results:
             deck_colors = colors_map.get(deck.uuid, [])
-
-            if colors:
-                color_set = set(deck_colors)
-                requested = set(colors)
-                if colors_mode == "subset" and not color_set.issubset(requested):
-                    total -= 1
-                    continue
-                elif colors_mode == "exact" and color_set != requested:
-                    total -= 1
-                    continue
-                elif colors_mode == "any" and not color_set & requested:
-                    total -= 1
-                    continue
-
             deck_dict = deck_to_api_dict(deck, deck_colors, price_map.get(deck.uuid))
             deck_dict["source"] = "precon"
             decks.append(deck_dict)
 
         return decks, total
+
+    def _filter_decks_by_color(self, session, base_query, colors: list[str], colors_mode: str) -> list[str]:
+        """Get deck UUIDs matching the color filter.
+
+        Aggregates colors from MJDeckCard per deck, then applies the filter mode.
+        """
+        candidate_uuids = [r.uuid for r in session.exec(base_query).all()]
+
+        if not candidate_uuids:
+            return []
+
+        all_colors_map = self._get_batch_deck_colors(session, candidate_uuids)
+        requested = set(colors)
+        matching = []
+
+        for uuid in candidate_uuids:
+            deck_colors = set(all_colors_map.get(uuid, []))
+            if colors_mode == "subset" and deck_colors.issubset(requested):
+                matching.append(uuid)
+            elif colors_mode == "exact" and deck_colors == requested:
+                matching.append(uuid)
+            elif colors_mode == "any" and deck_colors & requested:
+                matching.append(uuid)
+
+        return matching
 
     def _get_batch_deck_colors(self, session, deck_uuids: list[str]) -> dict[str, list[str]]:
         """Get colors for multiple decks in a single query."""
