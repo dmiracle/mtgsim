@@ -73,9 +73,10 @@ async def record_review(req: ReviewRequest) -> ReviewResponse:
     the effective SM-2 rating is derived from the worst aspect
     (green=5, yellow=3, red=1).
     """
-    metadata = None
+    metadata = req.metadata or {}
     if req.aspect_ratings:
-        metadata = {"aspect_ratings": req.aspect_ratings}
+        metadata["aspect_ratings"] = req.aspect_ratings
+    metadata = metadata or None
 
     return await flashcard_service.record_review(
         user_id=req.user_id,

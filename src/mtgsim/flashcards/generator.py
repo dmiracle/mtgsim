@@ -158,6 +158,7 @@ def generate_card_oracle_flashcards(
                     "oracle_text": oracle_text,
                     "mana_cost": mana_cost,
                     "type_line": type_line,
+                    "image_url": _build_image_url(scryfall_id),
                 },
             }
         )
@@ -216,6 +217,7 @@ def generate_card_mana_cost_flashcards(
                 "answer": {
                     "mana_cost": mana_cost,
                     "mana_value": mana_value,
+                    "image_url": _build_image_url(scryfall_id),
                 },
             }
         )
@@ -274,6 +276,7 @@ def generate_card_stats_flashcards(
                 "answer": {
                     "power": power,
                     "toughness": toughness,
+                    "image_url": _build_image_url(scryfall_id),
                 },
             }
         )
@@ -281,6 +284,61 @@ def generate_card_stats_flashcards(
     if cards:
         client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
         logger.info(f"Created {len(cards)} stats flashcards for {set_code}")
+
+    return len(cards)
+
+
+def generate_card_rarity_flashcards(
+    client: SRSClient, user_id: str, set_code: str, collection_name: str | None = None
+) -> int:
+    app = _get_or_create_app(client, user_id)
+    col_name = collection_name or f"card_rarity_{set_code}"
+    col = _get_or_create_collection(client, user_id, col_name, app.id)
+
+    if not collection_name and _collection_has_flashcards(client, col.id):
+        logger.info(f"Collection {col_name} already populated, skipping")
+        return 0
+
+    with get_session() as session:
+        subq = select(func.min(MJCard.uuid)).where(MJCard.set_code == set_code).group_by(MJCard.name)
+        query = (
+            select(
+                MJCard.uuid,
+                MJCard.name,
+                MJCard.oracle_text,
+                MJCard.type_line,
+                MJCard.rarity,
+                MJCardIdentifier.scryfall_id,
+            )
+            .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+            .where(MJCard.set_code == set_code)
+            .where(MJCard.rarity.is_not(None))
+            .where(MJCard.uuid.in_(subq))
+        )
+        results = session.exec(query).all()
+
+    cards = []
+    for uuid, name, oracle_text, type_line, rarity, scryfall_id in results:
+        cards.append(
+            {
+                "question": {
+                    "card_type": "card_rarity",
+                    "card_name": name,
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "oracle_text": oracle_text,
+                    "type_line": type_line,
+                },
+                "answer": {
+                    "rarity": rarity,
+                    "image_url": _build_image_url(scryfall_id),
+                },
+            }
+        )
+
+    if cards:
+        client.bulk_add_flashcards(user_id, cards, collection_ids=[col.id])
+        logger.info(f"Created {len(cards)} rarity flashcards for {set_code}")
 
     return len(cards)
 
@@ -318,6 +376,13 @@ def generate_card_recall_flashcards(
 
     cards = []
     for uuid, name, mana_cost, mana_value, type_line, oracle_text, power, toughness, scryfall_id in results:
+        has_stats = power is not None and toughness is not None
+        aspects = [
+            {"key": "mana_cost", "label": "MV", "enabled": True},
+            {"key": "type_line", "label": "Type", "enabled": True},
+            {"key": "power_toughness", "label": "Stats", "enabled": has_stats},
+            {"key": "oracle_text", "label": "Oracle", "enabled": True},
+        ]
         cards.append(
             {
                 "question": {
@@ -326,6 +391,7 @@ def generate_card_recall_flashcards(
                     "uuid": uuid,
                     "set_code": set_code,
                     "image_url": _build_image_url(scryfall_id),
+                    "aspects": aspects,
                 },
                 "answer": {
                     "mana_cost": mana_cost,

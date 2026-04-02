@@ -20,6 +20,7 @@ from mtgsim.flashcards.generator import (
     _get_or_create_collection,
     generate_card_mana_cost_flashcards,
     generate_card_oracle_flashcards,
+    generate_card_rarity_flashcards,
     generate_card_recall_flashcards,
     generate_card_stats_flashcards,
     generate_keyword_flashcards,
@@ -40,6 +41,9 @@ GENERATORS = {
     "card_stats": lambda client, user_id, **kw: generate_card_stats_flashcards(
         client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
     ),
+    "card_rarity": lambda client, user_id, **kw: generate_card_rarity_flashcards(
+        client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
+    ),
     "card_recall": lambda client, user_id, **kw: generate_card_recall_flashcards(
         client, user_id, kw.get("set_code", ""), collection_name=kw.get("collection_name")
     ),
@@ -50,6 +54,7 @@ COLLECTION_NAMES = {
     "card_oracle": lambda **kw: kw.get("collection_name") or f"card_oracle_{kw.get('set_code', '')}",
     "card_mana_cost": lambda **kw: kw.get("collection_name") or f"card_mana_cost_{kw.get('set_code', '')}",
     "card_stats": lambda **kw: kw.get("collection_name") or f"card_stats_{kw.get('set_code', '')}",
+    "card_rarity": lambda **kw: kw.get("collection_name") or f"card_rarity_{kw.get('set_code', '')}",
     "card_recall": lambda **kw: kw.get("collection_name") or f"card_recall_{kw.get('set_code', '')}",
 }
 
