@@ -213,6 +213,56 @@ def _sync_keyword_definitions(force: bool = False):
         typer.echo("Definition sources: " + ", ".join(f"{s}={c}" for s, c in sources))
 
 
+@db_app.command("sync-17l-personal")
+def db_sync_17l_personal(
+    email: str = typer.Option(None, "--email", "-e", help="17Lands account email"),
+    password: str = typer.Option(None, "--password", "-p", help="17Lands account password"),
+    start_date: str | None = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
+    end_date: str | None = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
+    expansion: str | None = typer.Option(None, "--expansion", help="Filter by expansion code"),
+    event_format: str | None = typer.Option(None, "--format", help="Filter by event format"),
+    skip_details: bool = typer.Option(False, "--skip-details", help="Only fetch event list, skip per-event details"),
+    delay: float = typer.Option(5.0, "--delay", help="Seconds between API requests"),
+):
+    """Sync your personal 17Lands event history.
+
+    Downloads your drafts, games, and deck data from 17Lands.
+    Credentials are only used for this session and are not stored.
+
+    Rate-limited to be respectful of the 17Lands API (5s delay by default).
+    Incremental: only fetches events not already in the database.
+    """
+    import getpass
+
+    from mtgdb.session import init_db
+    from mtgdb.sync.seventeenlands_client import sync_personal_events
+
+    init_db()
+
+    if not email:
+        email = typer.prompt("17Lands email")
+    if not password:
+        password = getpass.getpass("17Lands password: ")
+
+    typer.echo(f"Syncing personal data (delay={delay}s between requests)...")
+
+    try:
+        count = sync_personal_events(
+            email=email,
+            password=password,
+            start_date=start_date,
+            end_date=end_date,
+            expansion=expansion,
+            event_format=event_format,
+            fetch_details=not skip_details,
+            delay=delay,
+        )
+        typer.echo(f"Synced {count} new events.")
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(1)
+
+
 @db_app.command("stats")
 def db_stats():
     """Show database statistics."""
@@ -235,6 +285,7 @@ def db_stats():
         ("mj_deck_card", "Deck Cards"),
         ("mj_keyword", "Keywords"),
         ("mj_card_tag", "Card Tags"),
+        ("user_17l_event", "17Lands Personal Events"),
         ("user_card", "User Collection"),
         ("user_deck", "User Decks"),
         ("user_deck_card", "User Deck Cards"),

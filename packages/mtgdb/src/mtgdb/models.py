@@ -511,6 +511,33 @@ class UserDeckCard(SQLModel, table=True):
     is_foil: bool = False
 
 
+class User17LEvent(SQLModel, table=True):
+    """A personal 17Lands event (draft/sealed) with game results."""
+
+    __tablename__ = "user_17l_event"
+
+    id: int | None = Field(default=None, primary_key=True)
+    draft_id: str = Field(unique=True, index=True)
+    expansion: str | None = Field(default=None, index=True)
+    event_type: str | None = Field(default=None, index=True)
+    start_time: str | None = None
+    end_time: str | None = None
+    entry_fee: int | None = None
+    wins: int | None = None
+    losses: int | None = None
+    rank: str | None = None
+    deck_colors: str | None = None
+    deck_index: int | None = None
+
+    # Raw JSON from 17Lands API for detailed data
+    event_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    draft_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    game_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    deck_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+
+    synced_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserCardInteraction(SQLModel, table=True):
     """Interaction between two cards (combo, synergy, counter, etc.)."""
 

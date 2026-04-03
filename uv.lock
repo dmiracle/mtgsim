@@ -1174,6 +1174,7 @@ name = "mtgdb"
 version = "0.1.0"
 source = { editable = "packages/mtgdb" }
 dependencies = [
+    { name = "httpx" },
     { name = "requests" },
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
@@ -1187,6 +1188,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sentence-transformers", specifier = ">=3.0" },
     { name = "sqlite-vec", specifier = ">=0.1.6" },

@@ -5,6 +5,7 @@ description = "MTG database models and MTGJSON sync"
 requires-python = ">=3.14"
 dependencies = [
     "sqlmodel>=0.0.27",
+    "httpx>=0.27.0",
     "requests>=2.31.0",
     "sqlite-vec>=0.1.6",
     "sentence-transformers>=3.0",
