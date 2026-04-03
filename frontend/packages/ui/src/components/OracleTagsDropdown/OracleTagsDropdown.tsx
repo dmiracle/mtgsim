@@ -50,7 +50,7 @@ export function OracleTagsDropdown({ tags, selected, onChange }: OracleTagsDropd
       </button>
 
       {open && (
-        <div className="absolute z-20 top-full left-0 mt-1 w-64 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-20 bottom-full left-0 mb-1 w-64 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden">
           <div className="p-2 border-b border-border">
             <input
               type="text"

@@ -117,7 +117,7 @@ export function CardFilterBar({
     (filters.ownership !== "all" ? 1 : 0);
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
+    <div className="bg-bg-secondary border border-border rounded-lg overflow-visible">
       {/* Top bar */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-3 bg-bg-primary/50">
         <div className="flex-1 min-w-[150px]">

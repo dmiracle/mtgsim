@@ -1,12 +1,20 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDecks } from "@/api/hooks";
 import { DeckBrowserPage } from "./DeckBrowserPage";
+import type { DeckSearchParams } from "./DeckBrowserPage";
 
 export function DeckBrowserRoute() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const { data } = useDecks({ page, limit: 50 });
+  const [searchParams, setSearchParams] = useState<DeckSearchParams>({});
+
+  const { data } = useDecks({ ...searchParams, page, limit: 50 });
+
+  const handleSearch = useCallback((params: DeckSearchParams) => {
+    setSearchParams(params);
+    setPage(1);
+  }, []);
 
   return (
     <DeckBrowserPage
@@ -16,6 +24,7 @@ export function DeckBrowserRoute() {
       availableSources={["user", "import", "precon"]}
       onDeckClick={(file) => navigate(`/decks/${file}`)}
       onPageChange={setPage}
+      onSearch={handleSearch}
       onCreateDeck={() => {}}
       onImportDeck={() => {}}
     />

@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { DeckSummary, Pagination as PaginationType } from "@/types/api";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { ColorIdentityPicker } from "@/components/ColorIdentityPicker/ColorIdentityPicker";
 import { SortSelect } from "@/components/SortSelect/SortSelect";
 import { Pagination } from "@/components/Pagination/Pagination";
 import { DeckListItem } from "@/components/DeckListItem/DeckListItem";
+
+export type DeckSearchParams = {
+  q?: string;
+  format?: string;
+  source?: string;
+  colors?: string;
+  sort?: string;
+  order?: string;
+};
 
 type DeckBrowserPageProps = {
   decks: DeckSummary[];
@@ -13,6 +22,7 @@ type DeckBrowserPageProps = {
   availableSources: string[];
   onDeckClick: (file: string) => void;
   onPageChange: (page: number) => void;
+  onSearch: (params: DeckSearchParams) => void;
   onCreateDeck: () => void;
   onImportDeck: () => void;
 };
@@ -23,7 +33,6 @@ const SORT_OPTIONS = [
   { value: "card_count", label: "Card Count" },
 ];
 
-
 export function DeckBrowserPage({
   decks,
   pagination,
@@ -31,6 +40,7 @@ export function DeckBrowserPage({
   availableSources,
   onDeckClick,
   onPageChange,
+  onSearch,
   onCreateDeck,
   onImportDeck,
 }: DeckBrowserPageProps) {
@@ -40,6 +50,17 @@ export function DeckBrowserPage({
   const [colors, setColors] = useState<string[]>([]);
   const [sort, setSort] = useState("name");
   const [order, setOrder] = useState<"asc" | "desc">("asc");
+
+  useEffect(() => {
+    const params: DeckSearchParams = {};
+    if (search) params.q = search;
+    if (format) params.format = format;
+    if (source) params.source = source;
+    if (colors.length) params.colors = colors.join("");
+    if (sort !== "name") params.sort = sort;
+    if (order !== "asc") params.order = order;
+    onSearch(params);
+  }, [search, format, source, colors, sort, order, onSearch]);
 
   return (
     <div className="space-y-4">

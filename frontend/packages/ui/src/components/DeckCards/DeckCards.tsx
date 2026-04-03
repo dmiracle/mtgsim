@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { DeckCard, TagCount } from "@/types/api";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
@@ -36,6 +37,22 @@ function deckCardToSummary(card: DeckCard): CardSummary {
   };
 }
 
+function applyFilters(cards: DeckCard[], filters: CardFilters): DeckCard[] {
+  return cards.filter((c) => {
+    if (filters.text && !c.text.toLowerCase().includes(filters.text.toLowerCase()) && !c.name.toLowerCase().includes(filters.text.toLowerCase())) return false;
+    if (filters.colors.length && !filters.colors.some((color) => c.colors.includes(color))) return false;
+    if (filters.rarities.length && !filters.rarities.includes(c.rarity)) return false;
+    if (filters.types.length && !filters.types.some((t) => c.type.toLowerCase().includes(t.toLowerCase()))) return false;
+    if (filters.tags.length && !filters.tags.some((tag) => c.tags.includes(tag))) return false;
+    if (filters.manaValue.length) {
+      const mv = Math.floor(c.mana_value);
+      const has7Plus = filters.manaValue.includes(7);
+      if (!filters.manaValue.includes(mv) && !(has7Plus && mv >= 7)) return false;
+    }
+    return true;
+  });
+}
+
 function Section({ title, cards, count, onCardClick, onSetClick }: {
   title: string;
   cards: DeckCard[];
@@ -72,9 +89,15 @@ export function DeckCards({
   onCardClick,
   onSetClick,
 }: DeckCardsProps) {
-  const totalCommander = commander.reduce((s, c) => s + c.count, 0);
-  const totalMain = main_board.reduce((s, c) => s + c.count, 0);
-  const totalSide = side_board.reduce((s, c) => s + c.count, 0);
+  const hasFilter = !!(filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.tags.length || filters.manaValue.length);
+
+  const filteredCommander = useMemo(() => hasFilter ? applyFilters(commander, filters) : commander, [commander, filters, hasFilter]);
+  const filteredMain = useMemo(() => hasFilter ? applyFilters(main_board, filters) : main_board, [main_board, filters, hasFilter]);
+  const filteredSide = useMemo(() => hasFilter ? applyFilters(side_board, filters) : side_board, [side_board, filters, hasFilter]);
+
+  const totalCommander = filteredCommander.reduce((s, c) => s + c.count, 0);
+  const totalMain = filteredMain.reduce((s, c) => s + c.count, 0);
+  const totalSide = filteredSide.reduce((s, c) => s + c.count, 0);
 
   return (
     <div className="space-y-4">
@@ -83,9 +106,9 @@ export function DeckCards({
         onChange={onFiltersChange}
         availableTags={availableTags}
       />
-      <Section title="Commander" cards={commander} count={totalCommander} onCardClick={onCardClick} onSetClick={onSetClick} />
-      <Section title="Main Board" cards={main_board} count={totalMain} onCardClick={onCardClick} onSetClick={onSetClick} />
-      <Section title="Sideboard" cards={side_board} count={totalSide} onCardClick={onCardClick} onSetClick={onSetClick} />
+      <Section title="Commander" cards={filteredCommander} count={totalCommander} onCardClick={onCardClick} onSetClick={onSetClick} />
+      <Section title="Main Board" cards={filteredMain} count={totalMain} onCardClick={onCardClick} onSetClick={onSetClick} />
+      <Section title="Sideboard" cards={filteredSide} count={totalSide} onCardClick={onCardClick} onSetClick={onSetClick} />
     </div>
   );
 }

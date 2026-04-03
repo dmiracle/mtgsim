@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse } from "@/types/api";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
@@ -108,6 +108,21 @@ export function CardBrowserPage({
     );
   }
 
+  // Secondary sort by name — only breaks ties within identical primary sort values
+  const sortedCards = useMemo(() => {
+    if (filters.sort === "name") return cards;
+    const key = filters.sort as keyof CardSummary;
+    const dir = filters.order === "desc" ? -1 : 1;
+    return [...cards].sort((a, b) => {
+      const av = a[key], bv = b[key];
+      if (av !== bv) {
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+        return String(av).localeCompare(String(bv)) * dir;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [cards, filters.sort, filters.order]);
+
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-bold text-text-primary">Cards</h2>
@@ -185,7 +200,7 @@ export function CardBrowserPage({
             </div>
           ) : viewMode === "grid" ? (
             <CardGrid
-              cards={cards}
+              cards={sortedCards}
               pagination={pagination}
               pinnedIds={pinnedIds}
               onCardClick={onCardClick}
@@ -197,7 +212,7 @@ export function CardBrowserPage({
             />
           ) : (
             <CardTable
-              cards={cards}
+              cards={sortedCards}
               pagination={pagination}
               pinnedIds={pinnedIds}
               onCardClick={onCardClick}
