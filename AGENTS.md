@@ -3,14 +3,14 @@
 ## Project Structure & Module Organization
 - `src/mtgsim/` holds the Python package: Typer CLI in `cli/`, domain + SQLModel models in `db/`, MTGJSON sync in `sync/mtgjson.py`, ASCII rendering in `render/`, extraction pipelines in `extract/`, and the FastAPI backend in `api/` (routers/services/data/models mirror `docs/architecture.md`).
 - `resources/` contains MTGJSON SQLite/JSON snapshots; runtime copies live at `~/.mtgsim/reference/mtgjson/`.
-- `web/` is the static viewer served at `/web`; `webapp/` hosts the deck viewer assets and index generators.
+- `frontend/` is the standalone frontend application (separate from the Python backend).
 - `tests/` covers CLI and API behavior (API cases in `tests/api/`); keep new tests close to their code.
 - `docs/architecture.md` documents backend layers—refresh it when endpoints or data flows change.
 
 ## Build, Test, and Development Commands
 - `uv sync` — install dependencies (Python 3.14+) into the local environment.
 - `uv run mtgsim --help` — list CLI commands; `uv run mtgsim db sync` refreshes MTGJSON reference DBs in `~/.mtgsim/reference/mtgjson/`.
-- `uv run mtgsim-api` — start the FastAPI server with reload; serves `/api/*` plus static `web/` and `webapp/` assets.
+- `uv run mtgsim-api` — start the FastAPI server with reload; serves `/api/*` endpoints.
 - `uv run pytest` — run the suite; `uv run pytest tests/api -q` for API-only checks.
 - `uv run ruff check src tests` and `uv run ruff format src tests` — lint and format before sending changes.
 

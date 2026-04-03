@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -25,7 +25,7 @@ from mtgsim.api.routers import (
     seventeenlands_router,
     stats_router,
 )
-from mtgsim.config import get_resources_dir, get_web_dir, get_webapp_dir
+from mtgsim.config import get_resources_dir
 
 # Configure logging based on MTGSIM_DEBUG env var
 DEBUG = os.environ.get("MTGSIM_DEBUG", "0") == "1"
@@ -48,7 +48,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Skip logging for static files and health checks
         path = request.url.path
-        if path.startswith(("/web", "/webapp", "/resources")) or path == "/health":
+        if path.startswith("/resources") or path == "/health":
             return await call_next(request)
 
         start_time = time.perf_counter()
@@ -79,9 +79,7 @@ async def lifespan(app: FastAPI):
 
     t0 = _time.perf_counter()
     logger.info("Starting MTG API server..." + (" [DEBUG MODE]" if DEBUG else ""))
-    logger.debug(f"Web dir: {get_web_dir()}")
     logger.debug(f"Resources dir: {get_resources_dir()}")
-    logger.debug(f"Webapp dir: {get_webapp_dir()}")
     t1 = _time.perf_counter()
     init_databases()
     logger.info(f"Database initialized ({(_time.perf_counter() - t1) * 1000:.0f}ms)")
@@ -189,10 +187,10 @@ app.include_router(interactions_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    """Redirect root to the webapp."""
+    """Redirect root to the API docs."""
     from fastapi.responses import RedirectResponse
 
-    return RedirectResponse(url="/app")
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/api")
@@ -220,25 +218,8 @@ async def health():
     return {"status": "healthy"}
 
 
-# Mount static files for the webapp
-web_dir = get_web_dir()
+# Mount static files for resources
 resources_dir = get_resources_dir()
-webapp_dir = get_webapp_dir()
-
-if web_dir.exists():
-    app.mount("/web", StaticFiles(directory=str(web_dir)), name="web")
 
 if resources_dir.exists():
     app.mount("/resources", StaticFiles(directory=str(resources_dir)), name="resources")
-
-if webapp_dir.exists():
-    app.mount("/webapp", StaticFiles(directory=str(webapp_dir)), name="webapp")
-
-
-@app.get("/app")
-async def serve_webapp():
-    """Serve the main webapp."""
-    index_path = web_dir / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"error": "Webapp not found"}

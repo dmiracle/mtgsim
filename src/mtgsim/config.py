@@ -37,13 +37,3 @@ def get_project_root() -> Path:
 def get_resources_dir() -> Path:
     """Get resources directory."""
     return get_project_root() / "resources"
-
-
-def get_web_dir() -> Path:
-    """Get web static files directory."""
-    return get_project_root() / "web"
-
-
-def get_webapp_dir() -> Path:
-    """Get webapp static files directory."""
-    return get_project_root() / "webapp"
