@@ -189,6 +189,10 @@ class DeckService:
         """Create a new user deck."""
         return decks_data.create_user_deck(name=name, description=description, format=format)
 
+    async def duplicate_user_deck(self, deck_id: int) -> dict | None:
+        """Duplicate a user deck with all its cards."""
+        return decks_data.duplicate_user_deck(deck_id)
+
     async def add_card_to_deck(
         self,
         deck_id: int,
