@@ -1,5 +1,8 @@
 # MTGSim development commands
 
+default:
+    @just --list
+
 # Start the API server (serves backend + frontend)
 serve:
     uv run mtgsim-api
@@ -42,6 +45,42 @@ db-sync:
 # Force re-download and sync MTGJSON data
 db-sync-force:
     uv run mtgsim db sync --force
+
+# Start the deck viewer frontend (dev server)
+dev-viewer:
+    cd frontend && npm run dev
+
+# Start the flashcards frontend (dev server)
+dev-flashcards:
+    cd frontend && npm run dev:flashcards
+
+# Start Storybook for the UI component library
+storybook:
+    cd frontend && npm run storybook
+
+# Build the deck viewer frontend
+build-viewer:
+    cd frontend && npm run build
+
+# Build the flashcards frontend
+build-flashcards:
+    cd frontend && npm run build:flashcards
+
+# Build Storybook static site
+build-storybook:
+    cd frontend && npm run build-storybook
+
+# Typecheck all frontend packages
+typecheck:
+    cd frontend && npm run typecheck
+
+# Lint frontend code
+lint-frontend:
+    cd frontend && npm run lint
+
+# Install frontend dependencies
+install-frontend:
+    cd frontend && npm install
 
 # Show CLI help
 help:

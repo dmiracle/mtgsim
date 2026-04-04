@@ -1,4 +1,4 @@
-import type { DeckStats as DeckStatsType } from "@/types/api";
+import type { DeckStats as DeckStatsType, TagCount } from "@/types/api";
 import { StatCard } from "@/components/StatCard/StatCard";
 import { VBarChart } from "@/components/charts/VBarChart/VBarChart";
 import { HBarChart } from "@/components/charts/HBarChart/HBarChart";
@@ -9,9 +9,10 @@ type DeckStatsProps = {
   stats: DeckStatsType;
   legality: Record<string, boolean>;
   price: { total: number; tcgplayer: number; cardkingdom: number; cardsphere: number; cardmarket: number; mtgo: number };
+  tags?: TagCount[];
 };
 
-export function DeckStats({ stats, legality, price }: DeckStatsProps) {
+export function DeckStats({ stats, legality, price, tags = [] }: DeckStatsProps) {
   const manaCurveData = Object.entries(stats.mana_curve)
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([label, value]) => ({ label, value }));
@@ -49,6 +50,15 @@ export function DeckStats({ stats, legality, price }: DeckStatsProps) {
     ...Object.entries(stats.keywords.keyword_actions).map(([k, v]) => ({ label: k, value: v })),
     ...Object.entries(stats.keywords.ability_words).map(([k, v]) => ({ label: k, value: v })),
   ].sort((a, b) => b.value - a.value).slice(0, 10);
+
+  const keywordAbilities = Object.entries(stats.keywords.keyword_abilities)
+    .sort(([, a], [, b]) => b - a).map(([label, value]) => ({ label, value }));
+  const keywordActions = Object.entries(stats.keywords.keyword_actions)
+    .sort(([, a], [, b]) => b - a).map(([label, value]) => ({ label, value }));
+  const abilityWords = Object.entries(stats.keywords.ability_words)
+    .sort(([, a], [, b]) => b - a).map(([label, value]) => ({ label, value }));
+
+  const tagData = tags.slice(0, 20).map((t) => ({ label: t.tag, value: t.count }));
 
   return (
     <div className="space-y-4">
@@ -95,6 +105,25 @@ export function DeckStats({ stats, legality, price }: DeckStatsProps) {
       {/* Keywords */}
       {allKeywords.length > 0 && (
         <HBarChart title="Top Keywords" data={allKeywords} color="warning" animate={false} />
+      )}
+
+      {(keywordAbilities.length > 0 || keywordActions.length > 0 || abilityWords.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {keywordAbilities.length > 0 && (
+            <HBarChart title="Keyword Abilities" data={keywordAbilities} color="accent" maxBars={10} animate={false} />
+          )}
+          {keywordActions.length > 0 && (
+            <HBarChart title="Keyword Actions" data={keywordActions} color="success" maxBars={10} animate={false} />
+          )}
+          {abilityWords.length > 0 && (
+            <HBarChart title="Ability Words" data={abilityWords} color="danger" maxBars={10} animate={false} />
+          )}
+        </div>
+      )}
+
+      {/* Tags */}
+      {tagData.length > 0 && (
+        <HBarChart title="Oracle Tags" data={tagData} color="accent" maxBars={20} animate={false} />
       )}
 
       {/* Legality */}

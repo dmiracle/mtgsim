@@ -53,6 +53,29 @@ function applyFilters(cards: DeckCard[], filters: CardFilters): DeckCard[] {
   });
 }
 
+const RARITY_ORDER: Record<string, number> = { common: 0, uncommon: 1, rare: 2, mythic: 3 };
+
+function sortCards(cards: DeckCard[], sort: string, order: "asc" | "desc"): DeckCard[] {
+  const dir = order === "asc" ? 1 : -1;
+  return [...cards].sort((a, b) => {
+    let cmp = 0;
+    switch (sort) {
+      case "mana_value":
+        cmp = a.mana_value - b.mana_value;
+        break;
+      case "rarity":
+        cmp = (RARITY_ORDER[a.rarity] ?? 0) - (RARITY_ORDER[b.rarity] ?? 0);
+        break;
+      case "price":
+        cmp = a.price - b.price;
+        break;
+      default:
+        cmp = a.name.localeCompare(b.name);
+    }
+    return cmp * dir;
+  });
+}
+
 function Section({ title, cards, count, onCardClick, onSetClick }: {
   title: string;
   cards: DeckCard[];
@@ -91,9 +114,9 @@ export function DeckCards({
 }: DeckCardsProps) {
   const hasFilter = !!(filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.tags.length || filters.manaValue.length);
 
-  const filteredCommander = useMemo(() => hasFilter ? applyFilters(commander, filters) : commander, [commander, filters, hasFilter]);
-  const filteredMain = useMemo(() => hasFilter ? applyFilters(main_board, filters) : main_board, [main_board, filters, hasFilter]);
-  const filteredSide = useMemo(() => hasFilter ? applyFilters(side_board, filters) : side_board, [side_board, filters, hasFilter]);
+  const filteredCommander = useMemo(() => sortCards(hasFilter ? applyFilters(commander, filters) : commander, filters.sort, filters.order), [commander, filters, hasFilter]);
+  const filteredMain = useMemo(() => sortCards(hasFilter ? applyFilters(main_board, filters) : main_board, filters.sort, filters.order), [main_board, filters, hasFilter]);
+  const filteredSide = useMemo(() => sortCards(hasFilter ? applyFilters(side_board, filters) : side_board, filters.sort, filters.order), [side_board, filters, hasFilter]);
 
   const totalCommander = filteredCommander.reduce((s, c) => s + c.count, 0);
   const totalMain = filteredMain.reduce((s, c) => s + c.count, 0);
