@@ -206,6 +206,15 @@ async def remove_card_from_deck(
     return {"status": "removed"}
 
 
+@router.post("/{deck_id}/duplicate", response_model=UserDeckResponse)
+async def duplicate_deck(deck_id: int) -> UserDeckResponse:
+    """Duplicate a user deck with all its cards."""
+    result = await deck_service.duplicate_user_deck(deck_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
+    return UserDeckResponse(**result)
+
+
 @router.delete("/{deck_id}")
 async def delete_deck(deck_id: int) -> dict:
     """Delete a user deck."""

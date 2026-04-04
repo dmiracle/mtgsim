@@ -874,6 +874,47 @@ class DecksData:
                 "source": deck.source,
             }
 
+    def duplicate_user_deck(self, deck_id: int) -> dict | None:
+        """Duplicate a user deck with all its cards. Returns new deck dict or None if not found."""
+        with get_session() as session:
+            original = session.exec(select(UserDeck).where(UserDeck.id == deck_id)).first()
+            if not original:
+                return None
+
+            new_deck = UserDeck(
+                name=f"{original.name} (Copy)",
+                description=original.description,
+                format=original.format,
+                source=original.source,
+            )
+            session.add(new_deck)
+            session.flush()
+
+            cards = session.exec(select(UserDeckCard).where(UserDeckCard.deck_id == deck_id)).all()
+            for card in cards:
+                session.add(
+                    UserDeckCard(
+                        deck_id=new_deck.id,
+                        card_uuid=card.card_uuid,
+                        board=card.board,
+                        count=card.count,
+                        is_foil=card.is_foil,
+                    )
+                )
+
+            session.commit()
+            session.refresh(new_deck)
+
+            total = sum(c.count for c in cards)
+            return {
+                "id": new_deck.id,
+                "name": new_deck.name,
+                "description": new_deck.description,
+                "format": new_deck.format,
+                "card_count": total,
+                "source": new_deck.source,
+            }
+
     def update_user_deck(
         self,
         deck_id: int,
