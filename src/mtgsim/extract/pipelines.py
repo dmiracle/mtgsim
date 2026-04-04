@@ -34,6 +34,11 @@ class ExtractionPipeline(ABC):
         """Extract card data from an image file."""
         pass
 
+    @abstractmethod
+    def extract_bytes(self, data: bytes, mime_type: str) -> Card:
+        """Extract card data from raw image bytes."""
+        pass
+
 
 class OpenAIExtractionPipeline(ExtractionPipeline):
     """Extraction pipeline using OpenAI's vision API."""
@@ -60,10 +65,7 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
         }
         return mime_types.get(suffix, "image/jpeg")
 
-    def extract(self, image_path: Path) -> Card:
-        base64_image = self._encode_image(image_path)
-        mime_type = self._get_mime_type(image_path)
-
+    def _call_openai(self, base64_image: str, mime_type: str) -> Card:
         completion = self.client.beta.chat.completions.parse(
             model=self.model,
             messages=[
@@ -80,29 +82,37 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
             ],
             response_format=Card,
         )
+        return completion.choices[0].message.parsed
 
-        card = completion.choices[0].message.parsed
+    def extract(self, image_path: Path) -> Card:
+        base64_image = self._encode_image(image_path)
+        mime_type = self._get_mime_type(image_path)
+        card = self._call_openai(base64_image, mime_type)
         card.image_url = str(image_path)
         return card
+
+    def extract_bytes(self, data: bytes, mime_type: str) -> Card:
+        base64_image = base64.b64encode(data).decode("utf-8")
+        return self._call_openai(base64_image, mime_type)
 
 
 class MockExtractionPipeline(ExtractionPipeline):
     """Mock pipeline that returns sample card data for testing."""
 
-    def extract(self, image_path: Path) -> Card:
-        filename = image_path.stem.lower()
+    def _mock_card(self, hint: str = "") -> Card:
+        """Return a mock card based on a hint string (filename or arbitrary label)."""
+        hint = hint.lower()
 
-        if "land" in filename or "forest" in filename or "island" in filename:
+        if "land" in hint or "forest" in hint or "island" in hint:
             return Card(
                 name="Tropical Island",
                 card_types=[CardType.LAND],
                 subtypes=["Forest", "Island"],
                 oracle_text="{T}: Add {G} or {U}.",
                 rarity=Rarity.RARE,
-                image_url=str(image_path),
                 raw_text="(T: Add G or U.)",
             )
-        elif "creature" in filename or "dragon" in filename:
+        elif "creature" in hint or "dragon" in hint:
             return Card(
                 name="Shivan Dragon",
                 mana_cost=ManaCost(red=2, generic=4),
@@ -112,10 +122,9 @@ class MockExtractionPipeline(ExtractionPipeline):
                 power=5,
                 toughness=5,
                 rarity=Rarity.RARE,
-                image_url=str(image_path),
                 raw_text="Flying\nR: Shivan Dragon gets +1/+0 until end of turn.",
             )
-        elif "planeswalker" in filename or "jace" in filename:
+        elif "planeswalker" in hint or "jace" in hint:
             return Card(
                 name="Jace, the Mind Sculptor",
                 mana_cost=ManaCost(blue=2, generic=2),
@@ -129,7 +138,6 @@ class MockExtractionPipeline(ExtractionPipeline):
                 ),
                 loyalty=3,
                 rarity=Rarity.MYTHIC,
-                image_url=str(image_path),
                 raw_text=(
                     "+2: Look at the top card of target player's library. "
                     "-1: Return target creature to owner's hand. "
@@ -143,9 +151,16 @@ class MockExtractionPipeline(ExtractionPipeline):
                 card_types=[CardType.INSTANT],
                 oracle_text="Lightning Bolt deals 3 damage to any target.",
                 rarity=Rarity.COMMON,
-                image_url=str(image_path),
                 raw_text="Lightning Bolt deals 3 damage to any target.",
             )
+
+    def extract(self, image_path: Path) -> Card:
+        card = self._mock_card(image_path.stem)
+        card.image_url = str(image_path)
+        return card
+
+    def extract_bytes(self, data: bytes, mime_type: str) -> Card:
+        return self._mock_card()
 
 
 def get_pipeline(pipeline_name: str = "mock", **kwargs) -> ExtractionPipeline:
