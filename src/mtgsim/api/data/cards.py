@@ -121,10 +121,13 @@ class CardsData:
                     if cutoff:
                         query = query.where(MJSet.release_date >= cutoff)
 
-            # Text search (name, type, oracle text)
+            # Text search (name, printed_name, type, oracle text)
             if q:
                 query = query.where(
-                    (MJCard.name.contains(q)) | (MJCard.type_line.contains(q)) | (MJCard.oracle_text.contains(q))
+                    (MJCard.name.contains(q))
+                    | (MJCard.printed_name.contains(q))
+                    | (MJCard.type_line.contains(q))
+                    | (MJCard.oracle_text.contains(q))
                 )
 
             # Set filter (single)
@@ -292,7 +295,10 @@ class CardsData:
 
             if q:
                 query = query.where(
-                    (MJCard.name.contains(q)) | (MJCard.type_line.contains(q)) | (MJCard.oracle_text.contains(q))
+                    (MJCard.name.contains(q))
+                    | (MJCard.printed_name.contains(q))
+                    | (MJCard.type_line.contains(q))
+                    | (MJCard.oracle_text.contains(q))
                 )
             if set_code:
                 query = query.where(MJCard.set_code == set_code)
@@ -651,7 +657,7 @@ class CardsData:
                 cards.append(
                     {
                         "uuid": mj_card.uuid,
-                        "name": mj_card.name,
+                        "name": mj_card.printed_name or mj_card.name,
                         "set_code": mj_card.set_code,
                         "set_name": set_name,
                         "rarity": mj_card.rarity,

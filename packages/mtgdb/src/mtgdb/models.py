@@ -26,6 +26,7 @@ class MJCard(SQLModel, table=True):
 
     uuid: str = Field(primary_key=True)
     name: str = Field(index=True)
+    printed_name: str | None = None
     set_code: str = Field(index=True)
 
     # Card text

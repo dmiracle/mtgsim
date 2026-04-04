@@ -170,7 +170,7 @@ def _sync_cards_table(conn, engine) -> int:
         session.commit()
 
         cursor = conn.execute("""
-            SELECT uuid, name, setCode, manaCost, manaValue, type, text,
+            SELECT uuid, name, printedName, setCode, manaCost, manaValue, type, text,
                    power, toughness, loyalty, defense, rarity, number, artist,
                    layout, borderColor, frameVersion, flavorText,
                    colors, colorIdentity, types, subtypes, supertypes, keywords,
@@ -184,6 +184,7 @@ def _sync_cards_table(conn, engine) -> int:
                 MJCard(
                     uuid=row["uuid"],
                     name=row["name"],
+                    printed_name=row["printedName"] or None,
                     set_code=row["setCode"],
                     mana_cost=row["manaCost"],
                     mana_value=row["manaValue"],
@@ -536,11 +537,7 @@ def check_missing_keyword_definitions() -> list[dict]:
         keywords = session.exec(select(MJKeyword)).all()
         defined = set(session.exec(select(MJKeywordDefinition.keyword)).all())
 
-    missing = [
-        {"name": kw.name, "type": kw.type}
-        for kw in keywords
-        if kw.name not in defined
-    ]
+    missing = [{"name": kw.name, "type": kw.type} for kw in keywords if kw.name not in defined]
 
     if missing:
         logger.warning(f"{len(missing)} keywords have no definition:")

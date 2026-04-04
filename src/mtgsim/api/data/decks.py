@@ -676,7 +676,7 @@ class DecksData:
             cards.append(
                 {
                     "card_uuid": mj_card.uuid,
-                    "name": mj_card.name,
+                    "name": mj_card.printed_name or mj_card.name,
                     "count": count,
                     "board": deck_card.board,
                     "mana_cost": mj_card.mana_cost,

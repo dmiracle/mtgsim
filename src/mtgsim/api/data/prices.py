@@ -163,7 +163,7 @@ class PricesData:
                 cards.append(
                     {
                         "uuid": card.uuid,
-                        "name": card.name,
+                        "name": card.printed_name or card.name,
                         "set_code": card.set_code,
                         "rarity": card.rarity,
                         "mana_cost": card.mana_cost,
