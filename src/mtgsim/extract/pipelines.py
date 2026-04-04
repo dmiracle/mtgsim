@@ -1,5 +1,4 @@
 import base64
-import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -44,9 +43,11 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
     """Extraction pipeline using OpenAI's vision API."""
 
     def __init__(self, api_key: str | None = None, model: str = "gpt-4o"):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        from mtgsim.settings import settings
+
+        self.api_key = api_key or settings.openai_api_key
         if not self.api_key:
-            raise ValueError("OpenAI API key required. Set OPENAI_API_KEY env var or pass api_key.")
+            raise ValueError("OpenAI API key required. Set OPENAI_API_KEY in .env or pass api_key.")
         self.client = OpenAI(api_key=self.api_key)
         self.model = model
 

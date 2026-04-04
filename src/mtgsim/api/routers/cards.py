@@ -11,15 +11,16 @@ from mtgsim.api.models.card import CardDetail, CardListResponse, CardStatsRespon
 from mtgsim.api.models.scan import ScanResponse
 from mtgsim.api.services.card_service import card_service
 from mtgsim.api.services.scan_service import scan_service
+from mtgsim.settings import settings
 
 logger = logging.getLogger("mtgsim.api.routers.cards")
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
 # Simple in-memory rate limiter for scan endpoint.
-# Tracks timestamps per client IP. Configurable via SCAN_RATE_LIMIT and SCAN_RATE_WINDOW.
-SCAN_RATE_LIMIT = 10  # max requests per window
-SCAN_RATE_WINDOW = 60  # window in seconds
+# Configured via SCAN_RATE_LIMIT and SCAN_RATE_WINDOW in .env or environment.
+SCAN_RATE_LIMIT = settings.scan_rate_limit
+SCAN_RATE_WINDOW = settings.scan_rate_window
 _scan_timestamps: dict[str, list[float]] = defaultdict(list)
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png"}

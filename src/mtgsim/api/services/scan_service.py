@@ -10,6 +10,7 @@ from mtgsim.api.models.scan import ExtractionDetail, ScanResponse
 from mtgsim.deck_import import MatchResult, _load_card_name_index, match_card_by_name
 from mtgsim.extract.pipelines import ExtractionPipeline, get_pipeline
 from mtgsim.extract.preprocess import preprocess_card_image
+from mtgsim.settings import settings
 
 logger = logging.getLogger("mtgsim.api.services.scan")
 
@@ -60,7 +61,9 @@ class ScanService:
 
         # Match against database
         self._ensure_name_index()
-        match = match_card_by_name(extracted.name, self._name_index, self._name_list)
+        match = match_card_by_name(
+            extracted.name, self._name_index, self._name_list, threshold=settings.scan_fuzzy_threshold
+        )
 
         card_summary = _build_card_summary(match) if match.uuid else None
 
@@ -114,4 +117,4 @@ def _build_card_summary(match: MatchResult) -> CardSummary | None:
     )
 
 
-scan_service = ScanService()
+scan_service = ScanService(default_pipeline=settings.scan_default_pipeline)
