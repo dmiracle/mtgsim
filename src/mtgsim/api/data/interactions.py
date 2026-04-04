@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def _card_dict(card: MJCard, scryfall_id: str | None) -> dict:
     return {
         "uuid": card.uuid,
-        "name": card.name,
+        "name": card.printed_name or card.name,
         "type_line": card.type_line,
         "mana_cost": card.mana_cost,
         "image_url": build_image_url(scryfall_id),

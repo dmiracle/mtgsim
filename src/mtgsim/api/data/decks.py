@@ -676,7 +676,7 @@ class DecksData:
             cards.append(
                 {
                     "card_uuid": mj_card.uuid,
-                    "name": mj_card.name,
+                    "name": mj_card.printed_name or mj_card.name,
                     "count": count,
                     "board": deck_card.board,
                     "mana_cost": mj_card.mana_cost,
@@ -1064,13 +1064,15 @@ class DecksData:
                 card_count_row = session.exec(
                     select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
                 ).first()
+                colors_map = self._get_batch_user_deck_colors(session, [deck_id])
+                price_map = self._get_batch_user_deck_prices(session, [deck_id])
                 return {
                     "file": str(user_deck.id),
                     "name": user_deck.name,
                     "code": "",
                     "card_count": card_count_row or 0,
-                    "colors": [],
-                    "price": None,
+                    "colors": colors_map.get(deck_id, []),
+                    "price": price_map.get(deck_id),
                     "release_date": None,
                     "source": user_deck.source,
                 }

@@ -153,7 +153,7 @@ def card_to_api_dict(
 
     return {
         "uuid": mj_card.uuid,
-        "name": mj_card.name,
+        "name": mj_card.printed_name or mj_card.name,
         "mana_cost": mj_card.mana_cost,
         "mana_value": mj_card.mana_value,
         "type": mj_card.type_line,

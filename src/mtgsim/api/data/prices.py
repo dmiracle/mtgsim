@@ -163,7 +163,7 @@ class PricesData:
                 cards.append(
                     {
                         "uuid": card.uuid,
-                        "name": card.name,
+                        "name": card.printed_name or card.name,
                         "set_code": card.set_code,
                         "rarity": card.rarity,
                         "mana_cost": card.mana_cost,
@@ -256,49 +256,38 @@ class PricesData:
 
     def get_price_stats(self) -> dict:
         """Get overall price statistics."""
+        from sqlalchemy import case
+
         with get_session() as session:
-            # Total cards with prices
-            count_query = select(func.count(func.distinct(MJCardPrice.card_uuid)))
-            cards_with_prices = session.exec(count_query).first() or 0
-
-            # Get latest update time
-            latest_query = select(func.max(MJCardPrice.updated_at))
-            latest_update = session.exec(latest_query).first()
-
-            # Price distribution
-            price_ranges = {
-                "under_1": 0,
-                "1_to_5": 0,
-                "5_to_20": 0,
-                "20_to_100": 0,
-                "over_100": 0,
-            }
-
-            # Count cards in each price range (tcgplayer retail normal)
-            range_query = select(MJCardPrice.price).where(
+            # Single query: count, latest update, and price distribution buckets
+            tcg_filter = (
                 (MJCardPrice.provider == "tcgplayer")
                 & (MJCardPrice.listing_type == "retail")
                 & (MJCardPrice.finish == "normal")
                 & (MJCardPrice.price.is_not(None))
             )
-            prices = session.exec(range_query).all()
-
-            for price in prices:
-                if price < 1:
-                    price_ranges["under_1"] += 1
-                elif price < 5:
-                    price_ranges["1_to_5"] += 1
-                elif price < 20:
-                    price_ranges["5_to_20"] += 1
-                elif price < 100:
-                    price_ranges["20_to_100"] += 1
-                else:
-                    price_ranges["over_100"] += 1
+            stats = session.exec(
+                select(
+                    func.count(func.distinct(MJCardPrice.card_uuid)),
+                    func.max(MJCardPrice.updated_at),
+                    func.sum(case((MJCardPrice.price < 1, 1), else_=0)),
+                    func.sum(case(((MJCardPrice.price >= 1) & (MJCardPrice.price < 5), 1), else_=0)),
+                    func.sum(case(((MJCardPrice.price >= 5) & (MJCardPrice.price < 20), 1), else_=0)),
+                    func.sum(case(((MJCardPrice.price >= 20) & (MJCardPrice.price < 100), 1), else_=0)),
+                    func.sum(case((MJCardPrice.price >= 100, 1), else_=0)),
+                ).where(tcg_filter)
+            ).one()
 
             return {
-                "total_cards_with_prices": cards_with_prices,
-                "last_updated": latest_update.isoformat() if latest_update else None,
-                "price_distribution": price_ranges,
+                "total_cards_with_prices": stats[0] or 0,
+                "last_updated": stats[1].isoformat() if stats[1] else None,
+                "price_distribution": {
+                    "under_1": stats[2] or 0,
+                    "1_to_5": stats[3] or 0,
+                    "5_to_20": stats[4] or 0,
+                    "20_to_100": stats[5] or 0,
+                    "over_100": stats[6] or 0,
+                },
             }
 
 

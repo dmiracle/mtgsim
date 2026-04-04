@@ -141,12 +141,18 @@ def parse_mtga_deck(text: str) -> list[ParsedCard]:
 
 
 def _load_card_name_index(session) -> dict[str, str]:
-    """Load a name->uuid index for all cards. One entry per unique name."""
-    rows = session.exec(select(MJCard.name, MJCard.uuid)).all()
+    """Load a name->uuid index for all cards. One entry per unique name.
+
+    Indexes both the Oracle name and printed_name so imports using either
+    version (e.g. Marvel IP name or real card name) resolve correctly.
+    """
+    rows = session.exec(select(MJCard.name, MJCard.printed_name, MJCard.uuid)).all()
     index = {}
-    for name, card_uuid in rows:
+    for name, printed_name, card_uuid in rows:
         if name not in index:
             index[name] = card_uuid
+        if printed_name and printed_name not in index:
+            index[printed_name] = card_uuid
     return index
 
 
