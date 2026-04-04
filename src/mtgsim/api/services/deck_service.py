@@ -219,6 +219,33 @@ class DeckService:
         """Delete a user deck."""
         return decks_data.delete_user_deck(deck_id)
 
+    async def get_pinned_decks(self) -> list[DeckSummary]:
+        """Get summaries for all pinned decks in pin order."""
+        summaries = decks_data.get_pinned_summaries()
+        return [
+            DeckSummary(
+                file=d.get("file") or str(d.get("id")),
+                name=d["name"],
+                code=d.get("code", ""),
+                deck_type=d.get("deck_type"),
+                card_count=d.get("card_count", 0),
+                colors=d.get("colors", []),
+                price=d.get("price"),
+                release_date=d.get("release_date"),
+                legality=DeckLegality(),
+                source=d.get("source", "precon"),
+            )
+            for d in summaries
+        ]
+
+    async def pin_deck(self, deck_file: str) -> bool:
+        """Pin a deck. Returns True if newly pinned."""
+        return decks_data.pin_deck(deck_file)
+
+    async def unpin_deck(self, deck_file: str) -> bool:
+        """Unpin a deck. Returns True if was pinned."""
+        return decks_data.unpin_deck(deck_file)
+
 
 # Singleton instance
 deck_service = DeckService()

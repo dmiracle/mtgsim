@@ -9,6 +9,7 @@ from mtgdb.models import (
     MJCardTag,
     MJDeck,
     MJDeckCard,
+    PinnedDeck,
     UserCard,
     UserDeck,
     UserDeckCard,
@@ -1005,6 +1006,91 @@ class DecksData:
             query = select(MJDeck.type).distinct().where(MJDeck.type.is_not(None)).order_by(MJDeck.type)
             results = session.exec(query).all()
             return [t for t in results if t]
+
+    # ── Pinned decks ──────────────────────────────────────────────────
+
+    def get_pinned_files(self) -> list[str]:
+        """Return all pinned deck file identifiers ordered by pin time."""
+        with get_session() as session:
+            query = select(PinnedDeck.deck_file).order_by(PinnedDeck.pinned_at.asc())
+            return list(session.exec(query).all())
+
+    def is_pinned(self, deck_file: str) -> bool:
+        with get_session() as session:
+            row = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            return row is not None
+
+    def pin_deck(self, deck_file: str) -> bool:
+        """Pin a deck. Returns True if newly pinned, False if already pinned."""
+        with get_session() as session:
+            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            if existing:
+                return False
+            session.add(PinnedDeck(deck_file=deck_file))
+            session.commit()
+            return True
+
+    def unpin_deck(self, deck_file: str) -> bool:
+        """Unpin a deck. Returns True if unpinned, False if wasn't pinned."""
+        with get_session() as session:
+            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            if not existing:
+                return False
+            session.delete(existing)
+            session.commit()
+            return True
+
+    def get_pinned_summaries(self) -> list[dict]:
+        """Return full deck summaries for all pinned decks, in pin order."""
+        pinned_files = self.get_pinned_files()
+        if not pinned_files:
+            return []
+
+        summaries = []
+        with get_session() as session:
+            for deck_file in pinned_files:
+                summary = self._get_pinned_deck_summary(session, deck_file)
+                if summary:
+                    summaries.append(summary)
+        return summaries
+
+    def _get_pinned_deck_summary(self, session, deck_file: str) -> dict | None:
+        """Get a single deck summary by file identifier (precon or user)."""
+        # Try user deck (numeric id)
+        try:
+            deck_id = int(deck_file)
+            user_deck = session.exec(select(UserDeck).where(UserDeck.id == deck_id)).first()
+            if user_deck:
+                card_count_row = session.exec(
+                    select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
+                ).first()
+                return {
+                    "file": str(user_deck.id),
+                    "name": user_deck.name,
+                    "code": "",
+                    "card_count": card_count_row or 0,
+                    "colors": [],
+                    "price": None,
+                    "release_date": None,
+                    "source": user_deck.source,
+                }
+        except ValueError:
+            pass
+
+        # Try precon deck
+        file_name = deck_file
+        if file_name.endswith(".json"):
+            file_name = file_name[:-5]
+
+        deck = session.exec(select(MJDeck).where(MJDeck.file_name == file_name)).first()
+        if not deck:
+            return None
+
+        deck_colors = self._get_batch_deck_colors(session, [deck.uuid]).get(deck.uuid, [])
+        deck_price = self._get_batch_deck_prices(session, [deck.uuid]).get(deck.uuid)
+        result = deck_to_api_dict(deck, deck_colors, deck_price)
+        result["source"] = "precon"
+        return result
 
 
 # Singleton instance
