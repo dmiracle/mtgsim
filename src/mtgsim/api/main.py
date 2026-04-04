@@ -7,12 +7,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from mtgsim.api.data import close_databases, init_databases
 from mtgsim.api.models.common import ErrorDetail, ErrorResponse
+from mtgsim.api.profiler import (
+    RequestProfile,
+    get_history,
+    record_profile,
+    start_profiling,
+    stop_profiling,
+)
 from mtgsim.api.routers import (
     boosters_router,
     cards_router,
@@ -25,7 +32,7 @@ from mtgsim.api.routers import (
     seventeenlands_router,
     stats_router,
 )
-from mtgsim.config import get_resources_dir, get_web_dir, get_webapp_dir
+from mtgsim.config import get_resources_dir
 
 # Configure logging based on MTGSIM_DEBUG env var
 DEBUG = os.environ.get("MTGSIM_DEBUG", "0") == "1"
@@ -43,30 +50,53 @@ SLOW_RESPONSE_THRESHOLD = 1.0
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware to log request timing and identify slow responses."""
+    """Middleware to log request timing, identify slow responses, and profile queries."""
 
     async def dispatch(self, request: Request, call_next):
         # Skip logging for static files and health checks
         path = request.url.path
-        if path.startswith(("/web", "/webapp", "/resources")) or path == "/health":
+        if path.startswith("/resources") or path == "/health":
             return await call_next(request)
 
         start_time = time.perf_counter()
         method = request.method
-        query = f"?{request.url.query}" if request.url.query else ""
+        query_string = f"?{request.url.query}" if request.url.query else ""
 
-        logger.debug(f"-> {method} {path}{query}")
+        logger.debug(f"-> {method} {path}{query_string}")
 
+        start_profiling()
         response = await call_next(request)
+        queries = stop_profiling()
 
         duration = time.perf_counter() - start_time
         duration_ms = duration * 1000
+        total_query_ms = sum(q.duration_ms for q in queries)
         status = response.status_code
 
+        # Add profiling headers
+        response.headers["X-Query-Count"] = str(len(queries))
+        response.headers["X-Query-Time-Ms"] = f"{total_query_ms:.1f}"
+        response.headers["X-Response-Time-Ms"] = f"{duration_ms:.1f}"
+
+        # Record profile
+        profile = RequestProfile(
+            method=method,
+            path=path,
+            query_string=query_string,
+            query_count=len(queries),
+            total_query_ms=total_query_ms,
+            request_ms=duration_ms,
+            queries=queries,
+        )
+        record_profile(profile)
+
         if duration >= SLOW_RESPONSE_THRESHOLD:
-            logger.warning(f"SLOW {method} {path}{query} -> {status} ({duration_ms:.0f}ms)")
+            logger.warning(
+                f"SLOW {method} {path}{query_string} -> {status} ({duration_ms:.0f}ms) "
+                f"[{len(queries)} queries, {total_query_ms:.0f}ms db]"
+            )
         else:
-            logger.info(f"{method} {path}{query} -> {status} ({duration_ms:.0f}ms)")
+            logger.info(f"{method} {path}{query_string} -> {status} ({duration_ms:.0f}ms)")
 
         return response
 
@@ -79,12 +109,16 @@ async def lifespan(app: FastAPI):
 
     t0 = _time.perf_counter()
     logger.info("Starting MTG API server..." + (" [DEBUG MODE]" if DEBUG else ""))
-    logger.debug(f"Web dir: {get_web_dir()}")
     logger.debug(f"Resources dir: {get_resources_dir()}")
-    logger.debug(f"Webapp dir: {get_webapp_dir()}")
     t1 = _time.perf_counter()
     init_databases()
     logger.info(f"Database initialized ({(_time.perf_counter() - t1) * 1000:.0f}ms)")
+
+    from mtgdb.session import get_engine
+
+    from mtgsim.api.profiler import attach_profiler
+
+    attach_profiler(get_engine())
     logger.info(f"Server ready ({(_time.perf_counter() - t0) * 1000:.0f}ms startup)")
 
     yield
@@ -125,6 +159,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Query-Count", "X-Query-Time-Ms", "X-Response-Time-Ms"],
 )
 
 # Request logging middleware
@@ -189,10 +224,10 @@ app.include_router(interactions_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    """Redirect root to the webapp."""
+    """Redirect root to the API docs."""
     from fastapi.responses import RedirectResponse
 
-    return RedirectResponse(url="/app")
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/api")
@@ -220,25 +255,44 @@ async def health():
     return {"status": "healthy"}
 
 
-# Mount static files for the webapp
-web_dir = get_web_dir()
-resources_dir = get_resources_dir()
-webapp_dir = get_webapp_dir()
+@app.get("/api/debug/queries")
+async def debug_queries(
+    min_queries: int = 0,
+    min_db_ms: float = 0,
+    path: str = "",
+    limit: int = 50,
+):
+    """Return recent query profiles for debugging slow endpoints."""
+    profiles = get_history(
+        min_queries=min_queries,
+        min_db_ms=min_db_ms,
+        path_contains=path,
+        limit=limit,
+    )
+    return [
+        {
+            "method": p.method,
+            "path": p.path,
+            "query_string": p.query_string,
+            "query_count": p.query_count,
+            "total_query_ms": round(p.total_query_ms, 1),
+            "request_ms": round(p.request_ms, 1),
+            "timestamp": p.timestamp,
+            "queries": [
+                {
+                    "sql": q.sql[:500],
+                    "params": q.params_repr,
+                    "duration_ms": round(q.duration_ms, 2),
+                }
+                for q in p.queries
+            ],
+        }
+        for p in profiles
+    ]
 
-if web_dir.exists():
-    app.mount("/web", StaticFiles(directory=str(web_dir)), name="web")
+
+# Mount static files for resources
+resources_dir = get_resources_dir()
 
 if resources_dir.exists():
     app.mount("/resources", StaticFiles(directory=str(resources_dir)), name="resources")
-
-if webapp_dir.exists():
-    app.mount("/webapp", StaticFiles(directory=str(webapp_dir)), name="webapp")
-
-
-@app.get("/app")
-async def serve_webapp():
-    """Serve the main webapp."""
-    index_path = web_dir / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"error": "Webapp not found"}

@@ -4,11 +4,11 @@
 class TestRootEndpoint:
     """Tests for GET / endpoint."""
 
-    def test_root_redirects_to_app(self, client):
-        """Root endpoint redirects to /app."""
+    def test_root_redirects_to_docs(self, client):
+        """Root endpoint redirects to /docs."""
         response = client.get("/", follow_redirects=False)
         assert response.status_code == 307
-        assert response.headers["location"] == "/app"
+        assert response.headers["location"] == "/docs"
 
 
 class TestApiRootEndpoint:

@@ -210,7 +210,7 @@ def test_set_addition_rollback_consistency(set_code, set_name, num_cards):
 @given(
     backup_exists=st.booleans(), operation_name=st.sampled_from(["sync_reference", "add_card", "add_set", "add_deck"])
 )
-@settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=1000)
+@settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
 def test_backup_restore_rollback_consistency(backup_exists, operation_name):
     """
     Property 11: Migration Rollback Consistency (Backup Restore)

@@ -5,12 +5,17 @@ from fastapi.testclient import TestClient
 
 from mtgsim.api.data import close_databases, init_databases
 from mtgsim.api.main import app
+from mtgsim.api.profiler import attach_profiler
 
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_databases():
     """Initialize databases for all tests."""
     init_databases()
+
+    from mtgdb.session import get_engine
+
+    attach_profiler(get_engine())
     yield
     close_databases()
 
