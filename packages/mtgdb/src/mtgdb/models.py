@@ -538,6 +538,16 @@ class User17LEvent(SQLModel, table=True):
     synced_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PinnedDeck(SQLModel, table=True):
+    """A pinned deck reference. Stores the deck file identifier and pin order."""
+
+    __tablename__ = "pinned_deck"
+
+    id: int | None = Field(default=None, primary_key=True)
+    deck_file: str = Field(unique=True, index=True)
+    pinned_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserCardInteraction(SQLModel, table=True):
     """Interaction between two cards (combo, synergy, counter, etc.)."""
 

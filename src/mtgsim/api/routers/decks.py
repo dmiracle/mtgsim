@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from mtgsim.api.models.deck import DeckDetail, DeckListResponse
+from mtgsim.api.models.deck import DeckDetail, DeckListResponse, DeckSummary
 from mtgsim.api.services.deck_service import deck_service
 
 logger = logging.getLogger("mtgsim.api.routers.decks")
@@ -67,6 +67,28 @@ async def list_decks(
         page=page,
         limit=limit,
     )
+
+
+@router.get("/pinned", response_model=list[DeckSummary])
+async def list_pinned_decks() -> list[DeckSummary]:
+    """Get all pinned decks with full summaries, in pin order."""
+    return await deck_service.get_pinned_decks()
+
+
+@router.post("/pinned/{file}")
+async def pin_deck(file: str) -> dict:
+    """Pin a deck by file identifier."""
+    newly_pinned = await deck_service.pin_deck(file)
+    return {"status": "pinned", "created": newly_pinned}
+
+
+@router.delete("/pinned/{file:path}")
+async def unpin_deck(file: str) -> dict:
+    """Unpin a deck by file identifier."""
+    was_pinned = await deck_service.unpin_deck(file)
+    if not was_pinned:
+        raise HTTPException(status_code=404, detail=f"Deck not pinned: {file}")
+    return {"status": "unpinned"}
 
 
 @router.get("/{file}", response_model=DeckDetail)
