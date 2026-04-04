@@ -1,0 +1,1 @@
+export { CaptureFab } from "./CaptureFab";
