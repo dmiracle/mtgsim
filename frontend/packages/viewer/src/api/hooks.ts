@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, buildParams } from "./client";
 import type {
   HomeStats,
+  DeckSummary,
   DeckListResponse,
   DeckDetail,
   UserDeckResponse,
@@ -76,6 +77,48 @@ export function useImportDeck() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decks"] });
+    },
+  });
+}
+
+// --- Pinned Decks ---
+
+export function usePinnedDecksQuery() {
+  return useQuery({
+    queryKey: ["decks", "pinned"],
+    queryFn: () => apiFetch<DeckSummary[]>("/decks/pinned"),
+  });
+}
+
+export function usePinDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: string) =>
+      apiFetch(`/decks/pinned/${file}`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decks", "pinned"] });
+    },
+  });
+}
+
+export function useUnpinDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: string) =>
+      apiFetch(`/decks/pinned/${file}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decks", "pinned"] });
+    },
+  });
+}
+
+export function useDeleteDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (deckId: number) =>
+      apiFetch(`/decks/${deckId}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["decks"] });
     },
