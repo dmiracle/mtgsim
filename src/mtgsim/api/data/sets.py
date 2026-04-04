@@ -264,7 +264,7 @@ class SetsData:
                     (MJCard.name == min_num_subq.c.cname) & (cast(MJCard.number, Integer) == min_num_subq.c.min_num),
                 )
 
-            # Common card filters
+            # Common card filters (session enables FTS for text param)
             query = apply_card_filters(
                 query,
                 rarity=rarity,
@@ -274,6 +274,7 @@ class SetsData:
                 tags=tags,
                 owns=owns,
                 wants=wants,
+                session=session,
             )
 
             # Count total before pagination

@@ -1,6 +1,11 @@
 """Shared utilities for data access layer."""
 
 import json
+import logging
+
+from sqlalchemy import text
+
+logger = logging.getLogger("mtgsim.api.data.helpers")
 
 
 def build_image_url(scryfall_id: str | None) -> str | None:
@@ -22,6 +27,59 @@ def parse_json_column(value: str | list | None, default=None) -> list:
         return default if default is not None else []
 
 
+def _escape_fts_query(q: str) -> str:
+    """Escape an FTS5 query term so special characters are treated as literals.
+
+    Wraps each whitespace-separated token in double quotes unless the user
+    already provided a quoted phrase.  This prevents FTS5 syntax errors from
+    characters like parentheses, colons, hyphens, etc.
+    """
+    q = q.strip()
+    if not q:
+        return q
+    # If the whole query is already a quoted phrase, pass it through
+    if q.startswith('"') and q.endswith('"'):
+        return q
+    # Quote each token individually to escape special chars
+    tokens = q.split()
+    return " ".join(f'"{t}"' for t in tokens)
+
+
+def fts_search_uuids(session, column: str, query: str) -> list[str]:
+    """Search the FTS5 index and return matching card UUIDs.
+
+    Args:
+        session: SQLAlchemy session (used to get the connection)
+        column: FTS column to search ('name', 'printed_name', 'oracle_text', 'type_line')
+        query: search text (will be escaped for FTS5 safety)
+
+    Returns:
+        List of matching card UUIDs.
+    """
+    escaped = _escape_fts_query(query)
+    if not escaped:
+        return []
+    fts_query = f"{column} : {escaped}"
+    result = session.exec(
+        text("SELECT uuid FROM mj_card_fts WHERE mj_card_fts MATCH :q"),
+        params={"q": fts_query},
+    )
+    return [row[0] for row in result]
+
+
+def fts_name_search_uuids(session, query: str) -> list[str]:
+    """Search FTS5 for card names (both name and printed_name columns)."""
+    escaped = _escape_fts_query(query)
+    if not escaped:
+        return []
+    fts_query = f"{{name printed_name}} : {escaped}"
+    result = session.exec(
+        text("SELECT uuid FROM mj_card_fts WHERE mj_card_fts MATCH :q"),
+        params={"q": fts_query},
+    )
+    return [row[0] for row in result]
+
+
 def apply_card_filters(
     query,
     rarity: str | None = None,
@@ -33,6 +91,7 @@ def apply_card_filters(
     tags: list[str] | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
+    session=None,
 ):
     """Apply common card filters to a query that joins MJCard and optionally UserCard."""
     from mtgdb.models import MJCard, MJCardTag, UserCard
@@ -45,7 +104,11 @@ def apply_card_filters(
     if card_type:
         query = query.where(MJCard.type_line.contains(card_type))
     if text:
-        query = query.where(MJCard.oracle_text.contains(text))
+        if session:
+            uuids = fts_search_uuids(session, "oracle_text", text)
+            query = query.where(MJCard.uuid.in_(uuids))
+        else:
+            query = query.where(MJCard.oracle_text.contains(text))
     if colors:
         from sqlalchemy import or_
 

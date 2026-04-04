@@ -155,6 +155,11 @@ def sync_cards(source_db: Path) -> SyncResult:
     _sync_identifiers(conn, engine)
     _sync_legalities(conn, engine)
 
+    from mtgdb.session import rebuild_fts
+
+    fts_count = rebuild_fts(engine)
+    logger.info(f"Rebuilt FTS index ({fts_count} cards)")
+
     conn.close()
     return SyncResult("Cards", before, result_cards)
 
