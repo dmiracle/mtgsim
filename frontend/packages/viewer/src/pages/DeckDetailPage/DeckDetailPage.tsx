@@ -10,6 +10,7 @@ type DeckDetailPageProps = {
   availableTags?: TagCount[];
   pinned?: boolean;
   onTogglePin?: () => void;
+  onDuplicate?: () => void;
   onDelete?: () => void;
   onBack: () => void;
   onCardClick?: (uuid: string) => void;
@@ -21,7 +22,7 @@ const emptyFilters: CardFilters = {
   ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
-export function DeckDetailPage({ deck, availableTags = [], pinned, onTogglePin, onDelete, onBack, onCardClick, onSetClick }: DeckDetailPageProps) {
+export function DeckDetailPage({ deck, availableTags = [], pinned, onTogglePin, onDuplicate, onDelete, onBack, onCardClick, onSetClick }: DeckDetailPageProps) {
   const [tab, setTab] = useState<"stats" | "cards">("stats");
   const [filters, setFilters] = useState(emptyFilters);
 
@@ -43,6 +44,18 @@ export function DeckDetailPage({ deck, availableTags = [], pinned, onTogglePin, 
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
               <path d="M10.97 2.22a.75.75 0 0 1 1.06 0l1.75 1.75a.75.75 0 0 1-.177 1.2l-2.28 1.14-.876 1.753a.75.75 0 0 1-.156.222L8.854 9.69l2.478 2.478a.75.75 0 1 1-1.06 1.06L7.793 10.75l-1.384 1.384a.75.75 0 0 1-.222.156l-1.753.876-1.14 2.28a.75.75 0 0 1-1.2.177L.22 13.75a.75.75 0 0 1 .177-1.2l2.28-1.14.876-1.753a.75.75 0 0 1 .156-.222L5.31 7.854 2.832 5.375a.75.75 0 1 1 1.061-1.06L6.37 6.793l1.584-1.584a.75.75 0 0 1 .222-.156l1.753-.876 1.14-2.28a.75.75 0 0 1 .1-.136Z" />
+            </svg>
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            onClick={onDuplicate}
+            className="text-text-muted/40 hover:text-accent transition-colors"
+            title="Duplicate deck"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+              <path d="M5.5 3.5A1.5 1.5 0 0 1 7 2h5.5A1.5 1.5 0 0 1 14 3.5V9a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 9V3.5Z" />
+              <path d="M3 5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 3 14h6a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 9.5V5H3Z" />
             </svg>
           </button>
         )}

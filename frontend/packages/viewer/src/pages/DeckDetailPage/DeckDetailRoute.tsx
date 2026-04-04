@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDeck, useDeleteDeck } from "@/api/hooks";
+import { useDeck, useDeleteDeck, useDuplicateDeck } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import type { TagCount } from "@/types/api";
 import { DeckDetailPage } from "./DeckDetailPage";
@@ -11,6 +11,7 @@ export function DeckDetailRoute() {
   const { data: deck } = useDeck(file ?? "");
   const { pinnedIds, togglePin } = usePinnedDecks();
   const deleteDeck = useDeleteDeck();
+  const duplicateDeck = useDuplicateDeck();
 
   const availableTags: TagCount[] = useMemo(() => {
     if (!deck) return [];
@@ -33,6 +34,11 @@ export function DeckDetailRoute() {
       availableTags={availableTags}
       pinned={pinnedIds.has(file ?? "")}
       onTogglePin={() => togglePin(file ?? "")}
+      onDuplicate={() => {
+        duplicateDeck.mutate(Number(file), {
+          onSuccess: (res) => navigate(`/decks/${res.id}`),
+        });
+      }}
       onDelete={() => {
         if (!confirm("Delete this deck?")) return;
         deleteDeck.mutate(Number(file), { onSuccess: () => navigate("/decks") });

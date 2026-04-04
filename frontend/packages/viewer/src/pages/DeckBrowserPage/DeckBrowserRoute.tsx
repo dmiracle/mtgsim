@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useDecks, useDeleteDeck, useCreateDeck, useImportDeck } from "@/api/hooks";
+import { useDecks, useDeleteDeck, useDuplicateDeck, useCreateDeck, useImportDeck } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import { DeckCreateModal } from "@/components/DeckCreateModal/DeckCreateModal";
 import { DeckImportModal } from "@/components/DeckImportModal/DeckImportModal";
@@ -16,6 +16,7 @@ export function DeckBrowserRoute() {
   const [importOpen, setImportOpen] = useState(false);
   const { pinnedIds, pinnedDecks, togglePin } = usePinnedDecks();
   const deleteDeck = useDeleteDeck();
+  const duplicateDeck = useDuplicateDeck();
   const createDeck = useCreateDeck();
   const importDeck = useImportDeck();
 
@@ -50,6 +51,11 @@ export function DeckBrowserRoute() {
         availableSources={["user", "import", "precon"]}
         pinnedIds={pinnedIds}
         onTogglePin={togglePin}
+        onDuplicateDeck={(file) => {
+          duplicateDeck.mutate(Number(file), {
+            onSuccess: (res) => navigate(`/decks/${res.id}`),
+          });
+        }}
         onDeleteDeck={handleDelete}
         onDeckClick={(file) => navigate(`/decks/${file}`)}
         onPageChange={setPage}

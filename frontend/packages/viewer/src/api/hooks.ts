@@ -125,6 +125,17 @@ export function useDeleteDeck() {
   });
 }
 
+export function useDuplicateDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (deckId: number) =>
+      apiFetch<UserDeckResponse>(`/decks/${deckId}/duplicate`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decks"] });
+    },
+  });
+}
+
 export function useAddCardToDeck() {
   const qc = useQueryClient();
   return useMutation({

@@ -24,6 +24,7 @@ type DeckBrowserPageProps = {
   availableSources: string[];
   pinnedIds: Set<string>;
   onTogglePin: (file: string) => void;
+  onDuplicateDeck: (file: string) => void;
   onDeleteDeck: (file: string) => void;
   onDeckClick: (file: string) => void;
   onPageChange: (page: number) => void;
@@ -46,6 +47,7 @@ export function DeckBrowserPage({
   availableSources,
   pinnedIds,
   onTogglePin,
+  onDuplicateDeck,
   onDeleteDeck,
   onDeckClick,
   onPageChange,
@@ -149,6 +151,7 @@ export function DeckBrowserPage({
               deck={d}
               pinned
               onTogglePin={onTogglePin}
+              onDuplicate={onDuplicateDeck}
               onDelete={onDeleteDeck}
               onClick={onDeckClick}
             />
@@ -166,6 +169,7 @@ export function DeckBrowserPage({
               key={d.file}
               deck={d}
               onTogglePin={onTogglePin}
+              onDuplicate={onDuplicateDeck}
               onDelete={onDeleteDeck}
               onClick={onDeckClick}
             />
