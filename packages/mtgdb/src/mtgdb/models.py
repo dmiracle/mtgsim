@@ -11,7 +11,7 @@ Naming conventions:
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Index
 from sqlmodel import Field, SQLModel
 
 # =============================================================================
@@ -103,6 +103,7 @@ class MJCardPrice(SQLModel, table=True):
     """Price data from multiple providers."""
 
     __tablename__ = "mj_card_price"
+    __table_args__ = (Index("ix_mj_card_price_lookup", "card_uuid", "provider", "finish", "listing_type"),)
 
     id: int | None = Field(default=None, primary_key=True)
     card_uuid: str = Field(foreign_key="mj_card.uuid", index=True)

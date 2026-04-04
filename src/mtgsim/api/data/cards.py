@@ -325,113 +325,105 @@ class CardsData:
                     subq = subq.where(MJCard.set_code.in_(set_codes))
                 query = query.where(MJCard.uuid.in_(subq))
 
-            # Build subquery of matching UUIDs
-            filtered_uuids = query.subquery()
+            # Collect matching UUIDs once, then aggregate in Python + 1 price query
+            uuid_rows = session.exec(query).all()
+            matching_uuids = [row if isinstance(row, str) else row[0] for row in uuid_rows]
+            total = len(matching_uuids)
 
-            # Total count
-            total = session.exec(select(func.count()).select_from(filtered_uuids)).one()
+            if not matching_uuids:
+                return {
+                    "total": 0,
+                    "mana_curve": {},
+                    "type_distribution": {},
+                    "rarity_distribution": {},
+                    "color_distribution": {},
+                    "price_stats": {"total": 0, "average": 0, "median": 0, "count_with_price": 0},
+                }
 
-            # Mana curve: count by mana_value
-            mv_rows = session.exec(
-                select(MJCard.mana_value, func.count())
-                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
-                .where(MJCard.mana_value.is_not(None))
-                .group_by(MJCard.mana_value)
-                .order_by(MJCard.mana_value)
+            # Single query: fetch mana_value, type_line, rarity, colors for all matches
+            card_rows = session.exec(
+                select(MJCard.mana_value, MJCard.type_line, MJCard.rarity, MJCard.colors).where(
+                    MJCard.uuid.in_(matching_uuids)
+                )
             ).all()
-            mana_curve = {str(int(mv)): cnt for mv, cnt in mv_rows if mv is not None}
 
-            # Type distribution
-            type_rows = session.exec(
-                select(MJCard.type_line, func.count())
-                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
-                .group_by(MJCard.type_line)
-            ).all()
-            # Simplify type_line to primary type
+            # Aggregate in Python (single pass)
+            mana_curve: dict[str, int] = {}
             type_dist: dict[str, int] = {}
-            for type_line, cnt in type_rows:
-                if not type_line:
-                    continue
-                primary = type_line.split("—")[0].split("//")[0].strip()
-                for t in [
-                    "Creature",
-                    "Instant",
-                    "Sorcery",
-                    "Enchantment",
-                    "Artifact",
-                    "Planeswalker",
-                    "Land",
-                    "Battle",
-                ]:
-                    if t in primary:
-                        type_dist[t] = type_dist.get(t, 0) + cnt
-                        break
-                else:
-                    type_dist["Other"] = type_dist.get("Other", 0) + cnt
-
-            # Rarity distribution
-            rarity_rows = session.exec(
-                select(MJCard.rarity, func.count())
-                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
-                .group_by(MJCard.rarity)
-            ).all()
-            rarity_dist = {r: cnt for r, cnt in rarity_rows if r}
-
-            # Color distribution
-            color_rows = session.exec(
-                select(MJCard.colors)
-                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
-                .where(MJCard.colors.is_not(None))
-            ).all()
+            rarity_dist: dict[str, int] = {}
             color_dist: dict[str, int] = {}
-            for colors_json in color_rows:
+
+            for mv, type_line, rarity, colors_json in card_rows:
+                # Mana curve
+                if mv is not None:
+                    key = str(int(mv))
+                    mana_curve[key] = mana_curve.get(key, 0) + 1
+
+                # Type distribution
+                if type_line:
+                    primary = type_line.split("—")[0].split("//")[0].strip()
+                    matched = False
+                    for t in [
+                        "Creature",
+                        "Instant",
+                        "Sorcery",
+                        "Enchantment",
+                        "Artifact",
+                        "Planeswalker",
+                        "Land",
+                        "Battle",
+                    ]:
+                        if t in primary:
+                            type_dist[t] = type_dist.get(t, 0) + 1
+                            matched = True
+                            break
+                    if not matched:
+                        type_dist["Other"] = type_dist.get("Other", 0) + 1
+
+                # Rarity
+                if rarity:
+                    rarity_dist[rarity] = rarity_dist.get(rarity, 0) + 1
+
+                # Colors
                 if isinstance(colors_json, list):
                     for c in colors_json:
                         color_dist[c] = color_dist.get(c, 0) + 1
                     if not colors_json:
                         color_dist["C"] = color_dist.get("C", 0) + 1
 
-            # Price stats
+            # Price stats: single query with count/sum/avg + median via percentile
             price_query = (
                 select(
-                    func.count(price_col),
-                    func.sum(price_col),
-                    func.avg(price_col),
+                    func.count(MJCardPrice.price),
+                    func.sum(MJCardPrice.price),
+                    func.avg(MJCardPrice.price),
                 )
-                .select_from(MJCard)
-                .outerjoin(
-                    MJCardPrice,
-                    (MJCardPrice.card_uuid == MJCard.uuid)
-                    & (MJCardPrice.provider == "tcgplayer")
-                    & (MJCardPrice.finish == "normal")
-                    & (MJCardPrice.listing_type == "retail"),
-                )
-                .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
-                .where(price_col.is_not(None))
+                .where(MJCardPrice.card_uuid.in_(matching_uuids))
+                .where(MJCardPrice.provider == "tcgplayer")
+                .where(MJCardPrice.finish == "normal")
+                .where(MJCardPrice.listing_type == "retail")
+                .where(MJCardPrice.price.is_not(None))
             )
             price_row = session.exec(price_query).one()
             price_count = price_row[0] or 0
             price_total = round(price_row[1] or 0, 2)
             price_avg = round(price_row[2] or 0, 2)
 
-            # Median price via sorted list
+            # Median via offset/limit (avoids loading all prices)
             if price_count > 0:
-                all_prices = session.exec(
-                    select(price_col)
-                    .select_from(MJCard)
-                    .outerjoin(
-                        MJCardPrice,
-                        (MJCardPrice.card_uuid == MJCard.uuid)
-                        & (MJCardPrice.provider == "tcgplayer")
-                        & (MJCardPrice.finish == "normal")
-                        & (MJCardPrice.listing_type == "retail"),
-                    )
-                    .where(MJCard.uuid.in_(select(filtered_uuids.c.uuid)))
-                    .where(price_col.is_not(None))
-                    .order_by(price_col)
-                ).all()
-                mid = len(all_prices) // 2
-                price_median = round(all_prices[mid], 2) if all_prices else 0
+                mid = price_count // 2
+                median_row = session.exec(
+                    select(MJCardPrice.price)
+                    .where(MJCardPrice.card_uuid.in_(matching_uuids))
+                    .where(MJCardPrice.provider == "tcgplayer")
+                    .where(MJCardPrice.finish == "normal")
+                    .where(MJCardPrice.listing_type == "retail")
+                    .where(MJCardPrice.price.is_not(None))
+                    .order_by(MJCardPrice.price)
+                    .offset(mid)
+                    .limit(1)
+                ).first()
+                price_median = round(median_row, 2) if median_row else 0
             else:
                 price_median = 0
 
