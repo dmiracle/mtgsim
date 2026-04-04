@@ -92,6 +92,54 @@ BASIC_LAND_NAMES = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"}
 FUZZY_THRESHOLD = 92
 
 
+class MatchResult(BaseModel):
+    """Result of matching a card name against the database."""
+
+    uuid: str | None = None
+    match_type: str = "none"  # "exact", "fuzzy", "none"
+    matched_name: str | None = None
+    score: float | None = None
+
+
+def match_card_by_name(
+    name: str,
+    name_index: dict[str, str],
+    name_list: list[str] | None = None,
+    threshold: int = FUZZY_THRESHOLD,
+) -> MatchResult:
+    """Match a card name against a name index with exact then fuzzy matching.
+
+    Args:
+        name: The card name to look up.
+        name_index: Mapping of card name -> uuid.
+        name_list: Pre-computed list of name_index keys (for fuzzy search performance).
+            Built from name_index.keys() if not provided.
+        threshold: Minimum fuzzy match score (0-100). Default 92.
+
+    Returns:
+        MatchResult with uuid, match_type, matched_name, and score.
+    """
+    # Exact match
+    if name in name_index:
+        return MatchResult(uuid=name_index[name], match_type="exact", matched_name=name, score=100.0)
+
+    # Fuzzy match
+    if name_list is None:
+        name_list = list(name_index.keys())
+
+    result = process.extractOne(
+        name,
+        name_list,
+        scorer=fuzz.WRatio,
+        score_cutoff=threshold,
+    )
+    if result:
+        best_name, score, _ = result
+        return MatchResult(uuid=name_index[best_name], match_type="fuzzy", matched_name=best_name, score=score)
+
+    return MatchResult()
+
+
 def parse_mtga_deck(text: str) -> list[ParsedCard]:
     """Parse MTGA deck text into a list of ParsedCard entries."""
     cards = []
@@ -203,24 +251,14 @@ def resolve_cards(parsed: list[ParsedCard]) -> list[ResolvedCard]:
                 )
                 uuid = session.exec(query).first()
 
-            # 3. Exact match by name only
-            if not uuid and card.name in name_index:
-                uuid = name_index[card.name]
-
-            # 4. Fuzzy match by name
+            # 3 & 4. Exact or fuzzy match by name
             if not uuid:
-                result = process.extractOne(
-                    card.name,
-                    name_list,
-                    scorer=fuzz.WRatio,
-                    score_cutoff=FUZZY_THRESHOLD,
-                )
-                if result:
-                    best_name, score, _ = result
-                    uuid = name_index[best_name]
-                    match_type = "fuzzy"
-                    matched_name = best_name
-                    match_score = score
+                mr = match_card_by_name(card.name, name_index, name_list)
+                if mr.uuid:
+                    uuid = mr.uuid
+                    match_type = mr.match_type
+                    matched_name = mr.matched_name
+                    match_score = mr.score
 
             # 5. Create placeholder card
             if not uuid:

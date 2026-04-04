@@ -1,16 +1,30 @@
 """Card API endpoints."""
 
 import logging
+import time
+from collections import defaultdict
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel
 
 from mtgsim.api.models.card import CardDetail, CardListResponse, CardStatsResponse
+from mtgsim.api.models.scan import ScanResponse
 from mtgsim.api.services.card_service import card_service
+from mtgsim.api.services.scan_service import scan_service
+from mtgsim.settings import settings
 
 logger = logging.getLogger("mtgsim.api.routers.cards")
 
 router = APIRouter(prefix="/cards", tags=["cards"])
+
+# Simple in-memory rate limiter for scan endpoint.
+# Configured via SCAN_RATE_LIMIT and SCAN_RATE_WINDOW in .env or environment.
+SCAN_RATE_LIMIT = settings.scan_rate_limit
+SCAN_RATE_WINDOW = settings.scan_rate_window
+_scan_timestamps: dict[str, list[float]] = defaultdict(list)
+
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png"}
+MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 
 class CollectionResponse(BaseModel):
@@ -190,6 +204,56 @@ async def get_keyword_frequencies(
         card_type=type,
     )
     return keywords_data.categorize_keyword_freq(freq)
+
+
+@router.post("/scan", response_model=ScanResponse)
+async def scan_card(
+    request: Request,
+    image: UploadFile,
+    pipeline: str = Query("openai", description="Extraction pipeline: 'openai' or 'mock'"),
+    add_to_collection: bool = Query(False, description="Add matched card to collection"),
+    deck_id: int | None = Query(None, description="Add matched card to this deck"),
+) -> ScanResponse:
+    """Scan a card image and identify it.
+
+    Accepts a JPEG or PNG photo, extracts card data via the chosen pipeline,
+    and fuzzy-matches against the database. Returns extraction details and
+    match info even when no database match is found (matched=false).
+    """
+    # Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    timestamps = _scan_timestamps[client_ip]
+    _scan_timestamps[client_ip] = [t for t in timestamps if now - t < SCAN_RATE_WINDOW]
+    if len(_scan_timestamps[client_ip]) >= SCAN_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {SCAN_RATE_LIMIT} scans per {SCAN_RATE_WINDOW}s.",
+        )
+    _scan_timestamps[client_ip].append(now)
+
+    # Validate file type
+    if image.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported image type: {image.content_type}")
+
+    # Read and validate size
+    data = await image.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty image file")
+    if len(data) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail=f"Image too large. Max {MAX_IMAGE_SIZE // (1024 * 1024)}MB.")
+
+    try:
+        return await scan_service.scan_card(
+            image_data=data,
+            mime_type=image.content_type,
+            pipeline_name=pipeline,
+            add_to_collection=add_to_collection,
+            deck_id=deck_id,
+        )
+    except Exception:
+        logger.exception("Card scan failed")
+        raise HTTPException(status_code=502, detail="Card extraction service unavailable")
 
 
 @router.get("/{uuid}", response_model=CardDetail)
