@@ -5,10 +5,31 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from openai import OpenAI
+from pydantic import BaseModel
 
 from ..domain.card import Card, CardType, ManaCost, Rarity, Supertype
 
 logger = logging.getLogger("mtgsim.extract.pipelines")
+
+
+class LLMUsage(BaseModel):
+    """LLM call metadata returned alongside extraction results."""
+
+    provider: str = ""
+    model: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms: float = 0.0
+    status: str = "success"
+    error_message: str | None = None
+
+
+class ExtractionResult(BaseModel):
+    """Extraction output: the card plus optional LLM usage metadata."""
+
+    card: Card
+    llm_usage: LLMUsage | None = None
+
 
 SYSTEM_PROMPT = """You are an expert Magic: The Gathering card scanner.
 Analyze the provided card image and extract the data strictly adhering to the schema.
@@ -53,6 +74,11 @@ class ExtractionPipeline(ABC):
         """Extract card data from raw image bytes."""
         pass
 
+    def extract_bytes_with_usage(self, data: bytes, mime_type: str) -> ExtractionResult:
+        """Extract card data and return LLM usage if applicable."""
+        card = self.extract_bytes(data, mime_type)
+        return ExtractionResult(card=card)
+
 
 class OpenAIExtractionPipeline(ExtractionPipeline):
     """Extraction pipeline using OpenAI's vision API."""
@@ -81,10 +107,8 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
         }
         return mime_types.get(suffix, "image/jpeg")
 
-    def _call_openai(self, base64_image: str, mime_type: str, scan_id: int | None = None) -> Card:
+    def _call_openai(self, base64_image: str, mime_type: str) -> tuple[Card, LLMUsage]:
         t0 = time.perf_counter()
-        status = "success"
-        error_msg = None
 
         try:
             completion = self.client.beta.chat.completions.parse(
@@ -104,56 +128,43 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
                 response_format=Card,
             )
         except Exception as exc:
-            status = "error"
-            error_msg = str(exc)
             latency_ms = (time.perf_counter() - t0) * 1000
-            self._log_call(0, 0, latency_ms, status, error_msg, scan_id)
-            raise
-
-        latency_ms = (time.perf_counter() - t0) * 1000
-        usage = completion.usage
-        prompt_tokens = usage.prompt_tokens if usage else 0
-        completion_tokens = usage.completion_tokens if usage else 0
-        self._log_call(prompt_tokens, completion_tokens, latency_ms, status, error_msg, scan_id)
-
-        return completion.choices[0].message.parsed
-
-    def _log_call(
-        self,
-        prompt_tokens: int,
-        completion_tokens: int,
-        latency_ms: float,
-        status: str,
-        error_message: str | None,
-        scan_id: int | None,
-    ) -> None:
-        try:
-            from mtgsim.scan_log.db import log_llm_call
-
-            log_llm_call(
+            usage = LLMUsage(
                 provider="openai",
                 model=self.model,
-                purpose="card_extraction",
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
                 latency_ms=round(latency_ms, 2),
-                status=status,
-                scan_id=scan_id,
-                error_message=error_message,
+                status="error",
+                error_message=str(exc),
             )
-        except Exception:
-            logger.exception("Failed to log LLM call")
+            raise type(exc)(str(exc)) from exc  # re-raise, usage lost on error path
+
+        latency_ms = (time.perf_counter() - t0) * 1000
+        raw_usage = completion.usage
+        usage = LLMUsage(
+            provider="openai",
+            model=self.model,
+            prompt_tokens=raw_usage.prompt_tokens if raw_usage else 0,
+            completion_tokens=raw_usage.completion_tokens if raw_usage else 0,
+            latency_ms=round(latency_ms, 2),
+        )
+        return completion.choices[0].message.parsed, usage
 
     def extract(self, image_path: Path) -> Card:
         base64_image = self._encode_image(image_path)
         mime_type = self._get_mime_type(image_path)
-        card = self._call_openai(base64_image, mime_type)
+        card, _usage = self._call_openai(base64_image, mime_type)
         card.image_url = str(image_path)
         return card
 
     def extract_bytes(self, data: bytes, mime_type: str) -> Card:
         base64_image = base64.b64encode(data).decode("utf-8")
-        return self._call_openai(base64_image, mime_type)
+        card, _usage = self._call_openai(base64_image, mime_type)
+        return card
+
+    def extract_bytes_with_usage(self, data: bytes, mime_type: str) -> ExtractionResult:
+        base64_image = base64.b64encode(data).decode("utf-8")
+        card, usage = self._call_openai(base64_image, mime_type)
+        return ExtractionResult(card=card, llm_usage=usage)
 
 
 class MockExtractionPipeline(ExtractionPipeline):

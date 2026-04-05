@@ -11,7 +11,7 @@ from mtgsim.api.models.scan import ExtractionDetail, ScanResponse
 from mtgsim.deck_import import MatchResult, _load_card_name_index, match_card_by_name
 from mtgsim.extract.pipelines import ExtractionPipeline, get_pipeline
 from mtgsim.extract.preprocess import preprocess_card_image
-from mtgsim.scan_log.db import log_scan
+from mtgsim.scan_log.db import log_llm_call, log_scan
 from mtgsim.settings import settings
 
 logger = logging.getLogger("mtgsim.api.services.scan")
@@ -56,7 +56,9 @@ class ScanService:
 
         # Extract card data from image
         t0 = time.perf_counter()
-        extracted = pipeline.extract_bytes(processed_data, processed_mime)
+        result = pipeline.extract_bytes_with_usage(processed_data, processed_mime)
+        extracted = result.card
+        llm_usage = result.llm_usage
         extract_ms = _ms_since(t0)
         logger.info(f"Extracted card: {extracted.name} via {pipeline_name}")
 
@@ -107,7 +109,7 @@ class ScanService:
 
         # Log to scan database (fire-and-forget, don't fail the request)
         try:
-            log_scan(
+            scan_id = log_scan(
                 pipeline=pipeline_name,
                 image_data=image_data,
                 mime_type=mime_type,
@@ -128,6 +130,19 @@ class ScanService:
                 },
                 params={"pipeline": pipeline_name, "fuzzy_threshold": settings.scan_fuzzy_threshold},
             )
+            # Log LLM call linked to this scan
+            if llm_usage:
+                log_llm_call(
+                    provider=llm_usage.provider,
+                    model=llm_usage.model,
+                    purpose="card_extraction",
+                    prompt_tokens=llm_usage.prompt_tokens,
+                    completion_tokens=llm_usage.completion_tokens,
+                    latency_ms=llm_usage.latency_ms,
+                    status=llm_usage.status,
+                    scan_id=scan_id,
+                    error_message=llm_usage.error_message,
+                )
         except Exception:
             logger.exception("Failed to log scan attempt")
 
