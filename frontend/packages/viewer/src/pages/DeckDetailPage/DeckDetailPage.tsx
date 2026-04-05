@@ -67,9 +67,11 @@ export function DeckDetailPage({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="relative flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="absolute -top-2 -left-2 z-10">
+          <PinnedBadge pinned={!!pinned} onToggle={onTogglePin} size="md" />
+        </div>
         <button onClick={onBack} className="text-xs text-text-muted hover:text-accent transition-colors">&larr; Back</button>
-        <PinnedBadge pinned={!!pinned} onToggle={onTogglePin} size="md" />
         <div className="min-w-0">
           <h2 className="text-lg sm:text-xl font-bold text-text-primary truncate">{deck.meta.name}</h2>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-0.5">

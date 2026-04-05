@@ -27,11 +27,11 @@ export function DeckListItem({ deck, pinned, onTogglePin, onDuplicate, onDelete,
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 border border-border bg-bg-secondary rounded-lg hover:bg-bg-hover hover:border-border-hover transition-colors cursor-pointer group"
+      className="relative flex items-center gap-3 px-4 py-3 border border-border bg-bg-secondary rounded-lg hover:bg-bg-hover hover:border-border-hover transition-colors cursor-pointer group"
       onClick={() => onClick(deck.file)}
     >
-      {/* Pinned badge */}
-      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+      {/* Pinned badge — floating top-left */}
+      <div className="absolute -top-2 -left-2 z-10" onClick={(e) => e.stopPropagation()}>
         <PinnedBadge
           pinned={!!pinned}
           onToggle={onTogglePin ? () => onTogglePin(deck.file) : undefined}
