@@ -89,6 +89,8 @@ export function usePinnedDecksQuery() {
   return useQuery({
     queryKey: ["decks", "pinned"],
     queryFn: () => apiFetch<DeckSummary[]>("/decks/pinned"),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 }
 
@@ -97,9 +99,15 @@ export function usePinDeck() {
   return useMutation({
     mutationFn: (file: string) =>
       apiFetch(`/decks/pinned/${file}`, { method: "POST" }),
-    onMutate: async () => {
+    onMutate: async (file) => {
       await qc.cancelQueries({ queryKey: ["decks", "pinned"] });
       const prev = qc.getQueryData<DeckSummary[]>(["decks", "pinned"]);
+      // Optimistically add a placeholder entry so the UI updates immediately
+      qc.setQueryData<DeckSummary[]>(["decks", "pinned"], (old) => {
+        if (!old) return [];
+        if (old.some((d) => d.file === file)) return old;
+        return [...old, { file, name: "", code: "", deck_type: "", card_count: 0, colors: [], price: 0, release_date: "", legality: {}, source: "" }];
+      });
       return { prev };
     },
     onError: (_err, _file, context) => {
