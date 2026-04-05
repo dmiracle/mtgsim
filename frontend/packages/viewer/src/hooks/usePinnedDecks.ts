@@ -6,13 +6,13 @@ export function usePinnedDecks() {
   const pinDeck = usePinDeck();
   const unpinDeck = useUnpinDeck();
 
-  const pinnedIds = useMemo(() => new Set(pinnedDecks.map((d) => d.file)), [pinnedDecks]);
+  const pinnedIds = useMemo(() => new Set(pinnedDecks.map((d) => d.uuid)), [pinnedDecks]);
 
-  function togglePin(file: string) {
-    if (pinnedIds.has(file)) {
-      unpinDeck.mutate(file);
+  function togglePin(uuid: string) {
+    if (pinnedIds.has(uuid)) {
+      unpinDeck.mutate(uuid);
     } else {
-      pinDeck.mutate(file);
+      pinDeck.mutate(uuid);
     }
   }
 

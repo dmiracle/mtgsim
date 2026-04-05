@@ -164,7 +164,7 @@ export function DeckBrowserPage({
         <div className="flex items-center justify-center py-16 text-text-muted">No decks found</div>
       ) : (
         <div className="space-y-2">
-          {decks.filter((d) => !pinnedIds.has(d.file)).map((d) => (
+          {decks.filter((d) => !pinnedIds.has(d.uuid)).map((d) => (
             <DeckListItem
               key={d.file}
               deck={d}

@@ -47,11 +47,11 @@ export function DeckDetailRoute() {
     <DeckDetailPage
       deck={deck}
       availableTags={availableTags}
-      pinned={pinnedIds.has(file ?? "")}
+      pinned={pinnedIds.has(deck.meta.uuid)}
       editable={isEditable}
       searchResults={searchData?.data ?? []}
       searching={searching}
-      onTogglePin={() => togglePin(file ?? "")}
+      onTogglePin={() => togglePin(deck.meta.uuid)}
       onDuplicate={() => {
         duplicateDeck.mutate(deckId, {
           onSuccess: (res) => navigate(`/decks/${res.id}`),
