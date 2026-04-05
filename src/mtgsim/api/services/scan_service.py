@@ -3,7 +3,9 @@
 import logging
 import time
 
+from mtgdb.models import MJCard
 from mtgdb.session import get_session
+from sqlmodel import select
 
 from mtgsim.api.data import cards_data
 from mtgsim.api.models.card import CardSummary
@@ -35,6 +37,30 @@ class ScanService:
             with get_session() as session:
                 self._name_index = _load_card_name_index(session)
                 self._name_list = list(self._name_index.keys())
+
+    def _resolve_printing(self, name: str, set_code: str, collector_number: str) -> str | None:
+        """Try to find the exact printing UUID by set code and/or collector number."""
+        # DB stores set codes in uppercase
+        sc = set_code.upper() if set_code else ""
+
+        with get_session() as session:
+            # Best: set_code + collector_number
+            if sc and collector_number:
+                uuid = session.exec(
+                    select(MJCard.uuid).where(MJCard.set_code == sc, MJCard.number == collector_number)
+                ).first()
+                if uuid:
+                    return uuid
+
+            # Next: name + set_code
+            if sc:
+                uuid = session.exec(
+                    select(MJCard.uuid).where(MJCard.name == name, MJCard.set_code == sc)
+                ).first()
+                if uuid:
+                    return uuid
+
+        return None
 
     async def scan_card(
         self,
@@ -82,12 +108,21 @@ class ScanService:
             is_reprint=extracted.is_reprint,
         )
 
-        # Match against database
+        # Match against database — try specific printing first, fall back to name
         t0 = time.perf_counter()
         self._ensure_name_index()
         match = match_card_by_name(
             extracted.name, self._name_index, self._name_list, threshold=settings.scan_fuzzy_threshold
         )
+
+        # Refine to exact printing if set_code/collector_number available
+        if match.uuid and (extracted.set_code or extracted.collector_number):
+            refined_uuid = self._resolve_printing(
+                match.matched_name or extracted.name, extracted.set_code, extracted.collector_number
+            )
+            if refined_uuid:
+                match.uuid = refined_uuid
+
         match_ms = _ms_since(t0)
 
         card_summary = _build_card_summary(match) if match.uuid else None
