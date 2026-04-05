@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, buildParams } from "./client";
 import type {
   HomeStats,
@@ -384,5 +384,23 @@ export function useDeckVector(file: string) {
     queryKey: ["decks", "features", file],
     queryFn: () => apiFetch<AggregateVectorResponse>(`/decks/${file}/features`),
     enabled: !!file,
+  });
+}
+
+export function useDeckVectors(files: string[]) {
+  return useQueries({
+    queries: files.map((file) => ({
+      queryKey: ["decks", "features", file],
+      queryFn: () => apiFetch<AggregateVectorResponse>(`/decks/${file}/features`),
+      enabled: !!file,
+      staleTime: 60_000,
+    })),
+    combine: (results) => {
+      const map: Record<string, AggregateVectorResponse> = {};
+      for (let i = 0; i < files.length; i++) {
+        if (results[i].data) map[files[i]] = results[i].data!;
+      }
+      return map;
+    },
   });
 }
