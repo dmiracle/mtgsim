@@ -1,9 +1,10 @@
 """Scan log API endpoints and dashboard."""
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
+from mtgsim.scan_log.db import get_image_path
 from mtgsim.scan_log.queries import (
     get_llm_cost_stats,
     get_scan_detail,
@@ -67,6 +68,16 @@ async def label(scan_id: int, req: LabelRequest) -> dict:
     if not ok:
         raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
     return {"success": True, "scan_id": scan_id, "correct": req.correct}
+
+
+@router.get("/images/{image_hash}")
+async def scan_image(image_hash: str) -> FileResponse:
+    """Serve a cached scan image by its SHA256 hash."""
+    path = get_image_path(image_hash)
+    if not path:
+        raise HTTPException(status_code=404, detail="Image not found")
+    media_type = "image/png" if path.suffix == ".png" else "image/jpeg"
+    return FileResponse(path, media_type=media_type)
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -299,6 +310,11 @@ async function loadDetail(id) {
           <div class="detail-kv"><span class="k">Confidence</span><span>${d.match_confidence != null ? d.match_confidence.toFixed(1) : '—'}</span></div>
           <div class="detail-kv"><span class="k">Match Type</span><span>${d.match_type}</span></div>
           <div class="detail-kv"><span class="k">Image</span><span>${d.image_size_bytes} bytes (${d.mime_type})</span></div>
+        </div>
+        <div class="detail-section">
+          <h3>Scanned Image</h3>
+          <img src="${API}/images/${d.image_hash}" alt="Scanned card" style="max-width:250px;border-radius:6px;border:1px solid var(--border);"
+               onerror="this.style.display='none'">
         </div>
         <div class="detail-section"><h3>Timing</h3>${timingHtml}</div>
         <div class="detail-section"><h3>LLM Calls</h3>${llmHtml}</div>

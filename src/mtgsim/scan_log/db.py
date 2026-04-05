@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
@@ -58,13 +59,16 @@ def get_engine():
     if _engine is None:
         db_path = _get_db_path()
         _engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
-        SQLModel.metadata.create_all(_engine, tables=[
-            ScanAttempt.__table__,
-            ScanTiming.__table__,
-            ScanParams.__table__,
-            ScanMatchCandidate.__table__,
-            LLMCall.__table__,
-        ])
+        SQLModel.metadata.create_all(
+            _engine,
+            tables=[
+                ScanAttempt.__table__,
+                ScanTiming.__table__,
+                ScanParams.__table__,
+                ScanMatchCandidate.__table__,
+                LLMCall.__table__,
+            ],
+        )
         logger.info(f"Scan log DB initialized at {db_path}")
     return _engine
 
@@ -80,8 +84,35 @@ def close_db():
         _engine = None
 
 
+def _get_image_dir() -> Path:
+    from mtgdb.config import MTGDB_HOME
+
+    d = MTGDB_HOME / "scan_images"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def image_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def save_image(data: bytes, hash_hex: str, mime_type: str) -> Path:
+    """Save scan image to local cache. Returns the file path."""
+    ext = ".png" if "png" in mime_type else ".jpg"
+    path = _get_image_dir() / f"{hash_hex}{ext}"
+    if not path.exists():
+        path.write_bytes(data)
+    return path
+
+
+def get_image_path(hash_hex: str) -> Path | None:
+    """Look up a cached scan image by hash. Returns path or None."""
+    d = _get_image_dir()
+    for ext in (".jpg", ".png"):
+        p = d / f"{hash_hex}{ext}"
+        if p.exists():
+            return p
+    return None
 
 
 def estimate_cost(provider: str, model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -111,10 +142,13 @@ def log_scan(
     candidates: list[dict] | None = None,
 ) -> int:
     """Log a scan attempt. Returns the scan_attempt.id."""
+    hash_hex = image_hash(image_data)
+    save_image(image_data, hash_hex, mime_type)
+
     with get_session() as session:
         attempt = ScanAttempt(
             pipeline=pipeline,
-            image_hash=image_hash(image_data),
+            image_hash=hash_hex,
             image_size_bytes=len(image_data),
             mime_type=mime_type,
             extracted_name=extracted_name,
@@ -139,14 +173,16 @@ def log_scan(
 
         if candidates:
             for i, cand in enumerate(candidates):
-                session.add(ScanMatchCandidate(
-                    scan_id=scan_id,
-                    rank=i + 1,
-                    card_name=cand.get("card_name", ""),
-                    card_uuid=cand.get("card_uuid", ""),
-                    score=cand.get("score", 0.0),
-                    component_scores_json=cand.get("component_scores", {}),
-                ))
+                session.add(
+                    ScanMatchCandidate(
+                        scan_id=scan_id,
+                        rank=i + 1,
+                        card_name=cand.get("card_name", ""),
+                        card_uuid=cand.get("card_uuid", ""),
+                        score=cand.get("score", 0.0),
+                        component_scores_json=cand.get("component_scores", {}),
+                    )
+                )
 
         session.commit()
         logger.debug(f"Logged scan attempt {scan_id}: {extracted_name} ({pipeline})")
@@ -188,7 +224,6 @@ def log_llm_call(
         session.add(call)
         session.commit()
         logger.debug(
-            f"Logged LLM call {call.id}: {provider}/{model} "
-            f"{prompt_tokens}+{completion_tokens} tokens, ${cost:.4f}"
+            f"Logged LLM call {call.id}: {provider}/{model} {prompt_tokens}+{completion_tokens} tokens, ${cost:.4f}"
         )
         return call.id
