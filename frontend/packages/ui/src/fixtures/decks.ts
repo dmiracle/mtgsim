@@ -2,6 +2,7 @@ import type { DeckSummary, DeckDetail, UserDeckResponse } from "@/types/api";
 
 export const deckSummaries: DeckSummary[] = [
   {
+    uuid: "deck-uuid-1",
     file: "mono-red-burn",
     name: "Mono Red Burn",
     code: "M10",
@@ -14,6 +15,7 @@ export const deckSummaries: DeckSummary[] = [
     source: "user",
   },
   {
+    uuid: "deck-uuid-2",
     file: "azorius-control",
     name: "Azorius Control",
     code: "MKM",
@@ -26,6 +28,7 @@ export const deckSummaries: DeckSummary[] = [
     source: "import",
   },
   {
+    uuid: "deck-uuid-3",
     file: "krenko-edh",
     name: "Krenko, Mob Boss EDH",
     code: "M13",
@@ -41,6 +44,7 @@ export const deckSummaries: DeckSummary[] = [
 
 export const deckDetail: DeckDetail = {
   meta: {
+    uuid: "deck-uuid-1",
     name: "Mono Red Burn",
     file: "mono-red-burn",
     code: "M10",
@@ -153,7 +157,7 @@ export const deckDetail: DeckDetail = {
 };
 
 export const userDecks: UserDeckResponse[] = [
-  { id: 1, name: "Mono Red Burn", description: "Modern burn", format: "modern", source: "user", card_count: 60 },
-  { id: 2, name: "Azorius Control", description: null, format: "standard", source: "import", card_count: 60 },
-  { id: 3, name: "Krenko EDH", description: "Goblin tribal", format: "commander", source: "user", card_count: 100 },
+  { uuid: "deck-uuid-1", id: 1, name: "Mono Red Burn", description: "Modern burn", format: "modern", source: "user", card_count: 60 },
+  { uuid: "deck-uuid-2", id: 2, name: "Azorius Control", description: null, format: "standard", source: "import", card_count: 60 },
+  { uuid: "deck-uuid-3", id: 3, name: "Krenko EDH", description: "Goblin tribal", format: "commander", source: "user", card_count: 100 },
 ];

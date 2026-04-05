@@ -12,6 +12,7 @@ export type Pagination = {
 // --- Decks ---
 
 export type DeckSummary = {
+  uuid: string;
   file: string;
   name: string;
   code: string;
@@ -71,6 +72,7 @@ export type DeckStats = {
 
 export type DeckDetail = {
   meta: {
+    uuid: string;
     name: string;
     file: string;
     code: string;
@@ -96,6 +98,7 @@ export type DeckDetail = {
 };
 
 export type UserDeckResponse = {
+  uuid: string;
   id: number;
   name: string;
   description: string | null;

@@ -97,20 +97,19 @@ export function usePinnedDecksQuery() {
 export function usePinDeck() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (file: string) =>
-      apiFetch(`/decks/pinned/${file}`, { method: "POST" }),
-    onMutate: async (file) => {
+    mutationFn: (uuid: string) =>
+      apiFetch(`/decks/pinned/${uuid}`, { method: "POST" }),
+    onMutate: async (uuid) => {
       await qc.cancelQueries({ queryKey: ["decks", "pinned"] });
       const prev = qc.getQueryData<DeckSummary[]>(["decks", "pinned"]);
-      // Optimistically add a placeholder entry so the UI updates immediately
       qc.setQueryData<DeckSummary[]>(["decks", "pinned"], (old) => {
         if (!old) return [];
-        if (old.some((d) => d.file === file)) return old;
-        return [...old, { file, name: "", code: "", deck_type: "", card_count: 0, colors: [], price: 0, release_date: "", legality: {}, source: "" }];
+        if (old.some((d) => d.uuid === uuid)) return old;
+        return [...old, { uuid, file: "", name: "", code: "", deck_type: "", card_count: 0, colors: [], price: 0, release_date: "", legality: {}, source: "" }];
       });
       return { prev };
     },
-    onError: (_err, _file, context) => {
+    onError: (_err, _uuid, context) => {
       if (context?.prev) qc.setQueryData(["decks", "pinned"], context.prev);
     },
     onSettled: () => {
@@ -122,17 +121,17 @@ export function usePinDeck() {
 export function useUnpinDeck() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (file: string) =>
-      apiFetch(`/decks/pinned/${file}`, { method: "DELETE" }),
-    onMutate: async (file) => {
+    mutationFn: (uuid: string) =>
+      apiFetch(`/decks/pinned/${uuid}`, { method: "DELETE" }),
+    onMutate: async (uuid) => {
       await qc.cancelQueries({ queryKey: ["decks", "pinned"] });
       const prev = qc.getQueryData<DeckSummary[]>(["decks", "pinned"]);
       qc.setQueryData<DeckSummary[]>(["decks", "pinned"], (old) =>
-        old ? old.filter((d) => d.file !== file) : [],
+        old ? old.filter((d) => d.uuid !== uuid) : [],
       );
       return { prev };
     },
-    onError: (_err, _file, context) => {
+    onError: (_err, _uuid, context) => {
       if (context?.prev) qc.setQueryData(["decks", "pinned"], context.prev);
     },
     onSettled: () => {

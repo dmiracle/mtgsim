@@ -34,7 +34,7 @@ export function DeckListItem({ deck, pinned, onTogglePin, onDuplicate, onDelete,
       <div className="absolute -top-2 -left-2 z-10" onClick={(e) => e.stopPropagation()}>
         <PinnedBadge
           pinned={!!pinned}
-          onToggle={onTogglePin ? () => onTogglePin(deck.file) : undefined}
+          onToggle={onTogglePin ? () => onTogglePin(deck.uuid) : undefined}
         />
       </div>
 
