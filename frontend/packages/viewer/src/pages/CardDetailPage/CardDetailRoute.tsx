@@ -1,7 +1,24 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCard, useKeywords, useAddToCollection, useSaveRating, useStrategies, useSimilarCards } from "@/api/hooks";
+import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { CardDetailPage } from "./CardDetailPage";
+
+const emptyFilters: CardFilters = {
+  text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
+  ownership: "all", sort: "score", order: "desc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+};
+
+function filtersToParams(f: CardFilters): Record<string, string | undefined> {
+  return {
+    text: f.text || undefined,
+    colors: f.colors.length > 0 ? f.colors.join("") : undefined,
+    rarity: f.rarities.length > 0 ? f.rarities.join(",") : undefined,
+    type: f.types.length > 0 ? f.types.join(",") : undefined,
+    mana_value: f.manaValue.length > 0 ? f.manaValue.join(",") : undefined,
+    format: f.formats.length > 0 ? f.formats[0] : undefined,
+  };
+}
 
 export function CardDetailRoute() {
   const { uuid } = useParams<{ uuid: string }>();
@@ -13,7 +30,10 @@ export function CardDetailRoute() {
 
   const { data: strategies } = useStrategies();
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
-  const { data: similarData } = useSimilarCards(uuid ?? "", selectedStrategies);
+  const [similarFilters, setSimilarFilters] = useState(emptyFilters);
+
+  const filterParams = filtersToParams(similarFilters);
+  const { data: similarData } = useSimilarCards(uuid ?? "", selectedStrategies, filterParams);
 
   useEffect(() => {
     if (strategies && strategies.length > 0 && selectedStrategies.length === 0) {
@@ -40,6 +60,8 @@ export function CardDetailRoute() {
       selectedStrategies={selectedStrategies}
       onStrategiesChange={setSelectedStrategies}
       similarResults={similarData?.results}
+      similarFilters={similarFilters}
+      onSimilarFiltersChange={setSimilarFilters}
       onSimilarCardClick={(id) => navigate(`/cards/${id}`)}
     />
   );

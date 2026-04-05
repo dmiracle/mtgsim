@@ -334,13 +334,19 @@ export function useKeywords() {
 
 // --- Similarity ---
 
-export function useSimilarCards(uuid: string, strategies: string[], limit: number = 20) {
+export function useSimilarCards(
+  uuid: string,
+  strategies: string[],
+  filters?: Record<string, string | number | boolean | null | undefined>,
+  limit: number = 20,
+) {
   const params = buildParams({
     strategies: strategies.length > 0 ? strategies.join(",") : undefined,
     limit,
+    ...filters,
   });
   return useQuery({
-    queryKey: ["cards", "similar", uuid, strategies, limit],
+    queryKey: ["cards", "similar", uuid, strategies, filters, limit],
     queryFn: () => apiFetch<SimilarCardsResponse>(`/cards/${uuid}/similar${params}`),
     enabled: !!uuid && strategies.length > 0,
   });

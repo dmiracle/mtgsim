@@ -1,4 +1,6 @@
 import type { CardDetail, KeywordsResponse, SimilarCardResult, Strategy } from "@/types/api";
+import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
+import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import { StrategyPicker } from "@/components/StrategyPicker/StrategyPicker";
 import { SimilarCardGrid } from "@/components/SimilarCardGrid/SimilarCardGrid";
 import { CardIdentity } from "@/components/CardIdentity/CardIdentity";
@@ -28,6 +30,8 @@ type CardDetailPageProps = {
   selectedStrategies?: string[];
   onStrategiesChange?: (selected: string[]) => void;
   similarResults?: SimilarCardResult[];
+  similarFilters?: CardFilters;
+  onSimilarFiltersChange?: (filters: CardFilters) => void;
   onSimilarCardClick?: (uuid: string) => void;
 };
 
@@ -69,6 +73,8 @@ export function CardDetailPage({
   selectedStrategies,
   onStrategiesChange,
   similarResults,
+  similarFilters,
+  onSimilarFiltersChange,
   onSimilarCardClick,
 }: CardDetailPageProps) {
   const keywordGroups = buildKeywordGroups(card, keywordTypes);
@@ -137,6 +143,18 @@ export function CardDetailPage({
                 selected={selectedStrategies ?? []}
                 onChange={onStrategiesChange}
               />
+              {similarFilters && onSimilarFiltersChange && (
+                <CardFilterBar
+                  filters={similarFilters}
+                  onChange={onSimilarFiltersChange}
+                  sortOptions={[
+                    { value: "score", label: "Similarity" },
+                    { value: "name", label: "Name" },
+                    { value: "mana_value", label: "Mana Value" },
+                    { value: "price", label: "Price" },
+                  ]}
+                />
+              )}
               <SimilarCardGrid
                 results={similarResults ?? []}
                 onCardClick={onSimilarCardClick}
