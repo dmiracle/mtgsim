@@ -97,7 +97,15 @@ export function usePinDeck() {
   return useMutation({
     mutationFn: (file: string) =>
       apiFetch(`/decks/pinned/${file}`, { method: "POST" }),
-    onSuccess: () => {
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["decks", "pinned"] });
+      const prev = qc.getQueryData<DeckSummary[]>(["decks", "pinned"]);
+      return { prev };
+    },
+    onError: (_err, _file, context) => {
+      if (context?.prev) qc.setQueryData(["decks", "pinned"], context.prev);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["decks", "pinned"] });
     },
   });
@@ -108,7 +116,18 @@ export function useUnpinDeck() {
   return useMutation({
     mutationFn: (file: string) =>
       apiFetch(`/decks/pinned/${file}`, { method: "DELETE" }),
-    onSuccess: () => {
+    onMutate: async (file) => {
+      await qc.cancelQueries({ queryKey: ["decks", "pinned"] });
+      const prev = qc.getQueryData<DeckSummary[]>(["decks", "pinned"]);
+      qc.setQueryData<DeckSummary[]>(["decks", "pinned"], (old) =>
+        old ? old.filter((d) => d.file !== file) : [],
+      );
+      return { prev };
+    },
+    onError: (_err, _file, context) => {
+      if (context?.prev) qc.setQueryData(["decks", "pinned"], context.prev);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["decks", "pinned"] });
     },
   });
@@ -147,6 +166,21 @@ export function useAddCardToDeck() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["decks"] });
+      qc.invalidateQueries({ queryKey: ["deck"] });
+    },
+  });
+}
+
+export function useRemoveCardFromDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ deckId, cardUuid, count }: { deckId: number; cardUuid: string; count?: number }) =>
+      apiFetch(`/decks/${deckId}/cards/${cardUuid}${count ? `?count=${count}` : ""}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decks"] });
+      qc.invalidateQueries({ queryKey: ["deck"] });
     },
   });
 }

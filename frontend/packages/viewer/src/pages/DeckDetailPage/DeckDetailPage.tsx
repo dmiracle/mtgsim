@@ -1,7 +1,9 @@
 import { useState } from "react";
-import type { DeckDetail, TagCount } from "@/types/api";
+import type { CardSummary, DeckDetail, TagCount } from "@/types/api";
 import { DeckStats } from "@/components/DeckStats/DeckStats";
 import { DeckCards } from "@/components/DeckCards/DeckCards";
+import { DeckCardList } from "@/components/DeckCardList/DeckCardList";
+import { AddCardToDeckModal } from "@/components/AddCardToDeckModal/AddCardToDeckModal";
 import { RawJsonViewer } from "@/components/RawJsonViewer/RawJsonViewer";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 
@@ -9,12 +11,18 @@ type DeckDetailPageProps = {
   deck: DeckDetail;
   availableTags?: TagCount[];
   pinned?: boolean;
+  editable?: boolean;
+  searchResults?: CardSummary[];
+  searching?: boolean;
   onTogglePin?: () => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
   onBack: () => void;
   onCardClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
+  onAddCard?: (uuid: string, board: string, count: number) => void;
+  onRemoveCard?: (uuid: string) => void;
+  onSearchCards?: (query: string) => void;
 };
 
 const emptyFilters: CardFilters = {
@@ -22,14 +30,38 @@ const emptyFilters: CardFilters = {
   ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
-export function DeckDetailPage({ deck, availableTags = [], pinned, onTogglePin, onDuplicate, onDelete, onBack, onCardClick, onSetClick }: DeckDetailPageProps) {
-  const [tab, setTab] = useState<"stats" | "cards">("stats");
+export function DeckDetailPage({
+  deck,
+  availableTags = [],
+  pinned,
+  editable = false,
+  searchResults = [],
+  searching = false,
+  onTogglePin,
+  onDuplicate,
+  onDelete,
+  onBack,
+  onCardClick,
+  onSetClick,
+  onAddCard,
+  onRemoveCard,
+  onSearchCards,
+}: DeckDetailPageProps) {
+  const [tab, setTab] = useState<"stats" | "cards" | "edit">("stats");
   const [filters, setFilters] = useState(emptyFilters);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addBoard, setAddBoard] = useState("main");
 
   const tabs = [
     { id: "stats" as const, label: "Statistics" },
     { id: "cards" as const, label: "Cards" },
+    ...(editable ? [{ id: "edit" as const, label: "Edit" }] : []),
   ];
+
+  function openAddModal(board?: string) {
+    if (board) setAddBoard(board);
+    setAddModalOpen(true);
+  }
 
   return (
     <div className="space-y-4">
@@ -117,8 +149,51 @@ export function DeckDetailPage({ deck, availableTags = [], pinned, onTogglePin, 
           onSetClick={onSetClick}
         />
       )}
+      {tab === "edit" && editable && (
+        <div className="space-y-4">
+          {deck.commander.length > 0 && (
+            <DeckCardList
+              title="Commander"
+              cards={deck.commander}
+              onRemove={onRemoveCard}
+              onCardClick={onCardClick}
+              onAddCard={() => openAddModal("commander")}
+            />
+          )}
+          <DeckCardList
+            title="Main Board"
+            cards={deck.main_board}
+            onRemove={onRemoveCard}
+            onCardClick={onCardClick}
+            onAddCard={() => openAddModal("main")}
+          />
+          <DeckCardList
+            title="Sideboard"
+            cards={deck.side_board}
+            onRemove={onRemoveCard}
+            onCardClick={onCardClick}
+            onAddCard={() => openAddModal("side")}
+          />
+        </div>
+      )}
 
       <RawJsonViewer data={deck} title="Deck JSON" />
+
+      {/* Add card modal */}
+      {onAddCard && onSearchCards && (
+        <AddCardToDeckModal
+          open={addModalOpen}
+          deckName={deck.meta.name}
+          defaultBoard={addBoard}
+          searchResults={searchResults}
+          searching={searching}
+          onSearch={onSearchCards}
+          onAdd={(uuid, board, count) => {
+            onAddCard(uuid, board, count);
+          }}
+          onClose={() => setAddModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
