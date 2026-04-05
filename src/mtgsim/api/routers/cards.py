@@ -256,6 +256,48 @@ async def scan_card(
         raise HTTPException(status_code=502, detail="Card extraction service unavailable")
 
 
+@router.get("/similar/strategies")
+async def get_similarity_strategies() -> list[dict]:
+    """List available similarity search strategies."""
+    from mtgsim.api.services.similarity_service import similarity_service
+
+    return similarity_service.get_strategies()
+
+
+@router.get("/{uuid}/similar")
+async def get_similar_cards(
+    uuid: str,
+    strategies: str = Query("keywords,tags", description="Comma-separated strategy names"),
+    weights: str | None = Query(None, description="Comma-separated weights (must match strategies count)"),
+    limit: int = Query(20, ge=1, le=100, description="Max results"),
+) -> dict:
+    """Find cards similar to the given card using composable strategies.
+
+    Each strategy scores candidates differently. Results are merged by weighted
+    average and include per-strategy score breakdowns.
+    """
+    from mtgsim.api.services.similarity_service import similarity_service
+
+    strategy_list = [s.strip() for s in strategies.split(",") if s.strip()]
+    weight_list = None
+    if weights:
+        weight_list = [float(w) for w in weights.split(",") if w.strip()]
+
+    try:
+        result = similarity_service.search_similar(
+            card_uuid=uuid,
+            strategy_names=strategy_list,
+            weights=weight_list,
+            limit=limit,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+    return result
+
+
 @router.get("/{uuid}", response_model=CardDetail)
 async def get_card(uuid: str) -> CardDetail:
     """
