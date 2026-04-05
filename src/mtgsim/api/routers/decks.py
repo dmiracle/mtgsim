@@ -242,6 +242,17 @@ async def delete_deck(deck_id: int) -> dict:
     return {"status": "deleted"}
 
 
+@router.get("/{file}/features")
+async def get_deck_features(file: str) -> dict:
+    """Get L2-normalized aggregate compact vector for a deck."""
+    from mtgsim.api.services.feature_service import feature_service
+
+    result = feature_service.deck_vector(file)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
+    return result
+
+
 @router.get("/{file}/raw")
 async def get_deck_raw(file: str) -> dict:
     """Get raw deck JSON for developer inspection."""

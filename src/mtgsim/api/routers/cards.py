@@ -206,6 +206,88 @@ async def get_keyword_frequencies(
     return keywords_data.categorize_keyword_freq(freq)
 
 
+@router.get("/features/compact")
+async def batch_compact_vectors(
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0),
+    price_max: float | None = Query(None, ge=0),
+    owns: bool | None = Query(None),
+    wants: bool | None = Query(None),
+    limit: int = Query(200, ge=1, le=4096, description="Max cards to return"),
+) -> dict:
+    """Get compact 64-dim feature vectors for cards matching filters."""
+    from mtgsim.api.services.feature_service import feature_service
+
+    return feature_service.batch_compact_vectors(
+        q=q,
+        text=text,
+        set_code=set,
+        set_codes=[s.strip() for s in sets.split(",") if s.strip()] if sets else None,
+        rarity=rarity,
+        card_type=type,
+        colors=list(colors.upper()) if colors else None,
+        mana_values=[int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None,
+        format_legal=format,
+        keywords=[k.strip() for k in keywords.split(",") if k.strip()] if keywords else None,
+        tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else None,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        wants=wants,
+        limit=limit,
+    )
+
+
+@router.get("/features/aggregate")
+async def aggregate_vectors(
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0),
+    price_max: float | None = Query(None, ge=0),
+    owns: bool | None = Query(None),
+    wants: bool | None = Query(None),
+) -> dict:
+    """Get L2-normalized aggregate of compact vectors for matching cards."""
+    from mtgsim.api.services.feature_service import feature_service
+
+    return feature_service.aggregate_vectors(
+        q=q,
+        text=text,
+        set_code=set,
+        set_codes=[s.strip() for s in sets.split(",") if s.strip()] if sets else None,
+        rarity=rarity,
+        card_type=type,
+        colors=list(colors.upper()) if colors else None,
+        mana_values=[int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None,
+        format_legal=format,
+        keywords=[k.strip() for k in keywords.split(",") if k.strip()] if keywords else None,
+        tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else None,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        wants=wants,
+    )
+
+
 @router.post("/scan", response_model=ScanResponse)
 async def scan_card(
     request: Request,
