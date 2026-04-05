@@ -78,7 +78,7 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || selectedKeywords.length);
+  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
 
   // Build and emit search params whenever any filter changes
   useEffect(() => {
