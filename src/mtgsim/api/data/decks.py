@@ -874,8 +874,24 @@ class DecksData:
                 "source": deck.source,
             }
 
-    def duplicate_user_deck(self, deck_id: int) -> dict | None:
-        """Duplicate a user deck with all its cards. Returns new deck dict or None if not found."""
+    def duplicate_deck(self, identifier: str) -> dict | None:
+        """Duplicate any deck (user or precon) as a new user deck.
+
+        Args:
+            identifier: numeric deck ID (user deck) or file name (precon deck)
+
+        Returns new deck dict or None if not found.
+        """
+        # Try as user deck first
+        try:
+            deck_id = int(identifier)
+            return self._duplicate_user_deck(deck_id)
+        except ValueError:
+            pass
+        # Try as precon deck
+        return self._duplicate_precon_deck(identifier)
+
+    def _duplicate_user_deck(self, deck_id: int) -> dict | None:
         with get_session() as session:
             original = session.exec(select(UserDeck).where(UserDeck.id == deck_id)).first()
             if not original:
@@ -885,7 +901,7 @@ class DecksData:
                 name=f"{original.name} (Copy)",
                 description=original.description,
                 format=original.format,
-                source=original.source,
+                source="user",
             )
             session.add(new_deck)
             session.flush()
@@ -906,6 +922,51 @@ class DecksData:
             session.refresh(new_deck)
 
             total = sum(c.count for c in cards)
+            return {
+                "id": new_deck.id,
+                "name": new_deck.name,
+                "description": new_deck.description,
+                "format": new_deck.format,
+                "card_count": total,
+                "source": new_deck.source,
+            }
+
+    def _duplicate_precon_deck(self, file_name: str) -> dict | None:
+        if file_name.endswith(".json"):
+            file_name = file_name[:-5]
+
+        with get_session() as session:
+            deck = session.exec(select(MJDeck).where(MJDeck.file_name == file_name)).first()
+            if not deck:
+                return None
+
+            new_deck = UserDeck(
+                name=f"{deck.name} (Copy)",
+                source="user",
+            )
+            session.add(new_deck)
+            session.flush()
+
+            # Map precon board names to user deck board names
+            board_map = {"mainBoard": "main", "sideBoard": "side", "commander": "commander"}
+            precon_cards = session.exec(select(MJDeckCard).where(MJDeckCard.deck_uuid == deck.uuid)).all()
+
+            for card in precon_cards:
+                if not card.card_uuid:
+                    continue
+                session.add(
+                    UserDeckCard(
+                        deck_id=new_deck.id,
+                        card_uuid=card.card_uuid,
+                        board=board_map.get(card.board, "main"),
+                        count=card.count or 1,
+                    )
+                )
+
+            session.commit()
+            session.refresh(new_deck)
+
+            total = sum((c.count or 1) for c in precon_cards if c.card_uuid)
             return {
                 "id": new_deck.id,
                 "name": new_deck.name,
