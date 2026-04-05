@@ -11,9 +11,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+from sqlmodel import select
 
-from mtgsim.scan_log.db import get_session, log_scan
-from mtgsim.scan_log.models import ScanBatch
+from mtgsim.scan_log.db import get_session, image_hash, save_image
+from mtgsim.scan_log.models import ScanAttempt, ScanBatch
 
 logger = logging.getLogger("mtgsim.scan_log.batch")
 
@@ -82,48 +83,19 @@ def run_batch(
             # Tesseract scan (comparison only)
             ts_result = _scan_via_api(client, scan_url, img_path, "tesseract", add_to_collection=False)
 
-            # Log both to scan_log DB with batch_id
+            # The API server already logged the scan attempts and LLM calls.
+            # Tag them with our batch_id by matching on image_hash.
+            img_hash = image_hash(image_data)
+            save_image(image_data, img_hash, mime)
+            _tag_scans_with_batch(img_hash, batch_id)
+
             if oa_result:
-                log_scan(
-                    pipeline="openai",
-                    image_data=image_data,
-                    mime_type=mime,
-                    extracted_name=oa_result.get("extracted_name", ""),
-                    raw_text="",
-                    matched=oa_result.get("matched", False),
-                    match_type=oa_result.get("match_type", "none"),
-                    match_confidence=oa_result.get("match_confidence"),
-                    matched_card_uuid=oa_result.get("card", {}).get("uuid") if oa_result.get("card") else None,
-                    matched_card_name=oa_result.get("card", {}).get("name") if oa_result.get("card") else None,
-                    added_to_collection=oa_result.get("added_to_collection", False),
-                    added_to_deck_id=None,
-                    timing=None,
-                    params={"pipeline": "openai", "source_file": fname},
-                    batch_id=batch_id,
-                )
                 if oa_result.get("matched"):
                     matched_oa += 1
                 if oa_result.get("added_to_collection"):
                     added += 1
 
             if ts_result:
-                log_scan(
-                    pipeline="tesseract",
-                    image_data=image_data,
-                    mime_type=mime,
-                    extracted_name=ts_result.get("extracted_name", ""),
-                    raw_text=ts_result.get("extraction", {}).get("oracle_text", ""),
-                    matched=ts_result.get("matched", False),
-                    match_type=ts_result.get("match_type", "none"),
-                    match_confidence=ts_result.get("match_confidence"),
-                    matched_card_uuid=ts_result.get("card", {}).get("uuid") if ts_result.get("card") else None,
-                    matched_card_name=ts_result.get("card", {}).get("name") if ts_result.get("card") else None,
-                    added_to_collection=False,
-                    added_to_deck_id=None,
-                    timing=None,
-                    params={"pipeline": "tesseract", "source_file": fname},
-                    batch_id=batch_id,
-                )
                 if ts_result.get("matched"):
                     matched_ts += 1
 
@@ -192,6 +164,23 @@ def _scan_via_api(
     except Exception:
         logger.exception(f"Scan error for {image_path.name} ({pipeline})")
         return None
+
+
+def _tag_scans_with_batch(img_hash: str, batch_id: int) -> None:
+    """Tag recent scan attempts matching this image hash with the batch_id."""
+    with get_session() as session:
+        # Find untagged scans with this hash (most recent first)
+        scans = session.exec(
+            select(ScanAttempt)
+            .where(ScanAttempt.image_hash == img_hash, ScanAttempt.batch_id.is_(None))
+            .order_by(ScanAttempt.id.desc())
+            .limit(10)
+        ).all()
+        for scan in scans:
+            scan.batch_id = batch_id
+            session.add(scan)
+        if scans:
+            session.commit()
 
 
 def _update_batch_progress(
