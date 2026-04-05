@@ -1,6 +1,7 @@
 """Scan service — orchestrates card image extraction, matching, and optional collection/deck adds."""
 
 import logging
+import time
 
 from mtgdb.session import get_session
 
@@ -10,9 +11,14 @@ from mtgsim.api.models.scan import ExtractionDetail, ScanResponse
 from mtgsim.deck_import import MatchResult, _load_card_name_index, match_card_by_name
 from mtgsim.extract.pipelines import ExtractionPipeline, get_pipeline
 from mtgsim.extract.preprocess import preprocess_card_image
+from mtgsim.scan_log.db import log_scan
 from mtgsim.settings import settings
 
 logger = logging.getLogger("mtgsim.api.services.scan")
+
+
+def _ms_since(start: float) -> float:
+    return (time.perf_counter() - start) * 1000
 
 
 class ScanService:
@@ -38,14 +44,20 @@ class ScanService:
         add_to_collection: bool = False,
         deck_id: int | None = None,
     ) -> ScanResponse:
+        t_total = time.perf_counter()
+
         pipeline_name = pipeline_name or self.default_pipeline
         pipeline: ExtractionPipeline = get_pipeline(pipeline_name)
 
         # Preprocess image
+        t0 = time.perf_counter()
         processed_data, processed_mime = preprocess_card_image(image_data, mime_type)
+        preprocess_ms = _ms_since(t0)
 
         # Extract card data from image
+        t0 = time.perf_counter()
         extracted = pipeline.extract_bytes(processed_data, processed_mime)
+        extract_ms = _ms_since(t0)
         logger.info(f"Extracted card: {extracted.name} via {pipeline_name}")
 
         extraction_detail = ExtractionDetail(
@@ -60,25 +72,55 @@ class ScanService:
         )
 
         # Match against database
+        t0 = time.perf_counter()
         self._ensure_name_index()
         match = match_card_by_name(
             extracted.name, self._name_index, self._name_list, threshold=settings.scan_fuzzy_threshold
         )
+        match_ms = _ms_since(t0)
 
         card_summary = _build_card_summary(match) if match.uuid else None
 
-        added_to_collection = False
-        added_to_deck = None
+        collection_added = False
+        deck_added = None
 
         if match.uuid and add_to_collection:
             cards_data.add_to_collection(card_uuid=match.uuid, quantity_owned=1)
-            added_to_collection = True
+            collection_added = True
 
         if match.uuid and deck_id is not None:
             from mtgsim.api.data import decks_data
 
             decks_data.add_card_to_deck(deck_id=deck_id, card_uuid=match.uuid, count=1, board="main")
-            added_to_deck = deck_id
+            deck_added = deck_id
+
+        total_ms = _ms_since(t_total)
+
+        # Log to scan database (fire-and-forget, don't fail the request)
+        try:
+            log_scan(
+                pipeline=pipeline_name,
+                image_data=image_data,
+                mime_type=mime_type,
+                extracted_name=extracted.name,
+                raw_text=extracted.raw_text,
+                matched=match.uuid is not None,
+                match_type=match.match_type,
+                match_confidence=match.score,
+                matched_card_uuid=match.uuid,
+                matched_card_name=match.matched_name,
+                added_to_collection=collection_added,
+                added_to_deck_id=deck_added,
+                timing={
+                    "preprocess_ms": round(preprocess_ms, 2),
+                    "extract_ms": round(extract_ms, 2),
+                    "match_ms": round(match_ms, 2),
+                    "total_ms": round(total_ms, 2),
+                },
+                params={"pipeline": pipeline_name, "fuzzy_threshold": settings.scan_fuzzy_threshold},
+            )
+        except Exception:
+            logger.exception("Failed to log scan attempt")
 
         return ScanResponse(
             extracted_name=extracted.name,
@@ -87,8 +129,8 @@ class ScanService:
             match_confidence=match.score,
             card=card_summary,
             extraction=extraction_detail,
-            added_to_collection=added_to_collection,
-            added_to_deck=added_to_deck,
+            added_to_collection=collection_added,
+            added_to_deck=deck_added,
         )
 
 

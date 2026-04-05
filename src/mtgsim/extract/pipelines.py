@@ -1,10 +1,14 @@
 import base64
+import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 from openai import OpenAI
 
 from ..domain.card import Card, CardType, ManaCost, Rarity, Supertype
+
+logger = logging.getLogger("mtgsim.extract.pipelines")
 
 SYSTEM_PROMPT = """You are an expert Magic: The Gathering card scanner.
 Analyze the provided card image and extract the data strictly adhering to the schema.
@@ -66,24 +70,68 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
         }
         return mime_types.get(suffix, "image/jpeg")
 
-    def _call_openai(self, base64_image: str, mime_type: str) -> Card:
-        completion = self.client.beta.chat.completions.parse(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime_type};base64,{base64_image}"},
-                        }
-                    ],
-                },
-            ],
-            response_format=Card,
-        )
+    def _call_openai(self, base64_image: str, mime_type: str, scan_id: int | None = None) -> Card:
+        t0 = time.perf_counter()
+        status = "success"
+        error_msg = None
+
+        try:
+            completion = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime_type};base64,{base64_image}"},
+                            }
+                        ],
+                    },
+                ],
+                response_format=Card,
+            )
+        except Exception as exc:
+            status = "error"
+            error_msg = str(exc)
+            latency_ms = (time.perf_counter() - t0) * 1000
+            self._log_call(0, 0, latency_ms, status, error_msg, scan_id)
+            raise
+
+        latency_ms = (time.perf_counter() - t0) * 1000
+        usage = completion.usage
+        prompt_tokens = usage.prompt_tokens if usage else 0
+        completion_tokens = usage.completion_tokens if usage else 0
+        self._log_call(prompt_tokens, completion_tokens, latency_ms, status, error_msg, scan_id)
+
         return completion.choices[0].message.parsed
+
+    def _log_call(
+        self,
+        prompt_tokens: int,
+        completion_tokens: int,
+        latency_ms: float,
+        status: str,
+        error_message: str | None,
+        scan_id: int | None,
+    ) -> None:
+        try:
+            from mtgsim.scan_log.db import log_llm_call
+
+            log_llm_call(
+                provider="openai",
+                model=self.model,
+                purpose="card_extraction",
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_ms=round(latency_ms, 2),
+                status=status,
+                scan_id=scan_id,
+                error_message=error_message,
+            )
+        except Exception:
+            logger.exception("Failed to log LLM call")
 
     def extract(self, image_path: Path) -> Card:
         base64_image = self._encode_image(image_path)

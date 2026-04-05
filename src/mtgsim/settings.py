@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     ocr_match_name_scorer: str = "partial_ratio"
     ocr_match_text_scorer: str = "token_set_ratio"
 
+    # Scan logging
+    scan_log_db_path: str = ""  # default: ~/.mtgsim/scan_log.sqlite
+
     # App paths
     mtgsim_app_dir: str = ""
 
