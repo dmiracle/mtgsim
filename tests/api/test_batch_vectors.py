@@ -85,12 +85,10 @@ class TestAggregateVectors:
         assert data["dimensions"] == 64
         assert len(data["vector"]) == 64
 
-    def test_vector_is_normalized(self, client):
-        import math
-
+    def test_vector_values_in_range(self, client):
         data = client.get("/api/cards/features/aggregate?set=KLD").json()
-        magnitude = math.sqrt(sum(v * v for v in data["vector"]))
-        assert abs(magnitude - 1.0) < 0.01  # L2 norm ≈ 1.0
+        for v in data["vector"]:
+            assert 0.0 <= v <= 1.0
 
     def test_card_count_positive(self, client):
         data = client.get("/api/cards/features/aggregate?set=KLD").json()
@@ -112,12 +110,10 @@ class TestDeckFeatures:
         assert data["dimensions"] == 64
         assert len(data["vector"]) == 64
 
-    def test_vector_is_normalized(self, client, sample_deck_file):
-        import math
-
+    def test_vector_values_in_range(self, client, sample_deck_file):
         data = client.get(f"/api/decks/{sample_deck_file}/features").json()
-        magnitude = math.sqrt(sum(v * v for v in data["vector"]))
-        assert abs(magnitude - 1.0) < 0.01
+        for v in data["vector"]:
+            assert 0.0 <= v <= 1.0
 
     def test_nonexistent_returns_404(self, client):
         response = client.get("/api/decks/nonexistent.json/features")

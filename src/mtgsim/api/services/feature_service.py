@@ -1,7 +1,6 @@
 """Feature vector service — batch encoding and aggregation."""
 
 import logging
-import math
 
 from mtgdb.models import MJCard, MJCardLegality, MJCardTag, MJDeck, MJDeckCard, UserCard, UserDeck, UserDeckCard
 from mtgdb.session import get_session
@@ -24,12 +23,35 @@ def _fetch_tags_map(session, card_names: list[str]) -> dict[str, list[str]]:
     return tags_map
 
 
-def _normalize_vector(vec: list[float]) -> list[float]:
-    """L2-normalize a vector. Returns zero vector if input is all zeros."""
-    magnitude = math.sqrt(sum(v * v for v in vec))
-    if magnitude == 0:
-        return vec
-    return [v / magnitude for v in vec]
+_global_max_cache: list[float] | None = None
+
+
+def _get_global_max(session) -> list[float]:
+    """Compute the max value per dimension across all cards. Cached after first call."""
+    global _global_max_cache
+    if _global_max_cache is not None:
+        return _global_max_cache
+
+    cards = session.exec(select(MJCard).where(MJCard.oracle_text.is_not(None)).limit(10000)).all()
+    card_names = [c.name for c in cards]
+    tags_map = _fetch_tags_map(session, card_names)
+
+    dims = compact_size()
+    summed = [0.0] * dims
+    for card in cards:
+        vec = encode_compact(card, tags=tags_map.get(card.name))
+        for i, v in enumerate(vec):
+            summed[i] += v
+
+    # Global max is the sum for each dimension across all sampled cards
+    # For binary features this is the count of cards that have that feature
+    _global_max_cache = [max(v, 1.0) for v in summed]  # floor at 1.0 to avoid division by zero
+    return _global_max_cache
+
+
+def _normalize_per_dimension(vec: list[float], global_max: list[float]) -> list[float]:
+    """Normalize each dimension against its global max, producing 0-1 values."""
+    return [v / g for v, g in zip(vec, global_max, strict=True)]
 
 
 class FeatureService:
@@ -162,10 +184,13 @@ class FeatureService:
             for i, v in enumerate(card["vector"]):
                 summed[i] += v
 
-        normalized = _normalize_vector(summed)
+        with get_session() as session:
+            global_max = _get_global_max(session)
+
+        normalized = _normalize_per_dimension(summed, global_max)
 
         return {
-            "vector": [round(v, 6) for v in normalized],
+            "vector": [round(min(v, 1.0), 6) for v in normalized],
             "dimensions": dims,
             "dimension_names": compact_dimension_names(),
             "card_count": batch["total"],
@@ -219,10 +244,11 @@ class FeatureService:
                     summed[i] += v * count
                 total_cards += count
 
-            normalized = _normalize_vector(summed)
+            global_max = _get_global_max(session)
+            normalized = _normalize_per_dimension(summed, global_max)
 
             return {
-                "vector": [round(v, 6) for v in normalized],
+                "vector": [round(min(v, 1.0), 6) for v in normalized],
                 "dimensions": dims,
                 "dimension_names": compact_dimension_names(),
                 "card_count": total_cards,
