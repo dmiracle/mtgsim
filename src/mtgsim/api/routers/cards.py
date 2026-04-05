@@ -332,6 +332,40 @@ async def get_similar_cards(
     return result
 
 
+@router.get("/{uuid}/features/compact")
+async def get_card_features_compact(uuid: str) -> dict:
+    """Get the compact (~60-dim) feature vector for a card.
+
+    Keywords are grouped into functional categories (evasion, graveyard, etc.),
+    subtypes collapsed to a boolean, and numeric values normalized 0-1.
+    """
+    from mtgdb.models import MJCard as MJCardModel
+    from mtgdb.models import MJCardTag
+    from mtgdb.session import get_session
+    from sqlmodel import select
+
+    from mtgsim.api.similarity.compact_vector import compact_dimension_names, compact_size, encode_compact
+
+    with get_session() as session:
+        card = session.exec(select(MJCardModel).where(MJCardModel.uuid == uuid)).first()
+        if not card:
+            raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+
+        card_tags = list(session.exec(select(MJCardTag.tag).where(MJCardTag.card_name == card.name)).all())
+        vec = encode_compact(card, tags=card_tags)
+        dim_names = compact_dimension_names()
+
+        features = {dim_names[i]: v for i, v in enumerate(vec) if v != 0.0}
+        return {
+            "uuid": uuid,
+            "name": card.printed_name or card.name,
+            "dimensions": compact_size(),
+            "nonzero": len(features),
+            "features": features,
+            "vector": vec,
+        }
+
+
 @router.get("/{uuid}/features")
 async def get_card_features(uuid: str) -> dict:
     """Get the feature vector for a card.
