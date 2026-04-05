@@ -332,6 +332,38 @@ async def get_similar_cards(
     return result
 
 
+@router.get("/{uuid}/features")
+async def get_card_features(uuid: str) -> dict:
+    """Get the feature vector for a card.
+
+    Returns a sparse representation (only non-zero dimensions) and metadata.
+    """
+    from mtgdb.models import MJCard, MJCardTag
+    from mtgdb.session import get_session
+    from sqlmodel import select
+
+    from mtgsim.api.similarity.feature_vector import encode_card, get_vocabulary
+
+    with get_session() as session:
+        card = session.exec(select(MJCard).where(MJCard.uuid == uuid)).first()
+        if not card:
+            raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+
+        card_tags = list(session.exec(select(MJCardTag.tag).where(MJCardTag.card_name == card.name)).all())
+        vec = encode_card(card, session, tags=card_tags)
+        vocab = get_vocabulary()
+
+        # Return sparse representation
+        features = {vocab.dimension_names[i]: v for i, v in enumerate(vec) if v != 0.0}
+        return {
+            "uuid": uuid,
+            "name": card.printed_name or card.name,
+            "dimensions": vocab.size,
+            "nonzero": len(features),
+            "features": features,
+        }
+
+
 @router.get("/{uuid}", response_model=CardDetail)
 async def get_card(uuid: str) -> CardDetail:
     """
