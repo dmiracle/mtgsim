@@ -120,7 +120,12 @@ async def lifespan(app: FastAPI):
 
     from mtgsim.api.profiler import attach_profiler
 
-    attach_profiler(get_engine())
+    engine = get_engine()
+    attach_profiler(engine)
+
+    from mtgdb.embeddings.vec import register_sqlite_vec
+
+    register_sqlite_vec(engine)
     logger.info(f"Server ready ({(_time.perf_counter() - t0) * 1000:.0f}ms startup)")
 
     yield
