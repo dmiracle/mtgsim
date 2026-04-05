@@ -65,6 +65,8 @@ COMPACT_DIMENSIONS: list[str] = [
     "color_G",
     # Color count (1) — normalized 0-5
     "color_count",
+    # Colorless flag (1)
+    "is_colorless",
     # Card type flags (8)
     "is_creature",
     "is_instant",
@@ -85,6 +87,19 @@ COMPACT_DIMENSIONS: list[str] = [
     "has_subtypes",
     # Is legendary (1)
     "is_legendary",
+    # Has oracle text (1) — distinguishes vanilla creatures
+    "has_oracle_text",
+    # Is multicolored (1)
+    "is_multicolor",
+    # Text length bucket (1) — normalized proxy for card complexity
+    "text_complexity",
+    # Rarity signal (4) — one-hot
+    "is_common",
+    "is_uncommon",
+    "is_rare",
+    "is_mythic",
+    # Is reprint (1)
+    "is_reprint",
     # Oracle tags (9)
     "tag_boardwipe",
     "tag_counterspell",
@@ -128,6 +143,10 @@ def encode_compact(card: MJCard, tags: list[str] | None = None) -> list[float]:
     for c in colors:
         _set(f"color_{c}")
     _set("color_count", len(colors) / 5.0)
+    if not colors:
+        _set("is_colorless")
+    if len(colors) > 1:
+        _set("is_multicolor")
 
     # Card types
     type_map = {
@@ -168,6 +187,23 @@ def encode_compact(card: MJCard, tags: list[str] | None = None) -> list[float]:
     # Is legendary
     if card.supertypes and "Legendary" in card.supertypes:
         _set("is_legendary")
+
+    # Has oracle text (vanilla creatures have none)
+    if card.oracle_text:
+        _set("has_oracle_text")
+        # Text complexity: normalized length (cap at 500 chars)
+        _set("text_complexity", min(len(card.oracle_text), 500) / 500.0)
+
+    # Rarity
+    rarity_map = {"common": "is_common", "uncommon": "is_uncommon", "rare": "is_rare", "mythic": "is_mythic"}
+    if card.rarity:
+        dim = rarity_map.get(card.rarity)
+        if dim:
+            _set(dim)
+
+    # Is reprint
+    if card.is_reprint:
+        _set("is_reprint")
 
     # Tags
     if tags:
