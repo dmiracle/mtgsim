@@ -1,0 +1,1 @@
+export { VectorHeatmap } from "./VectorHeatmap";
