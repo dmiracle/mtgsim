@@ -123,9 +123,12 @@ async def lifespan(app: FastAPI):
     engine = get_engine()
     attach_profiler(engine)
 
-    from mtgdb.embeddings.vec import register_sqlite_vec
+    from mtgdb.embeddings.vec import load_sqlite_vec, register_sqlite_vec
 
     register_sqlite_vec(engine)
+    # Also load on any existing pooled connection from init_databases()
+    with engine.connect() as conn:
+        load_sqlite_vec(conn.connection.dbapi_connection)
     logger.info(f"Server ready ({(_time.perf_counter() - t0) * 1000:.0f}ms startup)")
 
     yield
