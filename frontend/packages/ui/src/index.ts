@@ -14,6 +14,7 @@ export { ActiveDeckProvider, useActiveDeck } from "./context/ActiveDeckContext";
 export * from "./fixtures/index";
 
 // Components — re-export each component directory
+export { AddCardToDeckModal } from "./components/AddCardToDeckModal/AddCardToDeckModal";
 export { AddToDeckModal } from "./components/AddToDeckModal/AddToDeckModal";
 export { AppLayout } from "./components/AppLayout/AppLayout";
 export { CardFilterBar } from "./components/CardFilterBar/CardFilterBar";
@@ -39,6 +40,8 @@ export { CollectionStatus } from "./components/CollectionStatus/CollectionStatus
 export { ColorIdentityPicker } from "./components/ColorIdentityPicker/ColorIdentityPicker";
 export { CopyUuidButton } from "./components/CopyUuidButton/CopyUuidButton";
 export { DeckAppearances } from "./components/DeckAppearances/DeckAppearances";
+export { DeckCardItem } from "./components/DeckCardItem/DeckCardItem";
+export { DeckCardList } from "./components/DeckCardList/DeckCardList";
 export { DeckCards } from "./components/DeckCards/DeckCards";
 export { DeckCreateModal } from "./components/DeckCreateModal/DeckCreateModal";
 export { DeckImportModal } from "./components/DeckImportModal/DeckImportModal";

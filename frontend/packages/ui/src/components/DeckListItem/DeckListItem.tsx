@@ -5,6 +5,7 @@ type DeckListItemProps = {
   deck: DeckSummary;
   pinned?: boolean;
   onTogglePin?: (file: string) => void;
+  onDuplicate?: (file: string) => void;
   onDelete?: (file: string) => void;
   onClick: (file: string) => void;
 };
@@ -13,7 +14,7 @@ const colorToCost: Record<string, string> = {
   W: "{W}", U: "{U}", B: "{B}", R: "{R}", G: "{G}", C: "{C}",
 };
 
-export function DeckListItem({ deck, pinned, onTogglePin, onDelete, onClick }: DeckListItemProps) {
+export function DeckListItem({ deck, pinned, onTogglePin, onDuplicate, onDelete, onClick }: DeckListItemProps) {
   const isUserDeck = deck.source === "user" || deck.source === "import";
   const legalFormats = Object.entries(deck.legality)
     .filter(([, v]) => v)
@@ -39,8 +40,8 @@ export function DeckListItem({ deck, pinned, onTogglePin, onDelete, onClick }: D
       <button
         onClick={() => onClick(deck.file)}
         className={`w-full flex items-center gap-4 px-4 py-3 border border-border bg-bg-secondary hover:bg-bg-hover hover:border-border-hover transition-colors text-left group ${
-          !onTogglePin && !(isUserDeck && onDelete) ? "rounded-lg" : ""
-        } ${!onTogglePin ? "rounded-l-lg" : ""} ${!(isUserDeck && onDelete) ? "rounded-r-lg" : ""}`}
+          !onTogglePin && !onDuplicate && !(isUserDeck && onDelete) ? "rounded-lg" : ""
+        } ${!onTogglePin ? "rounded-l-lg" : ""} ${!onDuplicate && !(isUserDeck && onDelete) ? "rounded-r-lg" : ""}`}
       >
         {/* Color identity */}
         <div className="shrink-0">
@@ -79,6 +80,20 @@ export function DeckListItem({ deck, pinned, onTogglePin, onDelete, onClick }: D
           </span>
         )}
       </button>
+
+      {/* Duplicate */}
+      {onDuplicate && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDuplicate(deck.file); }}
+          className={`shrink-0 w-8 h-full flex items-center justify-center border border-l-0 border-border bg-bg-secondary text-text-muted/30 hover:text-accent hover:bg-accent/10 transition-colors ${!(isUserDeck && onDelete) ? "rounded-r-lg" : ""}`}
+          title="Duplicate deck"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+            <path d="M5.5 3.5A1.5 1.5 0 0 1 7 2h5.5A1.5 1.5 0 0 1 14 3.5V9a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 9V3.5Z" />
+            <path d="M3 5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 3 14h6a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 9.5V5H3Z" />
+          </svg>
+        </button>
+      )}
 
       {/* Delete */}
       {isUserDeck && onDelete && (
