@@ -100,6 +100,129 @@ def preprocess_for_ocr(img: Image.Image, params: OCRPreprocessParams | None = No
     return img
 
 
+# Standard MTG card regions as percentage of height (portrait orientation).
+# Card aspect ratio is ~63:88 (0.716).
+CARD_REGIONS = {
+    "name": (0.0, 0.07),  # Card name + mana cost
+    "type_line": (0.07, 0.13),  # Type line
+    "art": (0.13, 0.55),  # Card art (skip for OCR)
+    "text_box": (0.55, 0.87),  # Oracle text + flavor text
+    "footer": (0.87, 1.0),  # Collector number, set code, artist
+}
+
+# Aspect ratio range for a portrait-oriented MTG card
+CARD_ASPECT_MIN = 0.60
+CARD_ASPECT_MAX = 0.80
+
+
+def detect_orientation(img: Image.Image) -> int:
+    """Detect card orientation by testing rotations. Returns degrees (0, 90, 180, 270).
+
+    Uses a simple heuristic: a correctly oriented card is taller than wide
+    (portrait, aspect ratio ~0.72). If the image is landscape, try 90/270.
+    Then pick the rotation that produces the most readable text from the
+    text box region.
+    """
+    img = ImageOps.exif_transpose(img)
+    w, h = img.size
+    ratio = w / h
+
+    # Already portrait
+    if CARD_ASPECT_MIN <= ratio <= CARD_ASPECT_MAX:
+        return 0
+
+    # Landscape — could be 90 or 270
+    if ratio > 1.0:
+        rotations = [90, 270]
+    else:
+        # Unusual ratio — try all
+        rotations = [0, 90, 180, 270]
+
+    best_rotation = 0
+    best_text_len = 0
+
+    for deg in rotations:
+        rotated = img.rotate(deg, expand=True)
+        rw, rh = rotated.size
+        if not (CARD_ASPECT_MIN <= rw / rh <= CARD_ASPECT_MAX):
+            continue
+        # Quick OCR on text box region
+        text_region = rotated.crop((0, int(rh * 0.55), rw, int(rh * 0.87)))
+        processed = preprocess_for_ocr(text_region, OCRPreprocessParams(scale=2.0, contrast=2.0))
+        text = run_tesseract(processed, OCRParams(psm=3))
+        alpha_count = sum(1 for c in text if c.isalpha())
+        if alpha_count > best_text_len:
+            best_text_len = alpha_count
+            best_rotation = deg
+
+    return best_rotation
+
+
+def extract_card_regions(img: Image.Image) -> dict[str, Image.Image]:
+    """Split a portrait-oriented card image into named regions."""
+    w, h = img.size
+    regions = {}
+    for name, (start, end) in CARD_REGIONS.items():
+        regions[name] = img.crop((0, int(h * start), w, int(h * end)))
+    return regions
+
+
+def _text_quality(text: str) -> float:
+    """Score text quality. Real English text scores higher than OCR garbage.
+
+    Heuristic: count words >= 3 chars long that are mostly alphabetic.
+    Garbage OCR produces short fragments with lots of symbols.
+    """
+    words = text.split()
+    if not words:
+        return 0.0
+    good_words = [w for w in words if len(w) >= 3 and sum(c.isalpha() for c in w) / len(w) > 0.7]
+    return len(good_words)
+
+
+def ocr_card_regions(img: Image.Image, params: OCRPreprocessParams | None = None) -> str:
+    """OCR a card image by extracting text from individual regions (skipping art).
+
+    Returns all text concatenated with region labels for matching.
+    """
+    params = params or OCRPreprocessParams()
+    regions = extract_card_regions(img)
+
+    parts = []
+
+    # Name bar — single line, high scale for small text
+    name_params = OCRPreprocessParams(
+        grayscale=params.grayscale,
+        contrast=params.contrast,
+        sharpness=params.sharpness,
+        scale=3.0,
+    )
+    name_img = preprocess_for_ocr(regions["name"], name_params)
+    name_text = run_tesseract(name_img, OCRParams(psm=7)).strip()
+    if name_text:
+        parts.append(name_text)
+
+    # Type line — single line
+    type_img = preprocess_for_ocr(regions["type_line"], name_params)
+    type_text = run_tesseract(type_img, OCRParams(psm=7)).strip()
+    if type_text:
+        parts.append(type_text)
+
+    # Text box — main content, fully automatic
+    text_img = preprocess_for_ocr(regions["text_box"], params)
+    text_text = run_tesseract(text_img, OCRParams(psm=3)).strip()
+    if text_text:
+        parts.append(text_text)
+
+    # Footer — collector info
+    footer_img = preprocess_for_ocr(regions["footer"], params)
+    footer_text = run_tesseract(footer_img, OCRParams(psm=6)).strip()
+    if footer_text:
+        parts.append(footer_text)
+
+    return "\n".join(parts)
+
+
 def run_tesseract(img: Image.Image, params: OCRParams | None = None) -> str:
     """Run tesseract OCR on a preprocessed image and return raw text."""
     params = params or OCRParams()
@@ -164,11 +287,35 @@ class TesseractExtractionPipeline(ExtractionPipeline):
         logger.info(f"Loaded {len(self._cards)} unique card names for OCR matching")
 
     def _ocr_image(self, img: Image.Image) -> str:
-        """Preprocess and OCR an image."""
-        processed = preprocess_for_ocr(img, self.preprocess_params)
-        text = run_tesseract(processed, self.ocr_params)
-        logger.debug(f"OCR raw text: {text!r}")
-        return text
+        """Orient, extract text, and pick the best OCR result.
+
+        Tries both region-based OCR (skipping art) and full-image OCR,
+        then returns whichever produced more readable text.
+        """
+        img = ImageOps.exif_transpose(img)
+
+        # Detect and correct orientation
+        rotation = detect_orientation(img)
+        if rotation:
+            img = img.rotate(rotation, expand=True)
+            logger.debug(f"Rotated image {rotation}°")
+
+        # Try both approaches
+        region_text = ocr_card_regions(img, self.preprocess_params)
+        full_processed = preprocess_for_ocr(img, self.preprocess_params)
+        full_text = run_tesseract(full_processed, self.ocr_params)
+
+        # Pick the one with better text quality.
+        # Real text has longer average word length than OCR garbage.
+        region_score = _text_quality(region_text)
+        full_score = _text_quality(full_text)
+
+        if region_score > full_score:
+            logger.debug(f"Using region OCR (quality={region_score:.1f} vs {full_score:.1f})")
+            return region_text
+        else:
+            logger.debug(f"Using full-image OCR (quality={full_score:.1f} vs {region_score:.1f})")
+            return full_text
 
     def _match_and_build_card(self, ocr_text: str) -> Card:
         """Match OCR text against known cards and return a Card domain object."""
