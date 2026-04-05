@@ -1,6 +1,7 @@
 """SQLModel models for the scan logging database.
 
 Tables:
+- ScanBatch: Batch job metadata and summary
 - ScanAttempt: One row per scan with pipeline, result, and match info
 - ScanTiming: Per-stage timing breakdown
 - ScanParams: Parameter snapshot as JSON
@@ -14,6 +15,27 @@ from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
+class ScanBatch(SQLModel, table=True):
+    """A batch scan job run."""
+
+    __tablename__ = "scan_batch"
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
+    status: str = "running"  # running, completed, failed
+    source_dir: str = ""
+    total_images: int = 0
+    processed: int = 0
+    matched_openai: int = 0
+    matched_tesseract: int = 0
+    agreed: int = 0
+    added_to_collection: int = 0
+    total_cost_usd: float = 0.0
+    total_time_s: float = 0.0
+    summary_json: dict = Field(default_factory=dict, sa_column=Column(JSON))
+
+
 class ScanAttempt(SQLModel, table=True):
     """One row per card scan attempt."""
 
@@ -21,6 +43,7 @@ class ScanAttempt(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    batch_id: int | None = Field(default=None, foreign_key="scan_batch.id", index=True)
     pipeline: str = Field(index=True)
     image_hash: str = Field(index=True)
     image_size_bytes: int = 0

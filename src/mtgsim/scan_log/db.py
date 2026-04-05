@@ -10,6 +10,7 @@ from sqlmodel import Session, SQLModel
 from mtgsim.scan_log.models import (
     LLMCall,
     ScanAttempt,
+    ScanBatch,
     ScanMatchCandidate,
     ScanParams,
     ScanTiming,
@@ -62,6 +63,7 @@ def get_engine():
         SQLModel.metadata.create_all(
             _engine,
             tables=[
+                ScanBatch.__table__,
                 ScanAttempt.__table__,
                 ScanTiming.__table__,
                 ScanParams.__table__,
@@ -140,6 +142,7 @@ def log_scan(
     timing: dict[str, float] | None = None,
     params: dict | None = None,
     candidates: list[dict] | None = None,
+    batch_id: int | None = None,
 ) -> int:
     """Log a scan attempt. Returns the scan_attempt.id."""
     hash_hex = image_hash(image_data)
@@ -148,6 +151,7 @@ def log_scan(
     with get_session() as session:
         attempt = ScanAttempt(
             pipeline=pipeline,
+            batch_id=batch_id,
             image_hash=hash_hex,
             image_size_bytes=len(image_data),
             mime_type=mime_type,

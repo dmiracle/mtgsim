@@ -22,6 +22,7 @@ dependencies = [
     "pillow>=12.1.0",
     "pydantic-settings>=2.13.1",
     "pytesseract>=0.3.13",
+    "httpx>=0.28.1",
 ]
 
 [tool.uv.workspace]

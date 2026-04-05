@@ -7,6 +7,7 @@ from mtgsim.scan_log.db import get_engine
 from mtgsim.scan_log.models import (
     LLMCall,
     ScanAttempt,
+    ScanBatch,
     ScanMatchCandidate,
     ScanParams,
     ScanTiming,
@@ -234,3 +235,75 @@ def label_scan(scan_id: int, correct: bool, notes: str | None = None) -> bool:
         session.add(attempt)
         session.commit()
         return True
+
+
+def get_batch_list() -> list[dict]:
+    """List all batch scan jobs, newest first."""
+    with Session(get_engine()) as session:
+        batches = session.exec(select(ScanBatch).order_by(col(ScanBatch.created_at).desc())).all()
+        return [
+            {
+                "id": b.id,
+                "created_at": b.created_at.isoformat() if b.created_at else None,
+                "completed_at": b.completed_at.isoformat() if b.completed_at else None,
+                "status": b.status,
+                "source_dir": b.source_dir,
+                "total_images": b.total_images,
+                "processed": b.processed,
+                "matched_openai": b.matched_openai,
+                "matched_tesseract": b.matched_tesseract,
+                "agreed": b.agreed,
+                "added_to_collection": b.added_to_collection,
+                "total_cost_usd": b.total_cost_usd,
+                "total_time_s": b.total_time_s,
+            }
+            for b in batches
+        ]
+
+
+def get_batch_detail(batch_id: int) -> dict | None:
+    """Get full detail for a batch scan job, including per-image results."""
+    with Session(get_engine()) as session:
+        batch = session.exec(select(ScanBatch).where(ScanBatch.id == batch_id)).first()
+        if not batch:
+            return None
+
+        # Get all scans in this batch, grouped by image_hash
+        scans = session.exec(
+            select(ScanAttempt)
+            .where(ScanAttempt.batch_id == batch_id)
+            .order_by(ScanAttempt.image_hash, ScanAttempt.pipeline)
+        ).all()
+
+        # Group by image_hash
+        images: dict[str, dict] = {}
+        for s in scans:
+            if s.image_hash not in images:
+                images[s.image_hash] = {"image_hash": s.image_hash, "pipelines": {}}
+            images[s.image_hash]["pipelines"][s.pipeline] = {
+                "scan_id": s.id,
+                "extracted_name": s.extracted_name,
+                "matched": s.matched,
+                "match_type": s.match_type,
+                "match_confidence": s.match_confidence,
+                "matched_card_name": s.matched_card_name,
+                "added_to_collection": s.added_to_collection,
+            }
+
+        return {
+            "id": batch.id,
+            "created_at": batch.created_at.isoformat() if batch.created_at else None,
+            "completed_at": batch.completed_at.isoformat() if batch.completed_at else None,
+            "status": batch.status,
+            "source_dir": batch.source_dir,
+            "total_images": batch.total_images,
+            "processed": batch.processed,
+            "matched_openai": batch.matched_openai,
+            "matched_tesseract": batch.matched_tesseract,
+            "agreed": batch.agreed,
+            "added_to_collection": batch.added_to_collection,
+            "total_cost_usd": batch.total_cost_usd,
+            "total_time_s": batch.total_time_s,
+            "summary": batch.summary_json,
+            "images": list(images.values()),
+        }

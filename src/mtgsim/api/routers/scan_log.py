@@ -1,11 +1,15 @@
 """Scan log API endpoints and dashboard."""
 
+import threading
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from mtgsim.scan_log.db import get_image_path
 from mtgsim.scan_log.queries import (
+    get_batch_detail,
+    get_batch_list,
     get_llm_cost_stats,
     get_scan_detail,
     get_scan_list,
@@ -68,6 +72,40 @@ async def label(scan_id: int, req: LabelRequest) -> dict:
     if not ok:
         raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
     return {"success": True, "scan_id": scan_id, "correct": req.correct}
+
+
+@router.get("/batches")
+async def batches() -> list[dict]:
+    """List all batch scan jobs."""
+    return get_batch_list()
+
+
+@router.get("/batches/{batch_id}")
+async def batch_detail(batch_id: int) -> dict:
+    """Get detail for a batch scan job."""
+    detail = get_batch_detail(batch_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    return detail
+
+
+class BatchRequest(BaseModel):
+    source_dir: str
+    api_base: str = "http://localhost:8001"
+    add_to_collection: bool = True
+
+
+@router.post("/batches")
+async def start_batch(req: BatchRequest) -> dict:
+    """Start a batch scan job in the background."""
+    from mtgsim.scan_log.batch import run_batch
+
+    def _run():
+        run_batch(req.source_dir, api_base=req.api_base, add_to_collection=req.add_to_collection)
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"status": "started", "source_dir": req.source_dir}
 
 
 @router.get("/images/{image_hash}")
@@ -166,6 +204,7 @@ DASHBOARD_HTML = """\
 <div class="tab-bar">
   <div class="tab active" onclick="switchTab('history')">Scan History</div>
   <div class="tab" onclick="switchTab('costs')">LLM Costs</div>
+  <div class="tab" onclick="switchTab('batches')">Batch Jobs</div>
 </div>
 
 <div id="tab-history" class="tab-content active">
@@ -195,6 +234,16 @@ DASHBOARD_HTML = """\
   </table>
 </div>
 
+<div id="tab-batches" class="tab-content">
+  <div id="batch-stats" class="stats-grid"></div>
+  <h2>Batch Runs</h2>
+  <table>
+    <thead><tr><th>#</th><th>Started</th><th>Status</th><th>Images</th><th>OA Matched</th><th>TS Matched</th><th>Agreed</th><th>Added</th><th>Time</th></tr></thead>
+    <tbody id="batch-rows"></tbody>
+  </table>
+  <div class="detail-panel" id="batch-detail-panel"></div>
+</div>
+
 <script>
 const API = '/api/scan-log';
 let currentPage = 1;
@@ -216,6 +265,7 @@ function switchTab(name) {
   document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
   event.target.classList.add('active');
   if (name === 'costs') loadCosts();
+  if (name === 'batches') loadBatches();
 }
 
 async function loadStats() {
@@ -357,6 +407,73 @@ async function loadCosts() {
       <td>$${m.total_cost_usd.toFixed(4)}</td><td>${m.avg_latency_ms.toFixed(0)}ms</td>
     </tr>
   `).join('');
+}
+
+async function loadBatches() {
+  const batches = await api('/batches');
+  const tbody = document.getElementById('batch-rows');
+  tbody.innerHTML = batches.map(b => `
+    <tr onclick="loadBatchDetail(${b.id})" style="cursor:pointer">
+      <td>${b.id}</td>
+      <td>${b.created_at ? new Date(b.created_at).toLocaleString() : '—'}</td>
+      <td style="color:${b.status === 'completed' ? 'var(--green)' : b.status === 'running' ? 'var(--yellow)' : 'var(--red)'}">${b.status}</td>
+      <td>${b.processed}/${b.total_images}</td>
+      <td>${b.matched_openai}</td>
+      <td>${b.matched_tesseract}</td>
+      <td>${b.agreed}</td>
+      <td>${b.added_to_collection}</td>
+      <td>${b.total_time_s ? b.total_time_s.toFixed(1) + 's' : '—'}</td>
+    </tr>
+  `).join('');
+
+  if (batches.length > 0) {
+    const latest = batches[0];
+    document.getElementById('batch-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-value">${batches.length}</div><div class="stat-label">Total Batches</div></div>
+      <div class="stat-card"><div class="stat-value">${latest.processed}</div><div class="stat-label">Latest: Images</div></div>
+      <div class="stat-card"><div class="stat-value">${latest.matched_openai}</div><div class="stat-label">Latest: OA Matched</div></div>
+      <div class="stat-card"><div class="stat-value">${latest.matched_tesseract}</div><div class="stat-label">Latest: TS Matched</div></div>
+      <div class="stat-card"><div class="stat-value">${latest.agreed}</div><div class="stat-label">Latest: Agreed</div></div>
+      <div class="stat-card"><div class="stat-value">${latest.added_to_collection}</div><div class="stat-label">Latest: Added</div></div>
+    `;
+  }
+}
+
+async function loadBatchDetail(id) {
+  const d = await api(`/batches/${id}`);
+  const panel = document.getElementById('batch-detail-panel');
+  panel.classList.add('open');
+
+  const imageRows = d.images.map(img => {
+    const oa = img.pipelines.openai || {};
+    const ts = img.pipelines.tesseract || {};
+    const agree = oa.extracted_name && ts.extracted_name && oa.extracted_name === ts.extracted_name;
+    return `<tr>
+      <td><img src="${API}/images/${img.image_hash}" style="height:40px;border-radius:3px" onerror="this.style.display='none'"></td>
+      <td class="${oa.matched ? 'match-yes' : 'match-no'}">${oa.extracted_name || '—'}</td>
+      <td>${oa.matched ? oa.matched_card_name || '?' : '—'}</td>
+      <td class="${ts.matched ? 'match-yes' : 'match-no'}">${ts.extracted_name || '—'}</td>
+      <td>${ts.matched ? ts.matched_card_name || '?' : '—'}</td>
+      <td style="color:${agree ? 'var(--green)' : 'var(--red)'}">${agree ? '✓' : '✗'}</td>
+      <td>${oa.added_to_collection ? '✓' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <h3>Batch #${d.id} — ${d.status}</h3>
+    <div class="stats-grid" style="margin:12px 0">
+      <div class="stat-card"><div class="stat-value">${d.processed}/${d.total_images}</div><div class="stat-label">Processed</div></div>
+      <div class="stat-card"><div class="stat-value">${d.total_images > 0 ? (d.matched_openai / d.total_images * 100).toFixed(0) : 0}%</div><div class="stat-label">OA Match Rate</div></div>
+      <div class="stat-card"><div class="stat-value">${d.total_images > 0 ? (d.matched_tesseract / d.total_images * 100).toFixed(0) : 0}%</div><div class="stat-label">TS Match Rate</div></div>
+      <div class="stat-card"><div class="stat-value">${d.total_images > 0 ? (d.agreed / d.total_images * 100).toFixed(0) : 0}%</div><div class="stat-label">Agreement</div></div>
+      <div class="stat-card"><div class="stat-value">${d.total_time_s ? d.total_time_s.toFixed(1) + 's' : '—'}</div><div class="stat-label">Total Time</div></div>
+      <div class="stat-card"><div class="stat-value">${d.added_to_collection}</div><div class="stat-label">Added to Collection</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Image</th><th>OA Extracted</th><th>OA Match</th><th>TS Extracted</th><th>TS Match</th><th>Agree</th><th>Added</th></tr></thead>
+      <tbody>${imageRows}</tbody>
+    </table>
+  `;
 }
 
 // Init
