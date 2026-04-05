@@ -488,6 +488,7 @@ class UserDeck(SQLModel, table=True):
     __tablename__ = "user_deck"
 
     id: int | None = Field(default=None, primary_key=True)
+    uuid: str = Field(default_factory=lambda: str(__import__("uuid").uuid4()), unique=True, index=True)
     name: str = Field(index=True)
     description: str | None = None
 
@@ -541,12 +542,12 @@ class User17LEvent(SQLModel, table=True):
 
 
 class PinnedDeck(SQLModel, table=True):
-    """A pinned deck reference. Stores the deck file identifier and pin order."""
+    """A pinned deck reference by UUID. Works for both precon and user decks."""
 
     __tablename__ = "pinned_deck"
 
     id: int | None = Field(default=None, primary_key=True)
-    deck_file: str = Field(unique=True, index=True)
+    deck_uuid: str = Field(unique=True, index=True)
     pinned_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -66,6 +66,7 @@ class DeckService:
             file_name = d.get("file") or str(d.get("id"))
             data.append(
                 DeckSummary(
+                    uuid=d.get("uuid", ""),
                     file=file_name,
                     name=d["name"],
                     code=d.get("code", ""),
@@ -130,8 +131,11 @@ class DeckService:
                 missing_count=missing_count,
             )
 
+        deck_uuid = deck.get("uuid", meta.get("uuid", ""))
+
         return DeckDetail(
             meta=DeckMeta(
+                uuid=deck_uuid,
                 file=file_name,
                 name=meta.get("name", ""),
                 code=meta.get("code", ""),
@@ -238,6 +242,7 @@ class DeckService:
         summaries = decks_data.get_pinned_summaries()
         return [
             DeckSummary(
+                uuid=d.get("uuid", ""),
                 file=d.get("file") or str(d.get("id")),
                 name=d["name"],
                 code=d.get("code", ""),
@@ -252,13 +257,13 @@ class DeckService:
             for d in summaries
         ]
 
-    async def pin_deck(self, deck_file: str) -> bool:
-        """Pin a deck. Returns True if newly pinned."""
-        return decks_data.pin_deck(deck_file)
+    async def pin_deck(self, deck_uuid: str) -> bool:
+        """Pin a deck by UUID. Returns True if newly pinned."""
+        return decks_data.pin_deck(deck_uuid)
 
-    async def unpin_deck(self, deck_file: str) -> bool:
-        """Unpin a deck. Returns True if was pinned."""
-        return decks_data.unpin_deck(deck_file)
+    async def unpin_deck(self, deck_uuid: str) -> bool:
+        """Unpin a deck by UUID. Returns True if was pinned."""
+        return decks_data.unpin_deck(deck_uuid)
 
 
 # Singleton instance
