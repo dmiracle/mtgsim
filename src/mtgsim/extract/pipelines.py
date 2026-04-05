@@ -26,7 +26,18 @@ Separate the type line into:
 Distinguish between Oracle text (rules text) and Flavor text (italicized text).
 Identify the rarity from the set symbol color (black=common, silver=uncommon, gold=rare, orange-red=mythic).
 For creatures, extract power and toughness. For planeswalkers, extract starting loyalty.
-For battles, extract defense."""
+For battles, extract defense.
+
+Set and printing identification:
+- set_code: the 3-4 letter set code (e.g. M19, KLD, ZNR). Read from the bottom or the expansion symbol.
+- set_name: the full set name (e.g. "Core Set 2019", "Kaladesh").
+- collector_number: the card number shown at the bottom (e.g. "089/280", just the number before the slash).
+- finish: "normal", "foil" (rainbow/holographic sheen visible), or "etched" (textured foil on frame only).
+- language: 2-letter code (en, ja, de, fr, es, it, pt, ko, ru, zhs, zht). Default "en" for English.
+- border_color: "black", "white", "borderless", "silver", or "gold".
+- frame_version: the year-style frame (e.g. "2015", "2003", "1993").
+- is_promo: true if this is a promotional printing (stamped, alternate art, prerelease, etc.).
+- is_reprint: true if this card has been printed in a previous set."""
 
 
 class ExtractionPipeline(ABC):

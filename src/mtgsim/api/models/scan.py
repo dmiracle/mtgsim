@@ -17,6 +17,15 @@ class ExtractionDetail(BaseModel):
     rarity: str = "common"
     power: int | None = None
     toughness: int | None = None
+    set_code: str = ""
+    set_name: str = ""
+    collector_number: str = ""
+    finish: str = "normal"
+    language: str = "en"
+    border_color: str = ""
+    frame_version: str = ""
+    is_promo: bool = False
+    is_reprint: bool = False
 
 
 class ScanResponse(BaseModel):

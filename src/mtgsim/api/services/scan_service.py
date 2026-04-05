@@ -69,6 +69,15 @@ class ScanService:
             rarity=extracted.rarity.value,
             power=extracted.power,
             toughness=extracted.toughness,
+            set_code=extracted.set_code,
+            set_name=extracted.set_name,
+            collector_number=extracted.collector_number,
+            finish=extracted.finish.value,
+            language=extracted.language,
+            border_color=extracted.border_color,
+            frame_version=extracted.frame_version,
+            is_promo=extracted.is_promo,
+            is_reprint=extracted.is_reprint,
         )
 
         # Match against database
