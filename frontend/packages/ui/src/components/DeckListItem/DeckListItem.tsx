@@ -79,18 +79,23 @@ export function DeckListItem({ deck, pinned, onTogglePin, onDuplicate, onDelete,
             <button
               onClick={() => onDuplicate(deck.file)}
               title="Duplicate deck"
-              className="text-xs px-2 py-1 rounded font-medium border transition-colors bg-bg-tertiary text-text-muted border-border hover:text-accent hover:border-accent/40"
+              className="text-xs w-7 h-7 rounded flex items-center justify-center border transition-colors bg-bg-tertiary text-text-muted border-border hover:text-accent hover:border-accent/40"
             >
-              Copy
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                <path d="M5.5 3.5A1.5 1.5 0 0 1 7 2h5.5A1.5 1.5 0 0 1 14 3.5V9a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 9V3.5Z" />
+                <path d="M3 5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 3 14h6a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 9.5V5H3Z" />
+              </svg>
             </button>
           )}
           {isUserDeck && onDelete && (
             <button
               onClick={() => onDelete(deck.file)}
               title="Delete deck"
-              className="text-xs px-2 py-1 rounded font-medium border transition-colors bg-bg-tertiary text-text-muted border-border hover:text-danger hover:border-danger/40"
+              className="text-xs w-7 h-7 rounded flex items-center justify-center border transition-colors bg-bg-tertiary text-text-muted border-border hover:text-danger hover:border-danger/40"
             >
-              Del
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z" clipRule="evenodd" />
+              </svg>
             </button>
           )}
         </div>
