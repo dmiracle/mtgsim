@@ -34,6 +34,7 @@ async def llm_costs() -> dict:
 
 @router.get("/scans")
 async def scans(
+    q: str | None = Query(None, description="Search by extracted or matched card name"),
     pipeline: str | None = Query(None),
     matched: bool | None = Query(None),
     correct: bool | None = Query(None),
@@ -42,7 +43,7 @@ async def scans(
 ) -> dict:
     """Paginated scan history with filters."""
     offset = (page - 1) * limit
-    results, total = get_scan_list(pipeline=pipeline, matched=matched, correct=correct, limit=limit, offset=offset)
+    results, total = get_scan_list(q=q, pipeline=pipeline, matched=matched, correct=correct, limit=limit, offset=offset)
     return {
         "data": results,
         "total": total,
@@ -209,6 +210,7 @@ DASHBOARD_HTML = """\
 
 <div id="tab-history" class="tab-content active">
   <div class="filters">
+    <input id="f-search" type="text" placeholder="Search card name..." style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:0.85em;width:200px" onkeydown="if(event.key==='Enter')loadScans()">
     <select id="f-pipeline"><option value="">All Pipelines</option>
       <option value="openai">openai</option><option value="tesseract">tesseract</option><option value="mock">mock</option></select>
     <select id="f-matched"><option value="">All Results</option>
@@ -284,9 +286,11 @@ async function loadStats() {
 async function loadScans(page) {
   currentPage = page || 1;
   const p = new URLSearchParams();
+  const search = document.getElementById('f-search').value;
   const pipeline = document.getElementById('f-pipeline').value;
   const matched = document.getElementById('f-matched').value;
   const correct = document.getElementById('f-correct').value;
+  if (search) p.set('q', search);
   if (pipeline) p.set('pipeline', pipeline);
   if (matched) p.set('matched', matched);
   if (correct) p.set('correct', correct);

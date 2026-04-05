@@ -15,6 +15,7 @@ from mtgsim.scan_log.models import (
 
 
 def get_scan_list(
+    q: str | None = None,
     pipeline: str | None = None,
     matched: bool | None = None,
     correct: bool | None = None,
@@ -26,6 +27,11 @@ def get_scan_list(
         query = select(ScanAttempt)
         count_query = select(func.count(ScanAttempt.id))
 
+        if q:
+            search = f"%{q}%"
+            name_filter = ScanAttempt.extracted_name.like(search) | ScanAttempt.matched_card_name.like(search)
+            query = query.where(name_filter)
+            count_query = count_query.where(name_filter)
         if pipeline:
             query = query.where(ScanAttempt.pipeline == pipeline)
             count_query = count_query.where(ScanAttempt.pipeline == pipeline)
