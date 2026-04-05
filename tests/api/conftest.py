@@ -15,7 +15,15 @@ def setup_databases():
 
     from mtgdb.session import get_engine
 
-    attach_profiler(get_engine())
+    engine = get_engine()
+    attach_profiler(engine)
+
+    from mtgdb.embeddings.vec import load_sqlite_vec, register_sqlite_vec
+
+    register_sqlite_vec(engine)
+    # Also load on existing pooled connection
+    with engine.connect() as conn:
+        load_sqlite_vec(conn.connection.dbapi_connection)
     yield
     close_databases()
 

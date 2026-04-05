@@ -26,6 +26,7 @@ class TestListStrategies:
         assert "tags" in names
         assert "type_match" in names
         assert "mana_curve" in names
+        assert "oracle_vector" in names
 
 
 class TestSimilarCards:
@@ -98,3 +99,29 @@ class TestSimilarCards:
         data = client.get(f"/api/cards/{sample_card_uuid}/similar").json()
         scores = [r["score"] for r in data["results"]]
         assert scores == sorted(scores, reverse=True)
+
+
+class TestOracleVectorStrategy:
+    """Tests for oracle_vector similarity strategy."""
+
+    def test_oracle_vector_returns_200(self, client, sample_card_uuid):
+        response = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=oracle_vector&limit=5")
+        assert response.status_code == 200
+
+    def test_oracle_vector_strategy_name(self, client, sample_card_uuid):
+        data = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=oracle_vector&limit=5").json()
+        assert data["strategies_used"] == ["oracle_vector"]
+
+    def test_oracle_vector_returns_results(self, client, sample_card_uuid):
+        data = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=oracle_vector&limit=5").json()
+        assert len(data["results"]) > 0
+
+    def test_oracle_vector_scores_are_valid(self, client, sample_card_uuid):
+        data = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=oracle_vector&limit=5").json()
+        for r in data["results"]:
+            assert 0 < r["score"] <= 1.0
+            assert "oracle_vector" in r["strategy_scores"]
+
+    def test_oracle_vector_combined_with_keywords(self, client, sample_card_uuid):
+        data = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=keywords,oracle_vector&limit=10").json()
+        assert set(data["strategies_used"]) == {"keywords", "oracle_vector"}

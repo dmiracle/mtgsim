@@ -7,6 +7,7 @@ Import this package to register all built-in strategies.
 from . import (
     keywords,  # noqa: F401
     mana_curve,  # noqa: F401
+    oracle_vector,  # noqa: F401
     tags,  # noqa: F401
     type_match,  # noqa: F401
 )
