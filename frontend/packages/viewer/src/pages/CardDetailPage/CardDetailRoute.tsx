@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useCard, useKeywords, useAddToCollection, useSaveRating, useStrategies, useSimilarCards } from "@/api/hooks";
+import { useCard, useKeywords, useAddToCollection, useSaveRating, useStrategies, useSimilarCards, useCardVector } from "@/api/hooks";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { CardDetailPage } from "./CardDetailPage";
 
@@ -28,6 +28,7 @@ export function CardDetailRoute() {
   const addToCollection = useAddToCollection();
   const saveRating = useSaveRating();
 
+  const { data: cardVector } = useCardVector(uuid ?? "");
   const { data: strategies } = useStrategies();
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
   const [similarFilters, setSimilarFilters] = useState(emptyFilters);
@@ -57,6 +58,7 @@ export function CardDetailRoute() {
       similarFilters={similarFilters}
       onSimilarFiltersChange={setSimilarFilters}
       onSimilarCardClick={(id) => navigate(`/cards/${id}`)}
+      cardVector={cardVector}
     />
   );
 }
