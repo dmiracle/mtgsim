@@ -90,6 +90,13 @@ class TestAggregateVectors:
         for v in data["vector"]:
             assert 0.0 <= v <= 1.0
 
+    def test_vector_is_unit_length(self, client):
+        import math
+
+        data = client.get("/api/cards/features/aggregate?set=KLD").json()
+        magnitude = math.sqrt(sum(v * v for v in data["vector"]))
+        assert abs(magnitude - 1.0) < 0.01
+
     def test_card_count_positive(self, client):
         data = client.get("/api/cards/features/aggregate?set=KLD").json()
         assert data["card_count"] > 0
@@ -114,6 +121,13 @@ class TestDeckFeatures:
         data = client.get(f"/api/decks/{sample_deck_file}/features").json()
         for v in data["vector"]:
             assert 0.0 <= v <= 1.0
+
+    def test_vector_is_unit_length(self, client, sample_deck_file):
+        import math
+
+        data = client.get(f"/api/decks/{sample_deck_file}/features").json()
+        magnitude = math.sqrt(sum(v * v for v in data["vector"]))
+        assert abs(magnitude - 1.0) < 0.01
 
     def test_nonexistent_returns_404(self, client):
         response = client.get("/api/decks/nonexistent.json/features")

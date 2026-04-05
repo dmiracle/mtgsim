@@ -51,7 +51,17 @@ def _get_global_max(session) -> list[float]:
 
 def _normalize_per_dimension(vec: list[float], global_max: list[float]) -> list[float]:
     """Normalize each dimension against its global max, producing 0-1 values."""
-    return [v / g for v, g in zip(vec, global_max, strict=True)]
+    return [min(v / g, 1.0) for v, g in zip(vec, global_max, strict=True)]
+
+
+def _l2_normalize(vec: list[float]) -> list[float]:
+    """L2-normalize a vector to unit length."""
+    import math
+
+    magnitude = math.sqrt(sum(v * v for v in vec))
+    if magnitude == 0:
+        return vec
+    return [v / magnitude for v in vec]
 
 
 class FeatureService:
@@ -187,10 +197,11 @@ class FeatureService:
         with get_session() as session:
             global_max = _get_global_max(session)
 
-        normalized = _normalize_per_dimension(summed, global_max)
+        per_dim = _normalize_per_dimension(summed, global_max)
+        normalized = _l2_normalize(per_dim)
 
         return {
-            "vector": [round(min(v, 1.0), 6) for v in normalized],
+            "vector": [round(v, 6) for v in normalized],
             "dimensions": dims,
             "dimension_names": compact_dimension_names(),
             "card_count": batch["total"],
@@ -245,10 +256,11 @@ class FeatureService:
                 total_cards += count
 
             global_max = _get_global_max(session)
-            normalized = _normalize_per_dimension(summed, global_max)
+            per_dim = _normalize_per_dimension(summed, global_max)
+            normalized = _l2_normalize(per_dim)
 
             return {
-                "vector": [round(min(v, 1.0), 6) for v in normalized],
+                "vector": [round(v, 6) for v in normalized],
                 "dimensions": dims,
                 "dimension_names": compact_dimension_names(),
                 "card_count": total_cards,
