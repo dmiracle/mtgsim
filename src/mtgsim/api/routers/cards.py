@@ -206,6 +206,19 @@ async def get_keyword_frequencies(
     return keywords_data.categorize_keyword_freq(freq)
 
 
+@router.get("/features/grid-layout")
+async def get_feature_grid_layout() -> dict:
+    """Get the optimal 8x8 grid layout for the 64 compact feature dimensions.
+
+    Uses PCA on feature co-occurrence + Hungarian algorithm to assign
+    each feature to a grid cell preserving spatial relationships.
+    The layout is deterministic for a given card database.
+    """
+    from mtgsim.api.services.feature_service import feature_service
+
+    return feature_service.compute_grid_layout()
+
+
 @router.get("/features/compact")
 async def batch_compact_vectors(
     q: str | None = Query(None, description="Search by card name"),

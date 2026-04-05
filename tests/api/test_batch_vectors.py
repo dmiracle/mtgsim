@@ -1,4 +1,35 @@
-"""Tests for batch compact vectors, aggregate, and deck feature endpoints."""
+"""Tests for batch compact vectors, aggregate, deck features, and grid layout."""
+
+
+class TestFeatureGridLayout:
+    """Tests for GET /api/cards/features/grid-layout."""
+
+    def test_returns_200(self, client):
+        response = client.get("/api/cards/features/grid-layout")
+        assert response.status_code == 200
+
+    def test_response_structure(self, client):
+        data = client.get("/api/cards/features/grid-layout").json()
+        assert data["grid_size"] == 8
+        assert data["dimensions"] == 64
+        assert len(data["layout"]) == 64
+        assert "pca_variance_explained" in data
+
+    def test_all_cells_assigned(self, client):
+        data = client.get("/api/cards/features/grid-layout").json()
+        cells = {(item["row"], item["col"]) for item in data["layout"]}
+        expected = {(r, c) for r in range(8) for c in range(8)}
+        assert cells == expected
+
+    def test_all_features_present(self, client):
+        data = client.get("/api/cards/features/grid-layout").json()
+        features = {item["feature"] for item in data["layout"]}
+        assert len(features) == 64
+
+    def test_layout_items_have_index(self, client):
+        data = client.get("/api/cards/features/grid-layout").json()
+        indices = {item["index"] for item in data["layout"]}
+        assert indices == set(range(64))
 
 
 class TestBatchCompactVectors:
