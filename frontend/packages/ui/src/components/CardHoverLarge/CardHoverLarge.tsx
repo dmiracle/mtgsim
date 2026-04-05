@@ -9,6 +9,7 @@ type CardHoverLargeProps = {
   quantity?: number;
   onPin?: (uuid: string) => void;
   onAddToDeck?: (uuid: string) => void;
+  onFindSimilar?: (uuid: string) => void;
   onClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
   children: ReactNode;
@@ -23,6 +24,7 @@ export function CardHoverLarge({
   quantity,
   onPin,
   onAddToDeck,
+  onFindSimilar,
   onClick,
   onSetClick,
   children,
@@ -88,6 +90,7 @@ export function CardHoverLarge({
               quantity={quantity}
               onPin={onPin}
               onAddToDeck={onAddToDeck}
+              onFindSimilar={onFindSimilar}
               onClick={onClick}
               onSetClick={onSetClick}
             />

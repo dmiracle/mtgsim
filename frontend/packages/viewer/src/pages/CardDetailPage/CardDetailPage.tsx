@@ -1,4 +1,8 @@
-import type { CardDetail, KeywordsResponse } from "@/types/api";
+import type { CardDetail, KeywordsResponse, SimilarCardResult, Strategy } from "@/types/api";
+import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
+import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
+import { StrategyPicker } from "@/components/StrategyPicker/StrategyPicker";
+import { SimilarCardGrid } from "@/components/SimilarCardGrid/SimilarCardGrid";
 import { CardIdentity } from "@/components/CardIdentity/CardIdentity";
 import { CardOracleText } from "@/components/CardOracleText/CardOracleText";
 import { QuadrantRating } from "@/components/QuadrantRating/QuadrantRating";
@@ -22,6 +26,13 @@ type CardDetailPageProps = {
   onAddToCollection: () => void;
   onSaveRating: (rating: { developing: number | null; ahead: number | null; behind: number | null; parity: number | null; notes: string | null }) => void;
   setFilter?: string[];
+  strategies?: Strategy[];
+  selectedStrategies?: string[];
+  onStrategiesChange?: (selected: string[]) => void;
+  similarResults?: SimilarCardResult[];
+  similarFilters?: CardFilters;
+  onSimilarFiltersChange?: (filters: CardFilters) => void;
+  onSimilarCardClick?: (uuid: string) => void;
 };
 
 function buildKeywordGroups(card: CardDetail, keywordTypes?: KeywordsResponse) {
@@ -58,6 +69,13 @@ export function CardDetailPage({
   onAddToCollection,
   onSaveRating,
   setFilter,
+  strategies,
+  selectedStrategies,
+  onStrategiesChange,
+  similarResults,
+  similarFilters,
+  onSimilarFiltersChange,
+  onSimilarCardClick,
 }: CardDetailPageProps) {
   const keywordGroups = buildKeywordGroups(card, keywordTypes);
 
@@ -104,6 +122,23 @@ export function CardDetailPage({
 
           <CardKeywords groups={keywordGroups} />
 
+          {/* Tags */}
+          {card.tags.length > 0 && (
+            <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-medium text-text-secondary">Tags</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {card.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 text-xs rounded bg-bg-tertiary text-text-secondary border border-border"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Legality */}
           <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
             <h3 className="text-sm font-medium text-text-secondary">Format Legality</h3>
@@ -115,6 +150,34 @@ export function CardDetailPage({
           <OtherPrintings printings={filteredPrintings} onSelect={onPrintingClick} />
 
           <DeckAppearances decks={card.appears_in_decks} onSelect={onDeckClick} />
+
+          {/* Similar Cards */}
+          {strategies && strategies.length > 0 && onStrategiesChange && (
+            <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-medium text-text-secondary">Similar Cards</h3>
+              <StrategyPicker
+                strategies={strategies}
+                selected={selectedStrategies ?? []}
+                onChange={onStrategiesChange}
+              />
+              {similarFilters && onSimilarFiltersChange && (
+                <CardFilterBar
+                  filters={similarFilters}
+                  onChange={onSimilarFiltersChange}
+                  sortOptions={[
+                    { value: "score", label: "Similarity" },
+                    { value: "name", label: "Name" },
+                    { value: "mana_value", label: "Mana Value" },
+                    { value: "price", label: "Price" },
+                  ]}
+                />
+              )}
+              <SimilarCardGrid
+                results={similarResults ?? []}
+                onCardClick={onSimilarCardClick}
+              />
+            </div>
+          )}
 
           <RawJsonViewer data={card} title="Card JSON" />
         </div>

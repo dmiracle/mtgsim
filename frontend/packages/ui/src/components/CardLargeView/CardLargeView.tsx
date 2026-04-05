@@ -9,6 +9,7 @@ type CardLargeViewProps = {
   quantity?: number;
   onPin?: (uuid: string) => void;
   onAddToDeck?: (uuid: string) => void;
+  onFindSimilar?: (uuid: string) => void;
   onClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
 };
@@ -42,6 +43,7 @@ export function CardLargeView({
   quantity,
   onPin,
   onAddToDeck,
+  onFindSimilar,
   onClick,
   onSetClick,
 }: CardLargeViewProps) {
@@ -197,6 +199,14 @@ export function CardLargeView({
           >
             + Deck
           </button>
+          {onFindSimilar && (
+            <button
+              onClick={() => onFindSimilar(card.uuid)}
+              className="text-xs px-2.5 py-1 rounded bg-bg-tertiary text-text-muted hover:text-accent transition-colors"
+            >
+              Similar
+            </button>
+          )}
           <button
             onClick={() => navigator.clipboard.writeText(card.uuid)}
             className="text-xs px-2.5 py-1 rounded bg-bg-tertiary text-text-muted hover:text-text-secondary transition-colors ml-auto"
