@@ -1,6 +1,7 @@
 import type { CardDetail } from "@/types/api";
 import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 import { SetBadge } from "@/components/SetBadge/SetBadge";
+import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
 
 type CardLargeViewProps = {
   card: CardDetail;
@@ -70,11 +71,9 @@ export function CardLargeView({
             <p className="text-text-muted text-sm mt-1">{card.type}</p>
           </div>
         )}
-        {pinned && (
-          <span className="absolute top-3 left-3 bg-warning text-yellow-900 text-xs font-bold px-2 py-1 rounded">
-            PIN
-          </span>
-        )}
+        <div className="absolute top-3 left-3">
+          <PinnedBadge pinned={pinned} onToggle={onPin ? () => onPin(card.uuid) : undefined} size="md" />
+        </div>
         {quantity && quantity > 1 && (
           <span className="absolute top-3 right-3 bg-accent text-white text-sm font-bold w-8 h-8 rounded-full flex items-center justify-center">
             {quantity}
@@ -192,16 +191,6 @@ export function CardLargeView({
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 pt-1">
-          <button
-            onClick={() => onPin?.(card.uuid)}
-            className={`text-xs px-2.5 py-1 rounded transition-colors ${
-              pinned
-                ? "bg-accent-muted text-accent"
-                : "bg-bg-tertiary text-text-muted hover:text-warning"
-            }`}
-          >
-            {pinned ? "★ Pinned" : "☆ Pin"}
-          </button>
           <button
             onClick={() => onAddToDeck?.(card.uuid)}
             className="text-xs px-2.5 py-1 rounded bg-bg-tertiary text-text-muted hover:text-accent transition-colors"

@@ -4,7 +4,7 @@ import { DeckStats } from "@/components/DeckStats/DeckStats";
 import { DeckCards } from "@/components/DeckCards/DeckCards";
 import { DeckCardList } from "@/components/DeckCardList/DeckCardList";
 import { AddCardToDeckModal } from "@/components/AddCardToDeckModal/AddCardToDeckModal";
-import { PinButton } from "@/components/PinButton/PinButton";
+import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
 import { RawJsonViewer } from "@/components/RawJsonViewer/RawJsonViewer";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 
@@ -69,6 +69,7 @@ export function DeckDetailPage({
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <button onClick={onBack} className="text-xs text-text-muted hover:text-accent transition-colors">&larr; Back</button>
+        <PinnedBadge pinned={!!pinned} onToggle={onTogglePin} size="md" />
         <div className="min-w-0">
           <h2 className="text-lg sm:text-xl font-bold text-text-primary truncate">{deck.meta.name}</h2>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-0.5">
@@ -78,32 +79,27 @@ export function DeckDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-1 ml-auto shrink-0">
-          {onTogglePin && (
-            <PinButton pinned={!!pinned} onToggle={onTogglePin} size="sm" />
-          )}
-          {onDuplicate && (
-            <button
-              onClick={onDuplicate}
-              title="Duplicate deck"
-              className="text-xs w-7 h-7 rounded flex items-center justify-center border transition-colors bg-bg-tertiary text-text-muted border-border hover:text-accent hover:border-accent/40"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <path d="M5.5 3.5A1.5 1.5 0 0 1 7 2h5.5A1.5 1.5 0 0 1 14 3.5V9a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 9V3.5Z" />
-                <path d="M3 5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 3 14h6a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 9.5V5H3Z" />
-              </svg>
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={onDelete}
-              title="Delete deck"
-              className="text-xs w-7 h-7 rounded flex items-center justify-center border transition-colors bg-bg-tertiary text-text-muted border-border hover:text-danger hover:border-danger/40"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
+          <button
+            onClick={onDuplicate}
+            title="Duplicate deck"
+            disabled={!onDuplicate}
+            className={`text-xs w-7 h-7 rounded flex items-center justify-center border transition-colors ${onDuplicate ? "bg-bg-tertiary text-text-muted border-border hover:text-accent hover:border-accent/40" : "bg-bg-tertiary text-text-muted/20 border-border/50 cursor-default"}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+              <path d="M5.5 3.5A1.5 1.5 0 0 1 7 2h5.5A1.5 1.5 0 0 1 14 3.5V9a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 9V3.5Z" />
+              <path d="M3 5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 3 14h6a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 9.5V5H3Z" />
+            </svg>
+          </button>
+          <button
+            onClick={onDelete}
+            title="Delete deck"
+            disabled={!onDelete}
+            className={`text-xs w-7 h-7 rounded flex items-center justify-center border transition-colors ${onDelete ? "bg-bg-tertiary text-text-muted border-border hover:text-danger hover:border-danger/40" : "bg-bg-tertiary text-text-muted/20 border-border/50 cursor-default"}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+              <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
       </div>
 
