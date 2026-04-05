@@ -32,7 +32,7 @@ class OCRPreprocessParams(BaseModel):
     grayscale: bool = True
 
     # Contrast enhancement factor (1.0 = no change, >1 = more contrast)
-    contrast: float = 1.5
+    contrast: float = 2.0
 
     # Sharpness enhancement factor (1.0 = no change, >1 = sharper)
     sharpness: float = 2.0
@@ -50,8 +50,8 @@ class OCRPreprocessParams(BaseModel):
 class OCRParams(BaseModel):
     """Tesseract OCR configuration."""
 
-    # Page segmentation mode. 6 = uniform block of text, 3 = fully automatic.
-    psm: int = 6
+    # Page segmentation mode. 3 = fully automatic (best for cards with mixed regions).
+    psm: int = 3
 
     # Language (eng = English). Tesseract must have the language data installed.
     lang: str = "eng"

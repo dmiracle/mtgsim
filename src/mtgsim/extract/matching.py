@@ -24,13 +24,15 @@ class TextMatchParams(BaseModel):
     """Parameters for text matching — all configurable."""
 
     # Minimum overall score to consider a match
-    threshold: float = 60.0
+    threshold: float = 55.0
 
     # Weights for different card fields when computing overall score.
-    # Higher weight = more influence on final score.
-    name_weight: float = 3.0
-    type_line_weight: float = 1.0
-    oracle_text_weight: float = 2.0
+    # Oracle text is the most reliable OCR signal (card names are often
+    # unreadable due to styled fonts over artwork).
+    name_weight: float = 1.5
+    type_line_weight: float = 1.5
+    oracle_text_weight: float = 4.0
+    combined_weight: float = 3.0  # full text vs concatenated card fields
 
     # Max candidates to return
     max_results: int = 5
@@ -39,7 +41,7 @@ class TextMatchParams(BaseModel):
     # because card names appear as substrings in noisy text.
     name_scorer: str = "partial_ratio"
 
-    # Fuzzy scorer for type line and oracle text matching.
+    # Fuzzy scorer for type line, oracle text, and combined matching.
     # token_set_ratio handles word-level overlap well.
     text_scorer: str = "token_set_ratio"
 
@@ -51,6 +53,11 @@ class CardRecord(BaseModel):
     name: str
     type_line: str = ""
     oracle_text: str = ""
+
+    @property
+    def combined_text(self) -> str:
+        """All card text concatenated for full-text matching."""
+        return f"{self.name} {self.type_line} {self.oracle_text}".strip()
 
 
 class TextMatchStrategy(ABC):
@@ -89,9 +96,12 @@ _SCORERS = {
 class FuzzyTextMatch(TextMatchStrategy):
     """Match OCR text against cards using rapidfuzz string similarity.
 
-    Scores each card field independently, then computes a weighted average.
-    The OCR text is compared against card name, type line, and oracle text —
-    whichever fields are available.
+    Two-phase approach:
+    1. Candidate generation — find cards whose oracle text or name partially
+       matches any line of OCR text. This catches cards even when the name
+       is unreadable (oracle text is the most reliable OCR signal).
+    2. Multi-field scoring — score each candidate on name, type line, oracle
+       text, and combined text. Weighted average determines the winner.
     """
 
     def match(
@@ -105,74 +115,96 @@ class FuzzyTextMatch(TextMatchStrategy):
         text_scorer = _SCORERS.get(params.text_scorer, fuzz.token_set_ratio)
 
         full_text = ocr_text
-
-        # Try every OCR line as a potential card name — the name could be
-        # on any line due to OCR noise, headers, or partial reads.
         lines = [ln.strip() for ln in ocr_text.strip().splitlines() if ln.strip()]
-        # Also try the full text (for single-line OCR results)
-        candidate_lines = lines + [full_text] if lines else [full_text]
 
-        # Build lookup structures once
-        name_list = [c.name for c in cards]
+        # Phase 1: Candidate generation from multiple signals
+        # Build lookup structures
         name_to_cards: dict[str, list[CardRecord]] = {}
         for c in cards:
             name_to_cards.setdefault(c.name, []).append(c)
 
-        # For each line, get the best name matches from rapidfuzz.
-        # Track the best name score per card across all lines.
-        best_name_scores: dict[str, float] = {}  # card_name -> best score
+        candidate_uuids: set[str] = set()
+
+        # 1a. Name matching — try each OCR line as a potential card name
+        name_list = [c.name for c in cards]
+        candidate_lines = lines + [full_text] if lines else [full_text]
         for line in candidate_lines:
             if len(line) < 3:
                 continue
-            candidates = process.extract(
-                line,
-                name_list,
-                scorer=name_scorer,
-                limit=params.max_results * 2,
-            )
-            for cand_name, score, _ in candidates:
-                if score > best_name_scores.get(cand_name, 0):
-                    best_name_scores[cand_name] = score
+            hits = process.extract(line, name_list, scorer=name_scorer, limit=params.max_results)
+            for cand_name, score, _ in hits:
+                if score >= 70:
+                    for c in name_to_cards.get(cand_name, []):
+                        candidate_uuids.add(c.uuid)
 
-        # Score and rank candidates using weighted multi-field matching
+        # 1b. Oracle text matching — compare full OCR text against oracle texts
+        oracle_list = [c.oracle_text for c in cards if c.oracle_text]
+        oracle_to_cards: dict[str, list[CardRecord]] = {}
+        for c in cards:
+            if c.oracle_text:
+                oracle_to_cards.setdefault(c.oracle_text, []).append(c)
+
+        oracle_hits = process.extract(full_text, oracle_list, scorer=text_scorer, limit=params.max_results * 3)
+        for oracle_text_hit, score, _ in oracle_hits:
+            if score >= 50:
+                for c in oracle_to_cards.get(oracle_text_hit, []):
+                    candidate_uuids.add(c.uuid)
+
+        # Phase 2: Multi-field scoring of all candidates
+        card_by_uuid = {c.uuid: c for c in cards}
         results = []
-        seen_uuids = set()
 
-        for cand_name, name_score in sorted(best_name_scores.items(), key=lambda x: x[1], reverse=True):
-            for card in name_to_cards.get(cand_name, []):
-                if card.uuid in seen_uuids:
-                    continue
-                seen_uuids.add(card.uuid)
+        for uuid in candidate_uuids:
+            card = card_by_uuid.get(uuid)
+            if not card:
+                continue
 
-                component_scores = {"name": name_score}
-                total_weight = params.name_weight
-                weighted_sum = name_score * params.name_weight
+            component_scores: dict[str, float] = {}
+            total_weight = 0.0
+            weighted_sum = 0.0
 
-                # Score type line match against full OCR text
-                if card.type_line:
-                    type_score = text_scorer(full_text, card.type_line)
-                    component_scores["type_line"] = type_score
-                    weighted_sum += type_score * params.type_line_weight
-                    total_weight += params.type_line_weight
+            # Name score — best across all OCR lines
+            best_name = 0.0
+            for line in candidate_lines:
+                if len(line) >= 3:
+                    s = name_scorer(line, card.name)
+                    if s > best_name:
+                        best_name = s
+            component_scores["name"] = best_name
+            weighted_sum += best_name * params.name_weight
+            total_weight += params.name_weight
 
-                # Score oracle text match against full OCR text
-                if card.oracle_text:
-                    oracle_score = text_scorer(full_text, card.oracle_text)
-                    component_scores["oracle_text"] = oracle_score
-                    weighted_sum += oracle_score * params.oracle_text_weight
-                    total_weight += params.oracle_text_weight
+            # Type line score
+            if card.type_line:
+                type_score = text_scorer(full_text, card.type_line)
+                component_scores["type_line"] = type_score
+                weighted_sum += type_score * params.type_line_weight
+                total_weight += params.type_line_weight
 
-                overall = weighted_sum / total_weight if total_weight > 0 else 0
+            # Oracle text score — strongest signal
+            if card.oracle_text:
+                oracle_score = text_scorer(full_text, card.oracle_text)
+                component_scores["oracle_text"] = oracle_score
+                weighted_sum += oracle_score * params.oracle_text_weight
+                total_weight += params.oracle_text_weight
 
-                if overall >= params.threshold:
-                    results.append(
-                        TextMatchResult(
-                            card_name=card.name,
-                            card_uuid=card.uuid,
-                            score=round(overall, 2),
-                            component_scores={k: round(v, 2) for k, v in component_scores.items()},
-                        )
+            # Combined text score — full OCR vs all card text concatenated
+            combined_score = text_scorer(full_text, card.combined_text)
+            component_scores["combined"] = combined_score
+            weighted_sum += combined_score * params.combined_weight
+            total_weight += params.combined_weight
+
+            overall = weighted_sum / total_weight if total_weight > 0 else 0
+
+            if overall >= params.threshold:
+                results.append(
+                    TextMatchResult(
+                        card_name=card.name,
+                        card_uuid=card.uuid,
+                        score=round(overall, 2),
+                        component_scores={k: round(v, 2) for k, v in component_scores.items()},
                     )
+                )
 
         results.sort(key=lambda r: r.score, reverse=True)
         return results[: params.max_results]
