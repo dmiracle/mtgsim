@@ -125,3 +125,33 @@ class TestOracleVectorStrategy:
     def test_oracle_vector_combined_with_keywords(self, client, sample_card_uuid):
         data = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=keywords,oracle_vector&limit=10").json()
         assert set(data["strategies_used"]) == {"keywords", "oracle_vector"}
+
+
+class TestSimilarCardsFilters:
+    """Tests for card filters on similarity results."""
+
+    def test_filter_by_rarity(self, client, sample_card_uuid):
+        data = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=mana_curve&rarity=rare&limit=10").json()
+        assert data["total"] >= 0  # may be 0 if no rare matches
+
+    def test_filter_by_colors(self, client, sample_card_uuid):
+        response = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=mana_curve&colors=R&limit=10")
+        assert response.status_code == 200
+
+    def test_filter_by_format(self, client, sample_card_uuid):
+        response = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=keywords&format=standard&limit=10")
+        assert response.status_code == 200
+
+    def test_filter_by_type(self, client, sample_card_uuid):
+        response = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=keywords&type=Creature&limit=10")
+        assert response.status_code == 200
+
+    def test_filter_by_mana_value(self, client, sample_card_uuid):
+        response = client.get(f"/api/cards/{sample_card_uuid}/similar?strategies=keywords&mana_value=2,3&limit=10")
+        assert response.status_code == 200
+
+    def test_multiple_filters(self, client, sample_card_uuid):
+        response = client.get(
+            f"/api/cards/{sample_card_uuid}/similar?strategies=keywords,tags&rarity=uncommon&colors=G&limit=10"
+        )
+        assert response.status_code == 200

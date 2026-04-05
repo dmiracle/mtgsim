@@ -75,19 +75,19 @@ async def list_pinned_decks() -> list[DeckSummary]:
     return await deck_service.get_pinned_decks()
 
 
-@router.post("/pinned/{file}")
-async def pin_deck(file: str) -> dict:
-    """Pin a deck by file identifier."""
-    newly_pinned = await deck_service.pin_deck(file)
+@router.post("/pinned/{uuid}")
+async def pin_deck(uuid: str) -> dict:
+    """Pin a deck by UUID."""
+    newly_pinned = await deck_service.pin_deck(uuid)
     return {"status": "pinned", "created": newly_pinned}
 
 
-@router.delete("/pinned/{file:path}")
-async def unpin_deck(file: str) -> dict:
-    """Unpin a deck by file identifier."""
-    was_pinned = await deck_service.unpin_deck(file)
+@router.delete("/pinned/{uuid}")
+async def unpin_deck(uuid: str) -> dict:
+    """Unpin a deck by UUID."""
+    was_pinned = await deck_service.unpin_deck(uuid)
     if not was_pinned:
-        raise HTTPException(status_code=404, detail=f"Deck not pinned: {file}")
+        raise HTTPException(status_code=404, detail=f"Deck not pinned: {uuid}")
     return {"status": "unpinned"}
 
 
@@ -123,6 +123,12 @@ class DeckCreateRequest(BaseModel):
     format: str | None = None
 
 
+class DeckUpdateRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    format: str | None = None
+
+
 class AddCardRequest(BaseModel):
     card_uuid: str
     count: int = 1
@@ -131,6 +137,7 @@ class AddCardRequest(BaseModel):
 
 class UserDeckResponse(BaseModel):
     id: int
+    uuid: str = ""
     name: str
     description: str | None = None
     format: str | None = None
@@ -212,6 +219,17 @@ async def duplicate_deck(file: str) -> UserDeckResponse:
     result = await deck_service.duplicate_deck(file)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
+    return UserDeckResponse(**result)
+
+
+@router.patch("/{deck_id}", response_model=UserDeckResponse)
+async def update_deck(deck_id: int, req: DeckUpdateRequest) -> UserDeckResponse:
+    """Update a user deck's metadata (name, description, format)."""
+    result = await deck_service.update_user_deck(
+        deck_id=deck_id, name=req.name, description=req.description, format=req.format
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
     return UserDeckResponse(**result)
 
 

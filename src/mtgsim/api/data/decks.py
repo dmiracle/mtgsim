@@ -322,6 +322,7 @@ class DecksData:
             decks.append(
                 {
                     "id": deck.id,
+                    "uuid": deck.uuid,
                     "name": deck.name,
                     "description": deck.description,
                     "format": deck.format,
@@ -544,6 +545,7 @@ class DecksData:
 
             return {
                 "id": deck.id,
+                "uuid": deck.uuid,
                 "meta": {
                     "name": deck.name,
                     "description": deck.description,
@@ -865,6 +867,7 @@ class DecksData:
 
             return {
                 "id": deck.id,
+                "uuid": deck.uuid,
                 "name": deck.name,
                 "description": deck.description,
                 "format": deck.format,
@@ -924,6 +927,7 @@ class DecksData:
             total = sum(c.count for c in cards)
             return {
                 "id": new_deck.id,
+                "uuid": new_deck.uuid,
                 "name": new_deck.name,
                 "description": new_deck.description,
                 "format": new_deck.format,
@@ -969,6 +973,7 @@ class DecksData:
             total = sum((c.count or 1) for c in precon_cards if c.card_uuid)
             return {
                 "id": new_deck.id,
+                "uuid": new_deck.uuid,
                 "name": new_deck.name,
                 "description": new_deck.description,
                 "format": new_deck.format,
@@ -998,8 +1003,21 @@ class DecksData:
 
             session.add(deck)
             session.commit()
+            session.refresh(deck)
 
-            return self._get_user_deck(deck_id)
+            card_count_row = session.exec(
+                select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
+            ).first()
+
+            return {
+                "id": deck.id,
+                "uuid": deck.uuid,
+                "name": deck.name,
+                "description": deck.description,
+                "format": deck.format,
+                "card_count": card_count_row or 0,
+                "source": deck.source,
+            }
 
     def delete_user_deck(self, deck_id: int) -> bool:
         """Delete a user deck and all its cards."""
@@ -1111,31 +1129,31 @@ class DecksData:
 
     # ── Pinned decks ──────────────────────────────────────────────────
 
-    def get_pinned_files(self) -> list[str]:
-        """Return all pinned deck file identifiers ordered by pin time."""
+    def get_pinned_uuids(self) -> list[str]:
+        """Return all pinned deck UUIDs ordered by pin time."""
         with get_session() as session:
-            query = select(PinnedDeck.deck_file).order_by(PinnedDeck.pinned_at.asc())
+            query = select(PinnedDeck.deck_uuid).order_by(PinnedDeck.pinned_at.asc())
             return list(session.exec(query).all())
 
-    def is_pinned(self, deck_file: str) -> bool:
+    def is_pinned(self, deck_uuid: str) -> bool:
         with get_session() as session:
-            row = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            row = session.exec(select(PinnedDeck).where(PinnedDeck.deck_uuid == deck_uuid)).first()
             return row is not None
 
-    def pin_deck(self, deck_file: str) -> bool:
-        """Pin a deck. Returns True if newly pinned, False if already pinned."""
+    def pin_deck(self, deck_uuid: str) -> bool:
+        """Pin a deck by UUID. Returns True if newly pinned, False if already pinned."""
         with get_session() as session:
-            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_uuid == deck_uuid)).first()
             if existing:
                 return False
-            session.add(PinnedDeck(deck_file=deck_file))
+            session.add(PinnedDeck(deck_uuid=deck_uuid))
             session.commit()
             return True
 
-    def unpin_deck(self, deck_file: str) -> bool:
-        """Unpin a deck. Returns True if unpinned, False if wasn't pinned."""
+    def unpin_deck(self, deck_uuid: str) -> bool:
+        """Unpin a deck by UUID. Returns True if unpinned, False if wasn't pinned."""
         with get_session() as session:
-            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_uuid == deck_uuid)).first()
             if not existing:
                 return False
             session.delete(existing)
@@ -1144,49 +1162,42 @@ class DecksData:
 
     def get_pinned_summaries(self) -> list[dict]:
         """Return full deck summaries for all pinned decks, in pin order."""
-        pinned_files = self.get_pinned_files()
-        if not pinned_files:
+        pinned_uuids = self.get_pinned_uuids()
+        if not pinned_uuids:
             return []
 
         summaries = []
         with get_session() as session:
-            for deck_file in pinned_files:
-                summary = self._get_pinned_deck_summary(session, deck_file)
+            for deck_uuid in pinned_uuids:
+                summary = self._get_pinned_deck_summary(session, deck_uuid)
                 if summary:
                     summaries.append(summary)
         return summaries
 
-    def _get_pinned_deck_summary(self, session, deck_file: str) -> dict | None:
-        """Get a single deck summary by file identifier (precon or user)."""
-        # Try user deck (numeric id)
-        try:
-            deck_id = int(deck_file)
-            user_deck = session.exec(select(UserDeck).where(UserDeck.id == deck_id)).first()
-            if user_deck:
-                card_count_row = session.exec(
-                    select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
-                ).first()
-                colors_map = self._get_batch_user_deck_colors(session, [deck_id])
-                price_map = self._get_batch_user_deck_prices(session, [deck_id])
-                return {
-                    "file": str(user_deck.id),
-                    "name": user_deck.name,
-                    "code": "",
-                    "card_count": card_count_row or 0,
-                    "colors": colors_map.get(deck_id, []),
-                    "price": price_map.get(deck_id),
-                    "release_date": None,
-                    "source": user_deck.source,
-                }
-        except ValueError:
-            pass
+    def _get_pinned_deck_summary(self, session, deck_uuid: str) -> dict | None:
+        """Get a single deck summary by UUID (looks in both user and precon tables)."""
+        # Try user deck
+        user_deck = session.exec(select(UserDeck).where(UserDeck.uuid == deck_uuid)).first()
+        if user_deck:
+            card_count_row = session.exec(
+                select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == user_deck.id)
+            ).first()
+            colors_map = self._get_batch_user_deck_colors(session, [user_deck.id])
+            price_map = self._get_batch_user_deck_prices(session, [user_deck.id])
+            return {
+                "uuid": user_deck.uuid,
+                "file": str(user_deck.id),
+                "name": user_deck.name,
+                "code": "",
+                "card_count": card_count_row or 0,
+                "colors": colors_map.get(user_deck.id, []),
+                "price": price_map.get(user_deck.id),
+                "release_date": None,
+                "source": user_deck.source,
+            }
 
         # Try precon deck
-        file_name = deck_file
-        if file_name.endswith(".json"):
-            file_name = file_name[:-5]
-
-        deck = session.exec(select(MJDeck).where(MJDeck.file_name == file_name)).first()
+        deck = session.exec(select(MJDeck).where(MJDeck.uuid == deck_uuid)).first()
         if not deck:
             return None
 
