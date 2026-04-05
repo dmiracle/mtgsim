@@ -44,7 +44,7 @@ export function DeckListItem({ deck, pinned, vector, featureNames, onTogglePin, 
       {/* Fingerprint */}
       {vector && (
         <div className="shrink-0 hidden sm:block">
-          <VectorHeatmap vector={vector} featureNames={featureNames} size="sm" />
+          <VectorHeatmap vector={vector} featureNames={featureNames} size="xs" />
         </div>
       )}
 
