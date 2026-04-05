@@ -28,6 +28,7 @@ from mtgsim.api.routers import (
     interactions_router,
     keywords_router,
     prices_router,
+    scan_log_router,
     sets_router,
     seventeenlands_router,
     stats_router,
@@ -222,6 +223,7 @@ app.include_router(keywords_router, prefix="/api")
 app.include_router(seventeenlands_router, prefix="/api")
 app.include_router(flashcards_router, prefix="/api")
 app.include_router(interactions_router, prefix="/api")
+app.include_router(scan_log_router, prefix="/api")
 
 
 @app.get("/")

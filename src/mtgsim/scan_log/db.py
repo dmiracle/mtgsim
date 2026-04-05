@@ -37,6 +37,13 @@ LLM_PRICING = {
 
 
 def _get_db_path() -> str:
+    # Check env var directly (for test isolation) before falling back to settings
+    import os
+
+    env_path = os.environ.get("SCAN_LOG_DB_PATH")
+    if env_path:
+        return env_path
+
     from mtgsim.settings import settings
 
     if settings.scan_log_db_path:

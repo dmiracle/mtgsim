@@ -7,8 +7,8 @@ import tempfile
 from PIL import Image
 from sqlmodel import Session, select
 
+from mtgsim.scan_log import db as scan_log_db
 from mtgsim.scan_log.db import (
-    close_db,
     estimate_cost,
     get_engine,
     image_hash,
@@ -36,12 +36,12 @@ def _use_temp_db():
     fd, path = tempfile.mkstemp(suffix=".sqlite")
     os.close(fd)
     os.environ["SCAN_LOG_DB_PATH"] = path
-    close_db()
+    scan_log_db._engine = None
     return path
 
 
 def _cleanup_temp_db(path):
-    close_db()
+    scan_log_db._engine = None
     os.environ.pop("SCAN_LOG_DB_PATH", None)
     os.unlink(path)
 
