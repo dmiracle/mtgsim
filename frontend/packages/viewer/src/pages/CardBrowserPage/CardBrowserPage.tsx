@@ -228,17 +228,15 @@ export function CardBrowserPage({
 
         {/* Sidebar: stats + keywords */}
         <div className="space-y-4">
-          {hasActiveFilter && aggregateVector && (
-            <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
-              <h3 className="text-sm font-medium text-text-secondary">Collection Fingerprint</h3>
-              <VectorHeatmap
-                vector={aggregateVector.vector}
-                featureNames={aggregateVector.dimension_names}
-                label={`${aggregateVector.card_count} cards`}
-                size="sm"
-              />
-            </div>
-          )}
+          <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-medium text-text-secondary">Collection Fingerprint</h3>
+            <VectorHeatmap
+              vector={aggregateVector?.vector ?? []}
+              featureNames={aggregateVector?.dimension_names}
+              label={aggregateVector ? `${aggregateVector.card_count} cards` : undefined}
+              size="sm"
+            />
+          </div>
           {hasActiveFilter && cardStats && (
             <CardResultStats stats={cardStats} />
           )}

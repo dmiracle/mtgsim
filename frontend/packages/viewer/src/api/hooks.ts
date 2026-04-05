@@ -368,6 +368,7 @@ export function useAggregateVector(params: Record<string, string | number | bool
     queryKey: ["cards", "features", "aggregate", params],
     queryFn: () => apiFetch<AggregateVectorResponse>(`/cards/features/aggregate${buildParams(params)}`),
     enabled: hasFilter,
+    placeholderData: (prev) => prev,
   });
 }
 
