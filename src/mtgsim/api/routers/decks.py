@@ -123,6 +123,12 @@ class DeckCreateRequest(BaseModel):
     format: str | None = None
 
 
+class DeckUpdateRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    format: str | None = None
+
+
 class AddCardRequest(BaseModel):
     card_uuid: str
     count: int = 1
@@ -212,6 +218,17 @@ async def duplicate_deck(file: str) -> UserDeckResponse:
     result = await deck_service.duplicate_deck(file)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
+    return UserDeckResponse(**result)
+
+
+@router.patch("/{deck_id}", response_model=UserDeckResponse)
+async def update_deck(deck_id: int, req: DeckUpdateRequest) -> UserDeckResponse:
+    """Update a user deck's metadata (name, description, format)."""
+    result = await deck_service.update_user_deck(
+        deck_id=deck_id, name=req.name, description=req.description, format=req.format
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
     return UserDeckResponse(**result)
 
 

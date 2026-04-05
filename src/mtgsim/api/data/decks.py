@@ -998,8 +998,20 @@ class DecksData:
 
             session.add(deck)
             session.commit()
+            session.refresh(deck)
 
-            return self._get_user_deck(deck_id)
+            card_count_row = session.exec(
+                select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
+            ).first()
+
+            return {
+                "id": deck.id,
+                "name": deck.name,
+                "description": deck.description,
+                "format": deck.format,
+                "card_count": card_count_row or 0,
+                "source": deck.source,
+            }
 
     def delete_user_deck(self, deck_id: int) -> bool:
         """Delete a user deck and all its cards."""
