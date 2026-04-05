@@ -20,9 +20,12 @@ export function SimilarCardGrid({ results, onCardClick }: SimilarCardGridProps) 
         <button
           key={card.uuid}
           onClick={() => onCardClick?.(card.uuid)}
-          className="bg-bg-secondary border border-border rounded-lg overflow-hidden hover:border-accent transition-colors text-left group"
+          className="relative bg-bg-secondary border border-border rounded-lg hover:border-accent transition-colors text-left group"
         >
-          <div className="aspect-[5/7] bg-bg-tertiary relative">
+          <div className="absolute -top-2 -right-2 z-10">
+            <SimilarityScoreBadge score={score} />
+          </div>
+          <div className="aspect-[5/7] bg-bg-tertiary rounded-t-lg overflow-hidden">
             {card.image_url ? (
               <img src={card.image_url} alt={card.name} className="w-full h-full object-cover" loading="lazy" />
             ) : (
@@ -30,9 +33,6 @@ export function SimilarCardGrid({ results, onCardClick }: SimilarCardGridProps) 
                 <span className="text-text-muted text-xs text-center px-2">{card.name}</span>
               </div>
             )}
-            <div className="absolute top-1.5 right-1.5">
-              <SimilarityScoreBadge score={score} />
-            </div>
           </div>
           <div className="p-2 space-y-1">
             <div className="flex items-start justify-between gap-1">
