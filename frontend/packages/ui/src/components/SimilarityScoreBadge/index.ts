@@ -1,0 +1,1 @@
+export { SimilarityScoreBadge } from "./SimilarityScoreBadge";

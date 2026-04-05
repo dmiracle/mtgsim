@@ -18,6 +18,8 @@ import type {
   PriceListResponse,
   BoosterPack,
   QuadrantRating,
+  SimilarCardsResponse,
+  Strategy,
 } from "@/types/api";
 
 // --- Stats ---
@@ -326,6 +328,28 @@ export function useKeywords() {
   return useQuery({
     queryKey: ["keywords"],
     queryFn: () => apiFetch<KeywordsResponse>("/keywords"),
+    staleTime: Infinity,
+  });
+}
+
+// --- Similarity ---
+
+export function useSimilarCards(uuid: string, strategies: string[], limit: number = 20) {
+  const params = buildParams({
+    strategies: strategies.length > 0 ? strategies.join(",") : undefined,
+    limit,
+  });
+  return useQuery({
+    queryKey: ["cards", "similar", uuid, strategies, limit],
+    queryFn: () => apiFetch<SimilarCardsResponse>(`/cards/${uuid}/similar${params}`),
+    enabled: !!uuid && strategies.length > 0,
+  });
+}
+
+export function useStrategies() {
+  return useQuery({
+    queryKey: ["cards", "similar", "strategies"],
+    queryFn: () => apiFetch<Strategy[]>("/cards/similar/strategies"),
     staleTime: Infinity,
   });
 }

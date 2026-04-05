@@ -10,6 +10,7 @@ type CardGridItemProps = {
   quantity?: number;
   onPin?: (uuid: string) => void;
   onAddToDeck?: (uuid: string) => void;
+  onFindSimilar?: (uuid: string) => void;
   onAddToCollection?: (uuid: string) => void;
   onClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
@@ -44,6 +45,7 @@ export function CardGridItem({
   quantity,
   onPin,
   onAddToDeck,
+  onFindSimilar,
   onAddToCollection,
   onClick,
   onSetClick,
@@ -55,6 +57,7 @@ export function CardGridItem({
       quantity={quantity}
       onPin={onPin}
       onAddToDeck={onAddToDeck}
+      onFindSimilar={onFindSimilar}
       onClick={onClick}
       onSetClick={onSetClick}
     >

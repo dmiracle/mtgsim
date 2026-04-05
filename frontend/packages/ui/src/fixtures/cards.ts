@@ -169,3 +169,46 @@ export const cardDetail: CardDetail = {
     notes: "Efficient removal at any stage of the game.",
   },
 };
+
+import type { SimilarCardResult, Strategy } from "@/types/api";
+
+export const strategies: Strategy[] = [
+  { name: "keywords", description: "Jaccard similarity on keyword abilities" },
+  { name: "tags", description: "Jaccard similarity on Scryfall oracle tags" },
+  { name: "type_match", description: "Overlap on card types and subtypes" },
+  { name: "mana_curve", description: "Proximity scoring on mana value" },
+  { name: "oracle_vector", description: "Semantic similarity via vector embeddings" },
+];
+
+export const similarResults: SimilarCardResult[] = [
+  {
+    card: { uuid: "sim-1", name: "Shock", type: "Instant", mana_cost: "{R}", mana_value: 1, rarity: "common", set_code: "M21", color_identity: ["R"], image_url: "https://cards.scryfall.io/normal/front/5/9/59fa8e8d-bcb8-47bf-b71a-df11c8d0f2c9.jpg", owns: false, total_owned: 0 },
+    score: 0.92,
+    strategy_scores: { keywords: 0.95, tags: 0.89 },
+  },
+  {
+    card: { uuid: "sim-2", name: "Lava Spike", type: "Sorcery — Arcane", mana_cost: "{R}", mana_value: 1, rarity: "common", set_code: "MMA", color_identity: ["R"], image_url: "https://cards.scryfall.io/normal/front/7/9/79c21c1f-eaa4-454d-a1c7-b41571b50571.jpg", owns: true, total_owned: 4 },
+    score: 0.85,
+    strategy_scores: { keywords: 0.8, tags: 0.9 },
+  },
+  {
+    card: { uuid: "sim-3", name: "Chain Lightning", type: "Sorcery", mana_cost: "{R}", mana_value: 1, rarity: "uncommon", set_code: "EMA", color_identity: ["R"], image_url: "https://cards.scryfall.io/normal/front/b/7/b7cef88c-0ad6-47c4-b6c8-f989577f9e25.jpg", owns: false, total_owned: 0 },
+    score: 0.78,
+    strategy_scores: { keywords: 0.7, tags: 0.86 },
+  },
+  {
+    card: { uuid: "sim-4", name: "Rift Bolt", type: "Sorcery", mana_cost: "{2}{R}", mana_value: 3, rarity: "common", set_code: "TSP", color_identity: ["R"], image_url: null, owns: false, total_owned: 0 },
+    score: 0.62,
+    strategy_scores: { keywords: 0.5, tags: 0.74 },
+  },
+  {
+    card: { uuid: "sim-5", name: "Searing Blaze", type: "Instant", mana_cost: "{R}{R}", mana_value: 2, rarity: "common", set_code: "WWK", color_identity: ["R"], image_url: null, owns: true, total_owned: 2 },
+    score: 0.45,
+    strategy_scores: { keywords: 0.3, tags: 0.6 },
+  },
+  {
+    card: { uuid: "sim-6", name: "Flame Rift", type: "Sorcery", mana_cost: "{1}{R}", mana_value: 2, rarity: "common", set_code: "NEM", color_identity: ["R"], image_url: null, owns: false, total_owned: 0 },
+    score: 0.31,
+    strategy_scores: { keywords: 0.2, tags: 0.42 },
+  },
+];

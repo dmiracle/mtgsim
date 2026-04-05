@@ -393,3 +393,37 @@ export type KeywordsResponse = {
   keyword_actions: KeywordEntry[];
   ability_words: KeywordEntry[];
 };
+
+// --- Similarity ---
+
+export type SimilarCardSummary = {
+  uuid: string;
+  name: string;
+  type: string;
+  mana_cost: string;
+  mana_value: number;
+  rarity: string;
+  set_code: string;
+  color_identity: string[];
+  image_url: string | null;
+  owns: boolean;
+  total_owned: number;
+};
+
+export type SimilarCardResult = {
+  card: SimilarCardSummary;
+  score: number;
+  strategy_scores: Record<string, number>;
+};
+
+export type SimilarCardsResponse = {
+  source: SimilarCardSummary;
+  strategies_used: string[];
+  results: SimilarCardResult[];
+  total: number;
+};
+
+export type Strategy = {
+  name: string;
+  description: string;
+};
