@@ -270,11 +270,26 @@ async def get_similar_cards(
     strategies: str = Query("keywords,tags", description="Comma-separated strategy names"),
     weights: str | None = Query(None, description="Comma-separated weights (must match strategies count)"),
     limit: int = Query(20, ge=1, le=100, description="Max results"),
+    # Card filters (same as search endpoint)
+    text: str | None = Query(None, description="Filter by oracle text"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0, description="Minimum price"),
+    price_max: float | None = Query(None, ge=0, description="Maximum price"),
+    owns: bool | None = Query(None, description="Filter by ownership"),
+    wants: bool | None = Query(None, description="Filter by want status"),
 ) -> dict:
     """Find cards similar to the given card using composable strategies.
 
     Each strategy scores candidates differently. Results are merged by weighted
-    average and include per-strategy score breakdowns.
+    average and include per-strategy score breakdowns. All standard card filters
+    can be applied to narrow results.
     """
     from mtgsim.api.services.similarity_service import similarity_service
 
@@ -283,12 +298,31 @@ async def get_similar_cards(
     if weights:
         weight_list = [float(w) for w in weights.split(",") if w.strip()]
 
+    color_list = list(colors.upper()) if colors else None
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+    mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
+
     try:
         result = similarity_service.search_similar(
             card_uuid=uuid,
             strategy_names=strategy_list,
             weights=weight_list,
             limit=limit,
+            rarity=rarity,
+            card_type=type,
+            text=text,
+            colors=color_list,
+            mana_values=mv_list,
+            format_legal=format,
+            keywords=keyword_list,
+            tags=tag_list,
+            set_codes=set_code_list,
+            price_min=price_min,
+            price_max=price_max,
+            owns=owns,
+            wants=wants,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
