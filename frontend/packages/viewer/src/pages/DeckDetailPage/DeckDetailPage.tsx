@@ -24,6 +24,7 @@ type DeckDetailPageProps = {
   onAddCard?: (uuid: string, board: string, count: number) => void;
   onRemoveCard?: (uuid: string) => void;
   onSearchCards?: (query: string) => void;
+  onRename?: (name: string) => void;
 };
 
 const emptyFilters: CardFilters = {
@@ -47,11 +48,14 @@ export function DeckDetailPage({
   onAddCard,
   onRemoveCard,
   onSearchCards,
+  onRename,
 }: DeckDetailPageProps) {
   const [tab, setTab] = useState<"stats" | "cards" | "edit">("stats");
   const [filters, setFilters] = useState(emptyFilters);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addBoard, setAddBoard] = useState("main");
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(deck.meta.name);
 
   const tabs = [
     { id: "stats" as const, label: "Statistics" },
@@ -73,7 +77,47 @@ export function DeckDetailPage({
         </div>
         <button onClick={onBack} className="text-xs text-text-muted hover:text-accent transition-colors">&larr; Back</button>
         <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl font-bold text-text-primary truncate">{deck.meta.name}</h2>
+          <div className="flex items-center gap-1.5">
+            {editing ? (
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && editName.trim()) {
+                    onRename?.(editName.trim());
+                    setEditing(false);
+                  }
+                  if (e.key === "Escape") {
+                    setEditName(deck.meta.name);
+                    setEditing(false);
+                  }
+                }}
+                onBlur={() => {
+                  if (editName.trim() && editName.trim() !== deck.meta.name) {
+                    onRename?.(editName.trim());
+                  } else {
+                    setEditName(deck.meta.name);
+                  }
+                  setEditing(false);
+                }}
+                autoFocus
+                className="text-lg sm:text-xl font-bold text-text-primary bg-bg-tertiary border border-accent rounded px-2 py-0.5 -ml-2 focus:outline-none"
+              />
+            ) : (
+              <h2 className="text-lg sm:text-xl font-bold text-text-primary truncate">{deck.meta.name}</h2>
+            )}
+            <button
+              onClick={() => { if (onRename) { setEditName(deck.meta.name); setEditing(true); } }}
+              disabled={!onRename}
+              title={onRename ? "Rename deck" : "Cannot rename precon decks"}
+              className={`shrink-0 w-6 h-6 rounded flex items-center justify-center transition-colors ${onRename ? "text-text-muted hover:text-accent" : "text-text-muted/20 cursor-default"}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892l-.848 2.047a.75.75 0 0 0 .98.98l2.047-.848a2.75 2.75 0 0 0 .892-.596l4.261-4.262a1.75 1.75 0 0 0 0-2.474Z" />
+                <path d="M4.75 3.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h6.5c.69 0 1.25-.56 1.25-1.25V9A.75.75 0 0 1 14 9v2.25A2.75 2.75 0 0 1 11.25 14h-6.5A2.75 2.75 0 0 1 2 11.25v-6.5A2.75 2.75 0 0 1 4.75 2H7a.75.75 0 0 1 0 1.5H4.75Z" />
+              </svg>
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-0.5">
             {deck.meta.format && <span className="text-xs text-text-muted capitalize">{deck.meta.format}</span>}
             <span className="text-xs text-text-muted">{deck.meta.source}</span>

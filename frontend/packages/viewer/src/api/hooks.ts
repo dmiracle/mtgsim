@@ -141,6 +141,22 @@ export function useUnpinDeck() {
   });
 }
 
+export function useRenameDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ deckId, name }: { deckId: number; name: string }) =>
+      apiFetch<UserDeckResponse>(`/decks/${deckId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: (_, { deckId }) => {
+      qc.invalidateQueries({ queryKey: ["decks"] });
+      qc.invalidateQueries({ queryKey: ["deck", String(deckId)] });
+    },
+  });
+}
+
 export function useDeleteDeck() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDeck, useDeleteDeck, useDuplicateDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards } from "@/api/hooks";
+import { useDeck, useDeleteDeck, useDuplicateDeck, useRenameDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import type { TagCount } from "@/types/api";
 import { DeckDetailPage } from "./DeckDetailPage";
@@ -12,6 +12,7 @@ export function DeckDetailRoute() {
   const { pinnedIds, togglePin } = usePinnedDecks();
   const deleteDeck = useDeleteDeck();
   const duplicateDeck = useDuplicateDeck();
+  const renameDeck = useRenameDeck();
   const addCard = useAddCardToDeck();
   const removeCard = useRemoveCardFromDeck();
 
@@ -70,6 +71,7 @@ export function DeckDetailRoute() {
         removeCard.mutate({ deckId, cardUuid: uuid, count: 1 });
       }}
       onSearchCards={handleSearchCards}
+      onRename={isEditable ? (name) => renameDeck.mutate({ deckId, name }) : undefined}
     />
   );
 }
