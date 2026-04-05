@@ -9,7 +9,6 @@ type StrategyPickerProps = {
 export function StrategyPicker({ strategies, selected, onChange }: StrategyPickerProps) {
   function toggle(name: string) {
     if (selected.includes(name)) {
-      if (selected.length === 1) return;
       onChange(selected.filter((s) => s !== name));
     } else {
       onChange([...selected, name]);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCard, useKeywords, useAddToCollection, useSaveRating, useStrategies, useSimilarCards } from "@/api/hooks";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
@@ -34,12 +34,6 @@ export function CardDetailRoute() {
 
   const filterParams = filtersToParams(similarFilters);
   const { data: similarData } = useSimilarCards(uuid ?? "", selectedStrategies, filterParams);
-
-  useEffect(() => {
-    if (strategies && strategies.length > 0 && selectedStrategies.length === 0) {
-      setSelectedStrategies(["keywords", "tags"]);
-    }
-  }, [strategies, selectedStrategies.length]);
 
   if (!card) {
     return <div className="flex items-center justify-center h-64 text-text-muted">Loading card...</div>;
