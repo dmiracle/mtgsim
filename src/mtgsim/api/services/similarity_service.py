@@ -2,11 +2,11 @@
 
 import logging
 
-from mtgdb.models import MJCard, MJCardIdentifier, UserCard
+from mtgdb.models import MJCard, MJCardIdentifier, MJCardLegality, UserCard
 from mtgdb.session import get_session
 from sqlmodel import select
 
-from mtgsim.api.data.helpers import build_image_url
+from mtgsim.api.data.helpers import add_price_join, apply_card_filters, build_image_url
 from mtgsim.api.similarity import MergedScore, get_strategy, list_strategies
 
 logger = logging.getLogger("mtgsim.api.services.similarity")
@@ -42,6 +42,20 @@ class SimilarityService:
         weights: list[float] | None = None,
         limit: int = 20,
         candidate_limit: int = 200,
+        # Card filters
+        rarity: str | None = None,
+        card_type: str | None = None,
+        text: str | None = None,
+        colors: list[str] | None = None,
+        mana_values: list[int] | None = None,
+        format_legal: str | None = None,
+        keywords: list[str] | None = None,
+        tags: list[str] | None = None,
+        set_codes: list[str] | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        owns: bool | None = None,
+        wants: bool | None = None,
     ) -> dict | None:
         """Find cards similar to the given card using specified strategies.
 
@@ -81,6 +95,62 @@ class SimilarityService:
                 )
 
             merged.sort(key=lambda m: m.total_score, reverse=True)
+
+            # Apply card filters to narrow down candidates
+            has_filters = any(
+                [
+                    rarity,
+                    card_type,
+                    text,
+                    colors,
+                    mana_values,
+                    format_legal,
+                    keywords,
+                    tags,
+                    set_codes,
+                    price_min,
+                    price_max,
+                    owns,
+                    wants,
+                ]
+            )
+            if has_filters and merged:
+                candidate_uuids = [m.uuid for m in merged]
+                query = select(MJCard.uuid).where(MJCard.uuid.in_(candidate_uuids))
+                query = query.outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
+
+                if format_legal:
+                    query = query.join(
+                        MJCardLegality,
+                        (MJCard.uuid == MJCardLegality.card_uuid)
+                        & (MJCardLegality.format == format_legal)
+                        & (MJCardLegality.status == "Legal"),
+                    )
+                if set_codes:
+                    query = query.where(MJCard.set_code.in_(set_codes))
+                if price_min is not None or price_max is not None:
+                    query, price_col = add_price_join(query)
+                    if price_min is not None:
+                        query = query.where(price_col >= price_min)
+                    if price_max is not None:
+                        query = query.where(price_col <= price_max)
+
+                query = apply_card_filters(
+                    query,
+                    rarity=rarity,
+                    card_type=card_type,
+                    text=text,
+                    colors=colors,
+                    mana_values=mana_values,
+                    keywords=keywords,
+                    tags=tags,
+                    owns=owns,
+                    wants=wants,
+                    session=session,
+                )
+                allowed_uuids = set(session.exec(query).all())
+                merged = [m for m in merged if m.uuid in allowed_uuids]
+
             merged = merged[:limit]
 
             # Hydrate source and result cards with summary data
