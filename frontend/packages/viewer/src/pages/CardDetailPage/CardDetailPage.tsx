@@ -122,6 +122,23 @@ export function CardDetailPage({
 
           <CardKeywords groups={keywordGroups} />
 
+          {/* Tags */}
+          {card.tags.length > 0 && (
+            <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-medium text-text-secondary">Tags</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {card.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 text-xs rounded bg-bg-tertiary text-text-secondary border border-border"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Legality */}
           <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
             <h3 className="text-sm font-medium text-text-secondary">Format Legality</h3>
