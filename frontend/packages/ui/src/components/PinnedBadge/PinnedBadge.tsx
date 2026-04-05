@@ -2,39 +2,42 @@ type PinnedBadgeProps = {
   pinned: boolean;
   onToggle?: () => void;
   size?: "sm" | "md";
+  icon?: "pin" | "loyalty" | "planeswalker" | "saga" | "rarity" | "acorn";
 };
 
-export function PinnedBadge({ pinned, onToggle, size = "sm" }: PinnedBadgeProps) {
+const iconClass: Record<string, string> = {
+  pin: "ms ms-counter-pin",
+  loyalty: "ms ms-loyalty-start",
+  planeswalker: "ms ms-planeswalker",
+  saga: "ms ms-saga",
+  rarity: "ms ms-rarity",
+  acorn: "ms ms-acorn",
+};
+
+export function PinnedBadge({ pinned, onToggle, size = "sm", icon = "pin" }: PinnedBadgeProps) {
   if (!pinned && !onToggle) return null;
 
-  const sizeClasses = size === "sm"
-    ? "w-5 h-5 text-[10px]"
-    : "w-6 h-6 text-xs";
+  const sizeClasses = size === "sm" ? "text-sm" : "text-base";
 
-  const icon = <i className={`ms ms-counter-pin leading-none`} />;
+  const colorClasses = pinned
+    ? "text-warning drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+    : "text-text-muted/30";
 
-  if (!onToggle) {
-    return (
-      <span
-        className={`${sizeClasses} rounded-full flex items-center justify-center bg-warning/90 text-yellow-900 shadow-sm`}
-        title="Pinned"
-      >
-        {icon}
-      </span>
-    );
-  }
+  const hoverClasses = onToggle
+    ? pinned
+      ? "hover:text-warning/80 cursor-pointer"
+      : "hover:text-warning/70 cursor-pointer"
+    : "";
+
+  const Tag = onToggle ? "button" : "span";
 
   return (
-    <button
+    <Tag
       onClick={onToggle}
-      title={pinned ? "Unpin" : "Pin"}
-      className={`${sizeClasses} rounded-full flex items-center justify-center transition-all shadow-sm ${
-        pinned
-          ? "bg-warning/90 text-yellow-900 hover:bg-warning"
-          : "bg-black/40 text-white/50 hover:text-warning hover:bg-black/60"
-      }`}
+      title={onToggle ? (pinned ? "Unpin" : "Pin") : "Pinned"}
+      className={`${sizeClasses} ${colorClasses} ${hoverClasses} leading-none transition-colors`}
     >
-      {icon}
-    </button>
+      <i className={`${iconClass[icon]} leading-none`} />
+    </Tag>
   );
 }
