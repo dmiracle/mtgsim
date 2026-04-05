@@ -3,6 +3,7 @@ type PinnedBadgeProps = {
   onToggle?: () => void;
   size?: "sm" | "md";
   icon?: "pin" | "loyalty" | "planeswalker" | "saga" | "rarity" | "acorn";
+
 };
 
 const iconClass: Record<string, string> = {
@@ -14,7 +15,7 @@ const iconClass: Record<string, string> = {
   acorn: "ms ms-acorn",
 };
 
-export function PinnedBadge({ pinned, onToggle, size = "sm", icon = "pin" }: PinnedBadgeProps) {
+export function PinnedBadge({ pinned, onToggle, size = "sm", icon = "acorn" }: PinnedBadgeProps) {
   if (!pinned && !onToggle) return null;
 
   const sizeClasses = size === "sm" ? "text-sm" : "text-base";
