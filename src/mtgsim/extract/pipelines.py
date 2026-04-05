@@ -165,10 +165,19 @@ class MockExtractionPipeline(ExtractionPipeline):
 
 
 def get_pipeline(pipeline_name: str = "mock", **kwargs) -> ExtractionPipeline:
-    """Factory function to get an extraction pipeline by name."""
+    """Factory function to get an extraction pipeline by name.
+
+    Available pipelines:
+        - "mock": Returns hardcoded cards for testing (no external deps)
+        - "openai": Uses OpenAI Vision API (requires OPENAI_API_KEY)
+        - "tesseract": Local OCR via tesseract (requires tesseract binary)
+    """
+    from mtgsim.extract.ocr import TesseractExtractionPipeline
+
     pipelines = {
         "mock": MockExtractionPipeline,
         "openai": OpenAIExtractionPipeline,
+        "tesseract": TesseractExtractionPipeline,
     }
 
     if pipeline_name not in pipelines:
