@@ -5,12 +5,12 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def cleanup_pins(client):
-    """Ensure no pinned decks leak between tests."""
+    """Unpin only decks that were pinned during this test, preserving user pins."""
+    before = {d["file"] for d in client.get("/api/decks/pinned").json()}
     yield
-    # Unpin everything after each test
-    response = client.get("/api/decks/pinned")
-    for deck in response.json():
-        client.delete(f"/api/decks/pinned/{deck['file']}")
+    after = {d["file"] for d in client.get("/api/decks/pinned").json()}
+    for file in after - before:
+        client.delete(f"/api/decks/pinned/{file}")
 
 
 class TestListPinnedDecks:
@@ -20,16 +20,15 @@ class TestListPinnedDecks:
         response = client.get("/api/decks/pinned")
         assert response.status_code == 200
 
-    def test_returns_empty_list_initially(self, client):
+    def test_returns_list(self, client):
         response = client.get("/api/decks/pinned")
-        assert response.json() == []
+        assert isinstance(response.json(), list)
 
     def test_returns_pinned_deck_after_pin(self, client, sample_deck_file):
         client.post(f"/api/decks/pinned/{sample_deck_file}")
         response = client.get("/api/decks/pinned")
-        data = response.json()
-        assert len(data) == 1
-        assert data[0]["file"] == sample_deck_file
+        files = [d["file"] for d in response.json()]
+        assert sample_deck_file in files
 
     def test_pinned_deck_has_summary_fields(self, client, sample_deck_file):
         client.post(f"/api/decks/pinned/{sample_deck_file}")
@@ -63,7 +62,9 @@ class TestPinDeck:
         client.post("/api/decks/pinned/BlackAndGreenDelirium_KLD.json")
         client.post("/api/decks/pinned/GreenAndWhiteHumans_KLD.json")
         response = client.get("/api/decks/pinned")
-        assert len(response.json()) == 2
+        files = [d["file"] for d in response.json()]
+        assert "BlackAndGreenDelirium_KLD.json" in files
+        assert "GreenAndWhiteHumans_KLD.json" in files
 
 
 class TestUnpinDeck:
@@ -78,7 +79,8 @@ class TestUnpinDeck:
         client.post(f"/api/decks/pinned/{sample_deck_file}")
         client.delete(f"/api/decks/pinned/{sample_deck_file}")
         response = client.get("/api/decks/pinned")
-        assert len(response.json()) == 0
+        files = [d["file"] for d in response.json()]
+        assert sample_deck_file not in files
 
     def test_unpin_nonexistent_returns_404(self, client):
         response = client.delete("/api/decks/pinned/nonexistent.json")
@@ -89,6 +91,6 @@ class TestUnpinDeck:
         client.post("/api/decks/pinned/GreenAndWhiteHumans_KLD.json")
         client.delete("/api/decks/pinned/BlackAndGreenDelirium_KLD.json")
         response = client.get("/api/decks/pinned")
-        data = response.json()
-        assert len(data) == 1
-        assert data[0]["file"] == "GreenAndWhiteHumans_KLD.json"
+        files = [d["file"] for d in response.json()]
+        assert "BlackAndGreenDelirium_KLD.json" not in files
+        assert "GreenAndWhiteHumans_KLD.json" in files
