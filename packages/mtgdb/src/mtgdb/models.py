@@ -414,9 +414,13 @@ class UserCard(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     card_uuid: str = Field(foreign_key="mj_card.uuid", index=True)
 
-    # Ownership
+    # Ownership (paper)
     quantity_owned: int = 0
     quantity_owned_foil: int = 0
+
+    # Ownership (MTGA)
+    quantity_owned_mtga: int = 0
+    quantity_owned_mtga_foil: int = 0
 
     # Wishlist
     quantity_wanted: int = 0

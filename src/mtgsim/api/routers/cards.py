@@ -301,6 +301,29 @@ async def aggregate_vectors(
     )
 
 
+@router.post("/collection/import-mtga")
+async def import_mtga_collection(file: UploadFile) -> dict:
+    """Import an MTGA collection CSV to mark cards as owned on MTGA."""
+    import tempfile
+
+    from mtgsim.mtga_import import import_mtga_collection
+
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a .csv")
+
+    contents = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="wb") as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    from pathlib import Path
+
+    result = import_mtga_collection(Path(tmp_path))
+    Path(tmp_path).unlink(missing_ok=True)
+
+    return result.model_dump()
+
+
 @router.post("/scan", response_model=ScanResponse)
 async def scan_card(
     request: Request,
