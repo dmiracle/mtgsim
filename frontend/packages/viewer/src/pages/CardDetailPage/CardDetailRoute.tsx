@@ -6,7 +6,7 @@ import { CardDetailPage } from "./CardDetailPage";
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", sort: "score", order: "desc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "score", order: "desc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 function filtersToParams(f: CardFilters): Record<string, string | undefined> {

@@ -22,6 +22,7 @@ export type CardSearchParams = {
   keywords?: string;
   mana_value?: string;
   owns?: boolean;
+  owns_platform?: string;
   unique?: boolean;
   sort?: string;
   order?: string;
@@ -49,7 +50,7 @@ type CardBrowserPageProps = {
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 export function CardBrowserPage({
@@ -77,7 +78,7 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || selectedKeywords.length);
+  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
 
   // Build and emit search params whenever any filter changes
   useEffect(() => {
@@ -97,6 +98,7 @@ export function CardBrowserPage({
     if (filters.manaValue.length) params.mana_value = filters.manaValue.join(",");
     if (filters.ownership === "owned") params.owns = true;
     if (filters.ownership === "not_owned") params.owns = false;
+    if (filters.ownership === "owned" && filters.platform !== "any") params.owns_platform = filters.platform;
     if (filters.unique) params.unique = true;
     if (filters.sort !== "name") params.sort = filters.sort;
     if (filters.order !== "asc") params.order = filters.order;
