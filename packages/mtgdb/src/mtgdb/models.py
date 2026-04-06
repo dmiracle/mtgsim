@@ -492,7 +492,8 @@ class UserDeck(SQLModel, table=True):
     name: str = Field(index=True)
     description: str | None = None
 
-    format: str | None = None  # standard, modern, commander, etc.
+    format: str | None = None  # computed legal formats
+    intended_format: str | None = None  # user's declared target format
     source: str = Field(default="user", index=True)  # user, import, test, ...
 
     # Timestamps
@@ -512,6 +513,7 @@ class UserDeckCard(SQLModel, table=True):
     board: str = "main"  # main, side, commander, maybe
     count: int = 1
     is_foil: bool = False
+    preferred_printing_uuid: str | None = None  # override: show this printing's art
 
 
 class User17LEvent(SQLModel, table=True):

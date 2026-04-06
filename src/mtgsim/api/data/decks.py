@@ -5,6 +5,7 @@ import logging
 from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
+    MJCardLegality,
     MJCardPrice,
     MJCardTag,
     MJDeck,
@@ -20,6 +21,73 @@ from sqlmodel import func, select
 from .helpers import build_image_url, deck_card_to_api_dict, deck_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.decks")
+
+# Cache for format-legal set codes (cleared on sync)
+_format_sets_cache: dict[str, set[str]] = {}
+
+
+def get_format_legal_set_codes(session, format_name: str) -> set[str]:
+    """Return set codes that contain cards legal in the given format. Cached."""
+    if format_name in _format_sets_cache:
+        return _format_sets_cache[format_name]
+    rows = session.exec(
+        select(MJCard.set_code)
+        .join(MJCardLegality, MJCard.uuid == MJCardLegality.card_uuid)
+        .where(MJCardLegality.format == format_name, MJCardLegality.status == "Legal")
+        .distinct()
+    ).all()
+    result = set(rows)
+    _format_sets_cache[format_name] = result
+    return result
+
+
+def resolve_printing_image(
+    session,
+    card_name: str,
+    card_uuid: str,
+    preferred_printing_uuid: str | None,
+    intended_format: str | None,
+    deck_set_codes: set[str] | None,
+) -> str | None:
+    """Resolve the best image URL for a card in a deck context.
+
+    Priority: preferred printing > deck-set printing > format-legal printing > original.
+    """
+    # 1. Preferred printing override
+    if preferred_printing_uuid:
+        row = session.exec(
+            select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == preferred_printing_uuid)
+        ).first()
+        if row:
+            return build_image_url(row)
+
+    # 2. Check if original printing is already in a deck set
+    if deck_set_codes:
+        orig_set = session.exec(select(MJCard.set_code).where(MJCard.uuid == card_uuid)).first()
+        if orig_set and orig_set in deck_set_codes:
+            row = session.exec(
+                select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == card_uuid)
+            ).first()
+            if row:
+                return build_image_url(row)
+
+    # 3. Format-legal printing
+    if intended_format:
+        legal_sets = get_format_legal_set_codes(session, intended_format)
+        if legal_sets:
+            # Find a printing of this card in a legal set
+            row = session.exec(
+                select(MJCard.uuid, MJCardIdentifier.scryfall_id)
+                .join(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+                .where(MJCard.name == card_name, MJCard.set_code.in_(legal_sets))
+                .limit(1)
+            ).first()
+            if row:
+                return build_image_url(row[1])
+
+    # 4. Fall back to original printing
+    row = session.exec(select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == card_uuid)).first()
+    return build_image_url(row) if row else None
 
 
 class DecksData:
@@ -526,10 +594,20 @@ class DecksData:
             if not deck:
                 return None
 
-            # Get cards by board
-            main_board = self._get_user_deck_cards(session, deck.id, "main")
-            side_board = self._get_user_deck_cards(session, deck.id, "side")
-            commander = self._get_user_deck_cards(session, deck.id, "commander")
+            # Compute deck set codes for image resolution
+            deck_set_rows = session.exec(
+                select(MJCard.set_code)
+                .join(UserDeckCard, MJCard.uuid == UserDeckCard.card_uuid)
+                .where(UserDeckCard.deck_id == deck.id)
+                .distinct()
+            ).all()
+            deck_set_codes = set(deck_set_rows) if deck_set_rows else None
+
+            # Get cards by board with smart image resolution
+            img_kwargs = {"intended_format": deck.intended_format, "deck_set_codes": deck_set_codes}
+            main_board = self._get_user_deck_cards(session, deck.id, "main", **img_kwargs)
+            side_board = self._get_user_deck_cards(session, deck.id, "side", **img_kwargs)
+            commander = self._get_user_deck_cards(session, deck.id, "commander", **img_kwargs)
 
             # Colors
             colors = self._get_user_deck_colors(session, deck.id)
@@ -632,8 +710,15 @@ class DecksData:
 
         return cards
 
-    def _get_user_deck_cards(self, session, deck_id: int, board: str) -> list[dict]:
-        """Get cards from a user deck board."""
+    def _get_user_deck_cards(
+        self,
+        session,
+        deck_id: int,
+        board: str,
+        intended_format: str | None = None,
+        deck_set_codes: set[str] | None = None,
+    ) -> list[dict]:
+        """Get cards from a user deck board with smart image resolution."""
         query = (
             select(UserDeckCard, MJCard, MJCardIdentifier)
             .join(MJCard, UserDeckCard.card_uuid == MJCard.uuid)
@@ -670,10 +755,25 @@ class DecksData:
         card_names = [r[1].name for r in results]
         tags_map = self._get_tags_for_names(session, card_names)
 
+        # Check if any card needs smart image resolution
+        needs_smart_resolve = intended_format or deck_set_codes or any(r[0].preferred_printing_uuid for r in results)
+
         cards = []
         for deck_card, mj_card, identifier in results:
             owned_count = ownership_map.get(mj_card.uuid, 0)
             count = deck_card.count or 1
+
+            if needs_smart_resolve:
+                image_url = resolve_printing_image(
+                    session,
+                    card_name=mj_card.name,
+                    card_uuid=mj_card.uuid,
+                    preferred_printing_uuid=deck_card.preferred_printing_uuid,
+                    intended_format=intended_format,
+                    deck_set_codes=deck_set_codes,
+                )
+            else:
+                image_url = build_image_url(identifier.scryfall_id if identifier else None)
 
             cards.append(
                 {
@@ -689,7 +789,7 @@ class DecksData:
                     "rarity": mj_card.rarity or "",
                     "keywords": mj_card.keywords or [],
                     "tags": tags_map.get(mj_card.name, []),
-                    "image_url": build_image_url(identifier.scryfall_id if identifier else None),
+                    "image_url": image_url,
                     "price": price_map.get(mj_card.uuid),
                     "is_foil": deck_card.is_foil,
                     "owns_enough": owned_count >= count,
@@ -987,6 +1087,7 @@ class DecksData:
         name: str | None = None,
         description: str | None = None,
         format: str | None = None,
+        intended_format: str | None = None,
     ) -> dict | None:
         """Update a user deck's metadata."""
         with get_session() as session:
@@ -1000,6 +1101,8 @@ class DecksData:
                 deck.description = description
             if format is not None:
                 deck.format = format
+            if intended_format is not None:
+                deck.intended_format = intended_format
 
             session.add(deck)
             session.commit()
@@ -1104,6 +1207,59 @@ class DecksData:
 
             session.commit()
             return True
+
+    def set_preferred_printing(self, deck_id: int, card_uuid: str, printing_uuid: str) -> bool:
+        """Set the preferred printing for a card in a deck. Returns True if updated."""
+        with get_session() as session:
+            # Validate printing exists and has the same card name
+            original = session.exec(select(MJCard.name).where(MJCard.uuid == card_uuid)).first()
+            printing = session.exec(select(MJCard.name).where(MJCard.uuid == printing_uuid)).first()
+            if not original or not printing or original != printing:
+                return False
+
+            deck_card = session.exec(
+                select(UserDeckCard).where((UserDeckCard.deck_id == deck_id) & (UserDeckCard.card_uuid == card_uuid))
+            ).first()
+            if not deck_card:
+                return False
+
+            deck_card.preferred_printing_uuid = printing_uuid
+            session.add(deck_card)
+            session.commit()
+            return True
+
+    def get_card_printings(self, card_uuid: str) -> list[dict] | None:
+        """Get all printings of a card (by name) with image URLs."""
+        with get_session() as session:
+            card_name = session.exec(select(MJCard.name).where(MJCard.uuid == card_uuid)).first()
+            if not card_name:
+                return None
+
+            rows = session.exec(
+                select(MJCard.uuid, MJCard.set_code, MJCard.number, MJCardIdentifier.scryfall_id)
+                .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+                .where(MJCard.name == card_name)
+                .order_by(MJCard.set_code, MJCard.number)
+            ).all()
+
+            from mtgdb.models import MJSet
+
+            set_names = {}
+            set_codes = list({r[1] for r in rows})
+            if set_codes:
+                for code, name in session.exec(select(MJSet.code, MJSet.name).where(MJSet.code.in_(set_codes))).all():
+                    set_names[code] = name
+
+            return [
+                {
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "set_name": set_names.get(set_code, ""),
+                    "number": number,
+                    "image_url": build_image_url(scryfall_id),
+                }
+                for uuid, set_code, number, scryfall_id in rows
+            ]
 
     def get_available_sets(self) -> list[str]:
         """Get list of set codes that have precon decks."""

@@ -199,9 +199,12 @@ class DeckService:
         name: str | None = None,
         description: str | None = None,
         format: str | None = None,
+        intended_format: str | None = None,
     ) -> dict | None:
         """Update a user deck's metadata."""
-        return decks_data.update_user_deck(deck_id, name=name, description=description, format=format)
+        return decks_data.update_user_deck(
+            deck_id, name=name, description=description, format=format, intended_format=intended_format
+        )
 
     async def duplicate_deck(self, identifier: str) -> dict | None:
         """Duplicate any deck (user or precon) as a new user deck."""

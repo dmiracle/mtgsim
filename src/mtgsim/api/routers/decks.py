@@ -127,6 +127,11 @@ class DeckUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
     format: str | None = None
+    intended_format: str | None = None
+
+
+class SetPrintingRequest(BaseModel):
+    printing_uuid: str
 
 
 class AddCardRequest(BaseModel):
@@ -213,6 +218,17 @@ async def remove_card_from_deck(
     return {"status": "removed"}
 
 
+@router.put("/{deck_id}/cards/{card_uuid}/printing")
+async def set_card_printing(deck_id: int, card_uuid: str, req: SetPrintingRequest) -> dict:
+    """Set the preferred printing for a card in a deck."""
+    from mtgsim.api.data import decks_data
+
+    success = decks_data.set_preferred_printing(deck_id, card_uuid, req.printing_uuid)
+    if not success:
+        raise HTTPException(status_code=404, detail="Card not found in deck or invalid printing")
+    return {"status": "updated"}
+
+
 @router.post("/{file}/duplicate", response_model=UserDeckResponse)
 async def duplicate_deck(file: str) -> UserDeckResponse:
     """Duplicate any deck (user or precon) as a new user deck."""
@@ -224,9 +240,13 @@ async def duplicate_deck(file: str) -> UserDeckResponse:
 
 @router.patch("/{deck_id}", response_model=UserDeckResponse)
 async def update_deck(deck_id: int, req: DeckUpdateRequest) -> UserDeckResponse:
-    """Update a user deck's metadata (name, description, format)."""
+    """Update a user deck's metadata (name, description, format, intended_format)."""
     result = await deck_service.update_user_deck(
-        deck_id=deck_id, name=req.name, description=req.description, format=req.format
+        deck_id=deck_id,
+        name=req.name,
+        description=req.description,
+        format=req.format,
+        intended_format=req.intended_format,
     )
     if result is None:
         raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
