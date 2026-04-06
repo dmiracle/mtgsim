@@ -493,6 +493,17 @@ async def get_card_features(uuid: str) -> dict:
         }
 
 
+@router.get("/{uuid}/printings")
+async def get_card_printings(uuid: str) -> list[dict]:
+    """List all printings of a card with image URLs for a printing picker."""
+    from mtgsim.api.data import decks_data
+
+    result = decks_data.get_card_printings(uuid)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+    return result
+
+
 @router.get("/{uuid}", response_model=CardDetail)
 async def get_card(uuid: str) -> CardDetail:
     """
