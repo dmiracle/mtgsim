@@ -154,6 +154,14 @@ export type CardPrice = {
   price: number;
 };
 
+export type DeckCardPrinting = {
+  uuid: string;
+  set_code: string;
+  set_name: string;
+  number: string;
+  image_url: string | null;
+};
+
 export type CardPrinting = {
   set_code: string;
   set_name: string;

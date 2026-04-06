@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDeck, useDeleteDeck, useDuplicateDeck, useRenameDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards } from "@/api/hooks";
+import { useDeck, useDeleteDeck, useDuplicateDeck, useUpdateDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards, usePrintings, useSetPrinting } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import type { TagCount } from "@/types/api";
 import { DeckDetailPage } from "./DeckDetailPage";
@@ -12,7 +12,10 @@ export function DeckDetailRoute() {
   const { pinnedIds, togglePin } = usePinnedDecks();
   const deleteDeck = useDeleteDeck();
   const duplicateDeck = useDuplicateDeck();
-  const renameDeck = useRenameDeck();
+  const updateDeck = useUpdateDeck();
+  const setPrinting = useSetPrinting();
+  const [printingCardUuid, setPrintingCardUuid] = useState("");
+  const { data: printings } = usePrintings(printingCardUuid);
   const addCard = useAddCardToDeck();
   const removeCard = useRemoveCardFromDeck();
 
@@ -71,7 +74,16 @@ export function DeckDetailRoute() {
         removeCard.mutate({ deckId, cardUuid: uuid, count: 1 });
       }}
       onSearchCards={handleSearchCards}
-      onRename={isEditable ? (name) => renameDeck.mutate({ deckId, name }) : undefined}
+      onRename={isEditable ? (name) => updateDeck.mutate({ deckId, name }) : undefined}
+      onSetFormat={isEditable ? (format) => updateDeck.mutate({ deckId, intended_format: format || null }) : undefined}
+      printings={printings}
+      onLoadPrintings={(uuid) => setPrintingCardUuid(uuid)}
+      onSetPrinting={isEditable ? (cardUuid, printingUuid) => {
+        setPrinting.mutate({ deckId, cardUuid, printingUuid });
+        setPrintingCardUuid("");
+      } : undefined}
+      onClosePrintings={() => setPrintingCardUuid("")}
+      printingCardUuid={printingCardUuid}
     />
   );
 }
