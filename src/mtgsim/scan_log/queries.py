@@ -313,3 +313,76 @@ def get_batch_detail(batch_id: int) -> dict | None:
             "summary": batch.summary_json,
             "images": list(images.values()),
         }
+
+
+def get_pipeline_comparison(pipeline: str = "tesseract") -> dict:
+    """Get per-image comparison between a pipeline and openai (ground truth).
+
+    Groups by image_hash, shows where the pipeline matched/failed vs openai.
+    """
+    with Session(get_engine()) as session:
+        # Get all scans for the target pipeline
+        target_scans = session.exec(
+            select(ScanAttempt).where(ScanAttempt.pipeline == pipeline).order_by(col(ScanAttempt.created_at).desc())
+        ).all()
+
+        # Get openai scans indexed by image_hash for comparison
+        oa_scans = session.exec(select(ScanAttempt).where(ScanAttempt.pipeline == "openai")).all()
+        oa_by_hash: dict[str, ScanAttempt] = {}
+        for s in oa_scans:
+            oa_by_hash.setdefault(s.image_hash, s)
+
+        # Deduplicate by image_hash (most recent scan per image)
+        seen_hashes: set[str] = set()
+        images = []
+        matches = 0
+        failures = 0
+        agrees = 0
+
+        for ts in target_scans:
+            if ts.image_hash in seen_hashes:
+                continue
+            seen_hashes.add(ts.image_hash)
+
+            oa = oa_by_hash.get(ts.image_hash)
+            oa_name = oa.matched_card_name if oa and oa.matched else None
+            agreed = ts.matched and oa is not None and oa.matched and ts.matched_card_name == oa.matched_card_name
+
+            if ts.matched:
+                matches += 1
+            else:
+                failures += 1
+            if agreed:
+                agrees += 1
+
+            # Get params for this scan
+            params_row = session.exec(select(ScanParams).where(ScanParams.scan_id == ts.id)).first()
+
+            images.append(
+                {
+                    "image_hash": ts.image_hash,
+                    "scan_id": ts.id,
+                    "extracted_name": ts.extracted_name,
+                    "matched": ts.matched,
+                    "match_type": ts.match_type,
+                    "match_confidence": ts.match_confidence,
+                    "matched_card_name": ts.matched_card_name,
+                    "raw_text": ts.raw_text,
+                    "openai_name": oa_name,
+                    "agreed": agreed,
+                    "correct": ts.correct,
+                    "params": params_row.params_json if params_row else None,
+                }
+            )
+
+        total = len(images)
+        return {
+            "pipeline": pipeline,
+            "total_images": total,
+            "matched": matches,
+            "failed": failures,
+            "match_rate": round(matches / total * 100, 1) if total else 0,
+            "agreed_with_openai": agrees,
+            "agreement_rate": round(agrees / total * 100, 1) if total else 0,
+            "images": images,
+        }

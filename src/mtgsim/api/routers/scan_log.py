@@ -11,6 +11,7 @@ from mtgsim.scan_log.queries import (
     get_batch_detail,
     get_batch_list,
     get_llm_cost_stats,
+    get_pipeline_comparison,
     get_scan_detail,
     get_scan_list,
     get_summary_stats,
@@ -109,6 +110,12 @@ async def start_batch(req: BatchRequest) -> dict:
     return {"status": "started", "source_dir": req.source_dir}
 
 
+@router.get("/pipeline-comparison")
+async def pipeline_comparison(pipeline: str = Query("tesseract")) -> dict:
+    """Compare a pipeline's results against OpenAI (ground truth)."""
+    return get_pipeline_comparison(pipeline)
+
+
 @router.get("/images/{image_hash}")
 async def scan_image(image_hash: str) -> FileResponse:
     """Serve a cached scan image by its SHA256 hash."""
@@ -205,6 +212,7 @@ DASHBOARD_HTML = """\
 <div class="tab-bar">
   <div class="tab active" onclick="switchTab('history')">Scan History</div>
   <div class="tab" onclick="switchTab('costs')">LLM Costs</div>
+  <div class="tab" onclick="switchTab('pipeline')">Pipeline Analysis</div>
   <div class="tab" onclick="switchTab('batches')">Batch Jobs</div>
 </div>
 
@@ -234,6 +242,27 @@ DASHBOARD_HTML = """\
     <thead><tr><th>Provider</th><th>Model</th><th>Calls</th><th>Prompt Tok</th><th>Completion Tok</th><th>Cost (USD)</th><th>Avg Latency</th></tr></thead>
     <tbody id="cost-rows"></tbody>
   </table>
+</div>
+
+<div id="tab-pipeline" class="tab-content">
+  <div class="filters">
+    <select id="p-pipeline" onchange="loadPipelineComparison()">
+      <option value="tesseract">tesseract</option>
+      <option value="mock">mock</option>
+    </select>
+    <select id="p-filter" onchange="filterPipelineResults()">
+      <option value="all">All Results</option>
+      <option value="matched">Matched</option>
+      <option value="failed">Failed</option>
+      <option value="wrong">Wrong (disagrees with OpenAI)</option>
+    </select>
+  </div>
+  <div id="pipeline-stats" class="stats-grid"></div>
+  <table>
+    <thead><tr><th>Image</th><th>Pipeline Result</th><th>Matched</th><th>OpenAI (truth)</th><th>Agree</th><th>Confidence</th><th>Label</th></tr></thead>
+    <tbody id="pipeline-rows"></tbody>
+  </table>
+  <div class="detail-panel" id="pipeline-detail-panel"></div>
 </div>
 
 <div id="tab-batches" class="tab-content">
@@ -267,6 +296,7 @@ function switchTab(name) {
   document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
   event.target.classList.add('active');
   if (name === 'costs') loadCosts();
+  if (name === 'pipeline') loadPipelineComparison();
   if (name === 'batches') loadBatches();
 }
 
@@ -478,6 +508,116 @@ async function loadBatchDetail(id) {
       <tbody>${imageRows}</tbody>
     </table>
   `;
+}
+
+let pipelineData = null;
+
+async function loadPipelineComparison() {
+  const pipeline = document.getElementById('p-pipeline').value;
+  pipelineData = await api(`/pipeline-comparison?pipeline=${pipeline}`);
+
+  document.getElementById('pipeline-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${pipelineData.total_images}</div><div class="stat-label">Total Images</div></div>
+    <div class="stat-card"><div class="stat-value">${pipelineData.match_rate}%</div><div class="stat-label">Match Rate</div></div>
+    <div class="stat-card"><div class="stat-value">${pipelineData.matched}</div><div class="stat-label">Matched</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--red)">${pipelineData.failed}</div><div class="stat-label">Failed</div></div>
+    <div class="stat-card"><div class="stat-value">${pipelineData.agreement_rate}%</div><div class="stat-label">Agrees w/ OpenAI</div></div>
+  `;
+
+  filterPipelineResults();
+}
+
+function filterPipelineResults() {
+  if (!pipelineData) return;
+  const filter = document.getElementById('p-filter').value;
+
+  let images = pipelineData.images;
+  if (filter === 'matched') images = images.filter(i => i.matched);
+  if (filter === 'failed') images = images.filter(i => !i.matched);
+  if (filter === 'wrong') images = images.filter(i => i.matched && i.openai_name && !i.agreed);
+
+  const tbody = document.getElementById('pipeline-rows');
+  tbody.innerHTML = images.map(img => `
+    <tr onclick="showPipelineDetail('${img.image_hash}', ${img.scan_id})" style="cursor:pointer">
+      <td><img src="${API}/images/${img.image_hash}" style="height:50px;border-radius:4px" onerror="this.style.display='none'"></td>
+      <td>${img.extracted_name || '<em style="color:var(--muted)">(empty)</em>'}</td>
+      <td class="${img.matched ? 'match-yes' : 'match-no'}">${img.matched ? img.matched_card_name || 'Yes' : 'No'}</td>
+      <td>${img.openai_name || '<em style="color:var(--muted)">—</em>'}</td>
+      <td style="color:${img.agreed ? 'var(--green)' : img.openai_name ? 'var(--red)' : 'var(--muted)'}">${img.agreed ? '✓' : img.openai_name ? '✗' : '—'}</td>
+      <td>${img.match_confidence != null ? img.match_confidence.toFixed(1) : '—'}</td>
+      <td class="${img.correct === true ? 'correct-yes' : img.correct === false ? 'correct-no' : 'correct-unlabeled'}">
+        ${img.correct === true ? '✓' : img.correct === false ? '✗' : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+async function showPipelineDetail(imageHash, scanId) {
+  const d = await api(`/scans/${scanId}`);
+  const panel = document.getElementById('pipeline-detail-panel');
+  panel.classList.add('open');
+
+  // Find the pipeline data for this image
+  const img = pipelineData.images.find(i => i.image_hash === imageHash);
+
+  panel.innerHTML = `
+    <div class="detail-grid">
+      <div>
+        <div class="detail-section">
+          <h3>Scanned Image</h3>
+          <img src="${API}/images/${imageHash}" alt="Card" style="max-width:250px;border-radius:6px;border:1px solid var(--border)" onerror="this.style.display='none'">
+        </div>
+        <div class="detail-section">
+          <h3>Result</h3>
+          <div class="detail-kv"><span class="k">Extracted Name</span><span>${d.extracted_name || '(empty)'}</span></div>
+          <div class="detail-kv"><span class="k">Matched</span><span class="${d.matched ? 'match-yes' : 'match-no'}">${d.matched ? d.matched_card_name : 'No match'}</span></div>
+          <div class="detail-kv"><span class="k">Match Type</span><span>${d.match_type}</span></div>
+          <div class="detail-kv"><span class="k">Confidence</span><span>${d.match_confidence != null ? d.match_confidence.toFixed(1) : '—'}</span></div>
+          <div class="detail-kv"><span class="k">OpenAI says</span><span>${img ? img.openai_name || '—' : '—'}</span></div>
+          <div class="detail-kv"><span class="k">Agreement</span><span style="color:${img && img.agreed ? 'var(--green)' : 'var(--red)'}">${img && img.agreed ? 'Yes' : 'No'}</span></div>
+        </div>
+        <div class="detail-section">
+          <h3>Timing</h3>
+          ${d.timing ? `
+            <div class="detail-kv"><span class="k">Preprocess</span><span>${d.timing.preprocess_ms.toFixed(1)}ms</span></div>
+            <div class="detail-kv"><span class="k">Extract</span><span>${d.timing.extract_ms.toFixed(1)}ms</span></div>
+            <div class="detail-kv"><span class="k">Match</span><span>${d.timing.match_ms.toFixed(1)}ms</span></div>
+            <div class="detail-kv"><span class="k">Total</span><span>${d.timing.total_ms.toFixed(1)}ms</span></div>
+          ` : '<em>No timing</em>'}
+        </div>
+        <div class="detail-section">
+          <h3>Label</h3>
+          <div class="label-btns">
+            <button class="btn-correct" onclick="labelAndRefresh(${scanId}, true)">Correct ✓</button>
+            <button class="btn-incorrect" onclick="labelAndRefresh(${scanId}, false)">Incorrect ✗</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="detail-section">
+          <h3>Match Candidates</h3>
+          ${d.candidates && d.candidates.length > 0 ? `
+            <table style="width:100%"><thead><tr><th>#</th><th>Card</th><th>Score</th><th>Components</th></tr></thead><tbody>
+            ${d.candidates.map(c => `<tr><td>${c.rank}</td><td>${c.card_name}</td><td>${c.score.toFixed(1)}</td>
+              <td style="font-size:0.75em;color:var(--muted)">${JSON.stringify(c.component_scores)}</td></tr>`).join('')}
+            </tbody></table>` : '<em>No candidates</em>'}
+        </div>
+        <div class="detail-section">
+          <h3>Raw OCR Text</h3>
+          <pre>${d.raw_text || '(empty)'}</pre>
+        </div>
+        <div class="detail-section">
+          <h3>Params</h3>
+          <pre>${d.params ? JSON.stringify(d.params, null, 2) : 'None'}</pre>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function labelAndRefresh(scanId, correct) {
+  await postApi(`/scans/${scanId}/label`, { correct });
+  loadPipelineComparison();
+  loadStats();
 }
 
 // Init
