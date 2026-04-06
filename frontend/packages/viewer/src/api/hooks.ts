@@ -20,6 +20,7 @@ import type {
   QuadrantRating,
   SimilarCardsResponse,
   Strategy,
+  MtgaImportResult,
 } from "@/types/api";
 
 // --- Stats ---
@@ -261,6 +262,26 @@ export function useAddToCollection() {
       apiFetch(`/cards/${uuid}/collection`, { method: "POST" }),
     onSuccess: (_, uuid) => {
       qc.invalidateQueries({ queryKey: ["card", uuid] });
+    },
+  });
+}
+
+export function useImportMtga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return fetch(`${import.meta.env.VITE_API_URL ?? "/api"}/cards/collection/import-mtga`, {
+        method: "POST",
+        body: form,
+      }).then((res) => {
+        if (!res.ok) throw new Error(`Import failed: ${res.status}`);
+        return res.json() as Promise<MtgaImportResult>;
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cards"] });
     },
   });
 }

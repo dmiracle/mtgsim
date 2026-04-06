@@ -44,6 +44,7 @@ type CardBrowserPageProps = {
   onAddToCollection?: (uuid: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: CardSearchParams) => void;
+  onImportMtga?: () => void;
 };
 
 const emptyFilters: CardFilters = {
@@ -67,6 +68,7 @@ export function CardBrowserPage({
   onAddToCollection,
   onPageChange,
   onSearch,
+  onImportMtga,
 }: CardBrowserPageProps) {
   const [nameSearch, setNameSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
@@ -125,7 +127,17 @@ export function CardBrowserPage({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-text-primary">Cards</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-text-primary">Cards</h2>
+        {onImportMtga && (
+          <button
+            onClick={onImportMtga}
+            className="text-xs font-medium px-3 py-1.5 rounded border border-border text-text-secondary hover:border-accent hover:text-accent transition-colors"
+          >
+            Import MTGA
+          </button>
+        )}
+      </div>
 
       {/* Top search bar */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">

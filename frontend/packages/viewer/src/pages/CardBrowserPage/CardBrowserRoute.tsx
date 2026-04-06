@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection } from "@/api/hooks";
+import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection, useImportMtga } from "@/api/hooks";
 import { useActiveDeck } from "@/context/ActiveDeckContext";
+import { MtgaImportModal } from "@/components/MtgaImportModal/MtgaImportModal";
 import { CardBrowserPage } from "./CardBrowserPage";
 import type { CardSearchParams } from "./CardBrowserPage";
 
@@ -9,6 +10,8 @@ export function CardBrowserRoute() {
   const navigate = useNavigate();
   const { quickAddCard } = useActiveDeck();
   const addToCollection = useAddToCollection();
+  const importMtga = useImportMtga();
+  const [mtgaOpen, setMtgaOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(() => {
     const stored = localStorage.getItem("pinnedCards");
     return new Set<string>(stored ? JSON.parse(stored) : []);
@@ -47,22 +50,32 @@ export function CardBrowserRoute() {
   }, []);
 
   return (
-    <CardBrowserPage
-      cards={cardsData?.data ?? []}
-      cardStats={cardStats ?? undefined}
-      pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
-      availableTags={tags ?? []}
-      availableSets={setsData?.data}
-      onSetSearch={setSetSearchQuery}
-      keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
-      pinnedIds={pinnedIds}
-      onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
-      onSetClick={(code) => navigate(`/sets/${code}`)}
-      onPin={togglePin}
-      onAddToDeck={quickAddCard}
-      onAddToCollection={(uuid) => addToCollection.mutate(uuid)}
-      onPageChange={setPage}
-      onSearch={handleSearch}
-    />
+    <>
+      <CardBrowserPage
+        cards={cardsData?.data ?? []}
+        cardStats={cardStats ?? undefined}
+        pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
+        availableTags={tags ?? []}
+        availableSets={setsData?.data}
+        onSetSearch={setSetSearchQuery}
+        keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
+        pinnedIds={pinnedIds}
+        onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
+        onSetClick={(code) => navigate(`/sets/${code}`)}
+        onPin={togglePin}
+        onAddToDeck={quickAddCard}
+        onAddToCollection={(uuid) => addToCollection.mutate(uuid)}
+        onPageChange={setPage}
+        onSearch={handleSearch}
+        onImportMtga={() => setMtgaOpen(true)}
+      />
+      <MtgaImportModal
+        open={mtgaOpen}
+        importing={importMtga.isPending}
+        result={importMtga.data}
+        onImport={(file) => importMtga.mutate(file)}
+        onClose={() => { setMtgaOpen(false); importMtga.reset(); }}
+      />
+    </>
   );
 }

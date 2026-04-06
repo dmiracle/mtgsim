@@ -156,6 +156,8 @@ export const cardDetail: CardDetail = {
   collection: {
     quantity_owned: 4,
     quantity_owned_foil: 1,
+    quantity_owned_mtga: 3,
+    quantity_owned_mtga_foil: 0,
     quantity_wanted: 0,
     quantity_wanted_foil: 0,
     condition: "near_mint",
