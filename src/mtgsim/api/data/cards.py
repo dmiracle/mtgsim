@@ -90,6 +90,7 @@ class CardsData:
         price_min: float | None = None,
         price_max: float | None = None,
         owns: bool | None = None,
+        owns_platform: str | None = None,
         wants: bool | None = None,
         unique: bool = False,
         price_mode: str = "min",
@@ -151,6 +152,7 @@ class CardsData:
                 keywords=keywords,
                 tags=tags,
                 owns=owns,
+                owns_platform=owns_platform,
                 wants=wants,
                 session=session,
             )

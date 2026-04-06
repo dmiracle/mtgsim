@@ -91,6 +91,7 @@ def apply_card_filters(
     tags: list[str] | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
+    owns_platform: str | None = None,
     session=None,
 ):
     """Apply common card filters to a query that joins MJCard and optionally UserCard."""
@@ -147,6 +148,10 @@ def apply_card_filters(
                 & (UserCard.quantity_owned_mtga_foil == 0)
             )
         )
+    if owns_platform == "paper":
+        query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+    elif owns_platform == "mtga":
+        query = query.where((UserCard.quantity_owned_mtga > 0) | (UserCard.quantity_owned_mtga_foil > 0))
     if wants is True:
         query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
     elif wants is False:
