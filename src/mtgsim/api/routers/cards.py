@@ -145,7 +145,9 @@ async def download_cards(
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
     mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
 
-    result = await card_service.search_cards(
+    from mtgsim.api.data import cards_data
+
+    cards, total = cards_data.search_cards(
         q=q,
         text=text,
         set_code=set,
@@ -170,10 +172,7 @@ async def download_cards(
         limit=limit,
     )
 
-    content = json.dumps(
-        {"cards": [card.model_dump() for card in result.data], "total": result.pagination.total},
-        indent=2,
-    )
+    content = json.dumps({"cards": cards, "total": total}, indent=2)
     return Response(
         content=content,
         media_type="application/json",
