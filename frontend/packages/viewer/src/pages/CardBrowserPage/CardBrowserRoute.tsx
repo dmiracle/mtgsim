@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection } from "@/api/hooks";
+import { buildParams } from "@/api/client";
 import { useActiveDeck } from "@/context/ActiveDeckContext";
 import { CardBrowserPage } from "./CardBrowserPage";
 import type { CardSearchParams } from "./CardBrowserPage";
@@ -63,6 +64,10 @@ export function CardBrowserRoute() {
       onAddToCollection={(uuid) => addToCollection.mutate(uuid)}
       onPageChange={setPage}
       onSearch={handleSearch}
+      onDownload={() => {
+        const base = import.meta.env.VITE_API_URL ?? "/api";
+        window.location.href = `${base}/cards/download${buildParams(searchParams)}`;
+      }}
     />
   );
 }
