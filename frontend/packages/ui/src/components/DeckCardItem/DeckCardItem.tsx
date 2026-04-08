@@ -4,6 +4,7 @@ import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 type DeckCardItemProps = {
   card: DeckCard;
   onRemove?: (uuid: string) => void;
+  onChangePrinting?: (uuid: string) => void;
   onClick?: (uuid: string) => void;
 };
 
@@ -14,7 +15,7 @@ const rarityDots: Record<string, string> = {
   mythic: "bg-orange-500",
 };
 
-export function DeckCardItem({ card, onRemove, onClick }: DeckCardItemProps) {
+export function DeckCardItem({ card, onRemove, onChangePrinting, onClick }: DeckCardItemProps) {
   return (
     <div className="group flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-bg-hover transition-colors">
       {/* Quantity */}
@@ -55,6 +56,20 @@ export function DeckCardItem({ card, onRemove, onClick }: DeckCardItemProps) {
         <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-warning/15 text-warning font-medium">
           −{card.missing_count}
         </span>
+      )}
+
+      {/* Change art — appears on hover */}
+      {onChangePrinting && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onChangePrinting(card.uuid); }}
+          className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-transparent group-hover:text-text-muted/40 hover:!text-accent hover:!bg-accent/10 transition-all"
+          title="Change printing"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+            <path d="M10.5 1a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5A.75.75 0 0 1 10.5 1ZM12 3.314a.75.75 0 0 1 1.06-.02l.354.353a.75.75 0 1 1-1.06 1.06l-.354-.353a.75.75 0 0 1 .02-1.06ZM8.5 2.75A.75.75 0 0 1 7.75 2a.75.75 0 0 0-.75.75v7.5a.75.75 0 0 0 .75.75h7.5a.75.75 0 0 0 0-1.5H9.25a.75.75 0 0 1-.75-.75v-5.5Z" />
+            <path d="M4.505 6.158a.75.75 0 0 0-1.01 0l-3 2.79A.75.75 0 0 0 .75 10.5h1.5v3.25c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .75-.75V10.5h1.5a.75.75 0 0 0 .255-1.552l-3-2.79Z" />
+          </svg>
+        </button>
       )}
 
       {/* Remove button — subtle, appears on hover */}
