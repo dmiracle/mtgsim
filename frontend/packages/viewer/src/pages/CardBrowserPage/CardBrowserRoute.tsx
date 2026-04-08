@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection, useImportMtga, useAggregateVector } from "@/api/hooks";
+import { buildParams } from "@/api/client";
 import { useActiveDeck } from "@/context/ActiveDeckContext";
 import { MtgaImportModal } from "@/components/MtgaImportModal/MtgaImportModal";
 import { CardBrowserPage } from "./CardBrowserPage";
@@ -69,6 +70,10 @@ export function CardBrowserRoute() {
         onPageChange={setPage}
         onSearch={handleSearch}
         onImportMtga={() => setMtgaOpen(true)}
+        onDownload={() => {
+          const base = import.meta.env.VITE_API_URL ?? "/api";
+          window.location.href = `${base}/cards/download${buildParams(searchParams)}`;
+        }}
         aggregateVector={aggregateVector}
       />
       <MtgaImportModal
