@@ -26,7 +26,7 @@ from mtgdb.models import (
     UserDeck,
     UserDeckCard,
 )
-from mtgdb.session import get_engine, get_session, init_db
+from mtgdb.session import get_engine, get_session, init_db, rebuild_fts
 
 __all__ = [
     "DB_PATH",
@@ -51,4 +51,5 @@ __all__ = [
     "get_engine",
     "get_session",
     "init_db",
+    "rebuild_fts",
 ]

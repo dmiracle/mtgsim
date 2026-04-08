@@ -2,6 +2,7 @@ import type { CardSummary } from "@/types/api";
 import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 import { SetBadge } from "@/components/SetBadge/SetBadge";
 import { CardHoverLarge } from "@/components/CardHoverLarge/CardHoverLarge";
+import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
 
 type CardGridItemProps = {
   card: CardSummary;
@@ -9,6 +10,7 @@ type CardGridItemProps = {
   quantity?: number;
   onPin?: (uuid: string) => void;
   onAddToDeck?: (uuid: string) => void;
+  onFindSimilar?: (uuid: string) => void;
   onAddToCollection?: (uuid: string) => void;
   onClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
@@ -43,6 +45,7 @@ export function CardGridItem({
   quantity,
   onPin,
   onAddToDeck,
+  onFindSimilar,
   onAddToCollection,
   onClick,
   onSetClick,
@@ -54,6 +57,7 @@ export function CardGridItem({
       quantity={quantity}
       onPin={onPin}
       onAddToDeck={onAddToDeck}
+      onFindSimilar={onFindSimilar}
       onClick={onClick}
       onSetClick={onSetClick}
     >
@@ -78,11 +82,9 @@ export function CardGridItem({
             <p className="text-text-muted text-xs mt-1">{card.type}</p>
           </div>
         )}
-        {pinned && (
-          <span className="absolute top-2 left-2 bg-warning text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded">
-            PIN
-          </span>
-        )}
+        <div className="absolute top-2 left-2">
+          <PinnedBadge pinned={pinned} onToggle={onPin ? () => onPin(card.uuid) : undefined} />
+        </div>
         {quantity && quantity > 1 && (
           <span className="absolute top-2 right-2 bg-accent text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
             {quantity}
@@ -138,17 +140,6 @@ export function CardGridItem({
         </div>
 
         <div className="flex items-center gap-1 pt-1">
-          <button
-            onClick={() => onPin?.(card.uuid)}
-            className={`text-xs px-2 py-1 rounded transition-colors ${
-              pinned
-                ? "bg-accent-muted text-accent"
-                : "bg-bg-tertiary text-text-muted hover:text-warning"
-            }`}
-            title={pinned ? "Unpin" : "Pin"}
-          >
-            {pinned ? "Pinned" : "Pin"}
-          </button>
           <button
             onClick={() => onAddToDeck?.(card.uuid)}
             className="text-xs px-2 py-1 rounded bg-bg-tertiary text-text-muted hover:text-accent transition-colors"

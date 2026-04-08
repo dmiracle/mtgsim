@@ -18,7 +18,13 @@ from mtgdb.models import (
 from mtgdb.session import get_session
 from sqlmodel import func, select
 
-from .helpers import add_price_join, apply_card_filters, build_image_url, card_to_api_dict
+from .helpers import (
+    add_price_join,
+    apply_card_filters,
+    build_image_url,
+    card_to_api_dict,
+    fts_name_search_uuids,
+)
 
 logger = logging.getLogger("mtgsim.api.data.cards")
 
@@ -121,14 +127,10 @@ class CardsData:
                     if cutoff:
                         query = query.where(MJSet.release_date >= cutoff)
 
-            # Text search (name, printed_name, type, oracle text)
+            # Name search via FTS5 (name + printed_name only)
             if q:
-                query = query.where(
-                    (MJCard.name.contains(q))
-                    | (MJCard.printed_name.contains(q))
-                    | (MJCard.type_line.contains(q))
-                    | (MJCard.oracle_text.contains(q))
-                )
+                name_uuids = fts_name_search_uuids(session, q)
+                query = query.where(MJCard.uuid.in_(name_uuids))
 
             # Set filter (single)
             if set_code:
@@ -138,7 +140,7 @@ class CardsData:
             if set_codes:
                 query = query.where(MJCard.set_code.in_(set_codes))
 
-            # Common card filters
+            # Common card filters (session enables FTS for text param)
             query = apply_card_filters(
                 query,
                 rarity=rarity,
@@ -150,6 +152,7 @@ class CardsData:
                 tags=tags,
                 owns=owns,
                 wants=wants,
+                session=session,
             )
 
             # Price range filters
@@ -294,12 +297,8 @@ class CardsData:
                         query = query.where(MJSet.release_date >= cutoff)
 
             if q:
-                query = query.where(
-                    (MJCard.name.contains(q))
-                    | (MJCard.printed_name.contains(q))
-                    | (MJCard.type_line.contains(q))
-                    | (MJCard.oracle_text.contains(q))
-                )
+                name_uuids = fts_name_search_uuids(session, q)
+                query = query.where(MJCard.uuid.in_(name_uuids))
             if set_code:
                 query = query.where(MJCard.set_code == set_code)
             if set_codes:
@@ -316,6 +315,7 @@ class CardsData:
                 tags=tags,
                 owns=owns,
                 wants=wants,
+                session=session,
             )
 
             if price_min is not None:

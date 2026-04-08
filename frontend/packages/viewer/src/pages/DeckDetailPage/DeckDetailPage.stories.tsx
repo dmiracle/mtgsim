@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { DeckDetailPage } from "./DeckDetailPage";
-import { deckDetail } from "@/fixtures";
+import { deckDetail, cardSummaries } from "@/fixtures";
 
 const meta: Meta<typeof DeckDetailPage> = {
   title: "Pages/DeckDetailPage",
@@ -17,4 +17,18 @@ type Story = StoryObj<typeof DeckDetailPage>;
 
 export const Default: Story = {
   args: { deck: deckDetail },
+};
+
+export const Editable: Story = {
+  args: {
+    deck: deckDetail,
+    editable: true,
+    searchResults: cardSummaries,
+    onAddCard: fn(),
+    onRemoveCard: fn(),
+    onSearchCards: fn(),
+    onTogglePin: fn(),
+    onDuplicate: fn(),
+    onDelete: fn(),
+  },
 };

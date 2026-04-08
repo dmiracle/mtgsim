@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useDecks, useDeleteDeck, useCreateDeck, useImportDeck } from "@/api/hooks";
+import { useDecks, useDeleteDeck, useDuplicateDeck, useCreateDeck, useImportDeck, useDeckVectors } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import { DeckCreateModal } from "@/components/DeckCreateModal/DeckCreateModal";
 import { DeckImportModal } from "@/components/DeckImportModal/DeckImportModal";
@@ -16,11 +16,14 @@ export function DeckBrowserRoute() {
   const [importOpen, setImportOpen] = useState(false);
   const { pinnedIds, pinnedDecks, togglePin } = usePinnedDecks();
   const deleteDeck = useDeleteDeck();
+  const duplicateDeck = useDuplicateDeck();
   const createDeck = useCreateDeck();
   const importDeck = useImportDeck();
 
   const { data } = useDecks({ ...searchParams, page, limit: 50 });
   const allDecks = data?.data ?? [];
+  const allFiles = [...pinnedDecks.map((d) => d.file), ...allDecks.map((d) => d.file)];
+  const deckVectors = useDeckVectors(allFiles);
 
   function setPage(p: number) {
     setSp((prev) => {
@@ -50,7 +53,13 @@ export function DeckBrowserRoute() {
         availableSources={["user", "import", "precon"]}
         pinnedIds={pinnedIds}
         onTogglePin={togglePin}
+        onDuplicateDeck={(file) => {
+          duplicateDeck.mutate(Number(file), {
+            onSuccess: (res) => navigate(`/decks/${res.id}`),
+          });
+        }}
         onDeleteDeck={handleDelete}
+        deckVectors={deckVectors}
         onDeckClick={(file) => navigate(`/decks/${file}`)}
         onPageChange={setPage}
         onSearch={handleSearch}

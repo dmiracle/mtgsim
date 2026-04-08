@@ -12,6 +12,7 @@ export type Pagination = {
 // --- Decks ---
 
 export type DeckSummary = {
+  uuid: string;
   file: string;
   name: string;
   code: string;
@@ -71,6 +72,7 @@ export type DeckStats = {
 
 export type DeckDetail = {
   meta: {
+    uuid: string;
     name: string;
     file: string;
     code: string;
@@ -96,6 +98,7 @@ export type DeckDetail = {
 };
 
 export type UserDeckResponse = {
+  uuid: string;
   id: number;
   name: string;
   description: string | null;
@@ -392,4 +395,60 @@ export type KeywordsResponse = {
   keyword_abilities: KeywordEntry[];
   keyword_actions: KeywordEntry[];
   ability_words: KeywordEntry[];
+};
+
+// --- Similarity ---
+
+export type SimilarCardSummary = {
+  uuid: string;
+  name: string;
+  type: string;
+  mana_cost: string;
+  mana_value: number;
+  rarity: string;
+  set_code: string;
+  color_identity: string[];
+  image_url: string | null;
+  owns: boolean;
+  total_owned: number;
+};
+
+export type SimilarCardResult = {
+  card: SimilarCardSummary;
+  score: number;
+  strategy_scores: Record<string, number>;
+};
+
+export type SimilarCardsResponse = {
+  source: SimilarCardSummary;
+  strategies_used: string[];
+  results: SimilarCardResult[];
+  total: number;
+};
+
+export type Strategy = {
+  name: string;
+  description: string;
+};
+
+// --- Feature Vectors ---
+
+export type AggregateVectorResponse = {
+  vector: number[];
+  dimensions: number;
+  dimension_names: string[];
+  card_count: number;
+};
+
+export type CompactVectorCard = {
+  uuid: string;
+  name: string;
+  vector: number[];
+};
+
+export type BatchCompactVectorResponse = {
+  cards: CompactVectorCard[];
+  dimensions: number;
+  dimension_names: string[];
+  total: number;
 };

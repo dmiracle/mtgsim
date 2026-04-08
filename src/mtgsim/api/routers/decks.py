@@ -75,19 +75,19 @@ async def list_pinned_decks() -> list[DeckSummary]:
     return await deck_service.get_pinned_decks()
 
 
-@router.post("/pinned/{file}")
-async def pin_deck(file: str) -> dict:
-    """Pin a deck by file identifier."""
-    newly_pinned = await deck_service.pin_deck(file)
+@router.post("/pinned/{uuid}")
+async def pin_deck(uuid: str) -> dict:
+    """Pin a deck by UUID."""
+    newly_pinned = await deck_service.pin_deck(uuid)
     return {"status": "pinned", "created": newly_pinned}
 
 
-@router.delete("/pinned/{file:path}")
-async def unpin_deck(file: str) -> dict:
-    """Unpin a deck by file identifier."""
-    was_pinned = await deck_service.unpin_deck(file)
+@router.delete("/pinned/{uuid}")
+async def unpin_deck(uuid: str) -> dict:
+    """Unpin a deck by UUID."""
+    was_pinned = await deck_service.unpin_deck(uuid)
     if not was_pinned:
-        raise HTTPException(status_code=404, detail=f"Deck not pinned: {file}")
+        raise HTTPException(status_code=404, detail=f"Deck not pinned: {uuid}")
     return {"status": "unpinned"}
 
 
@@ -123,6 +123,17 @@ class DeckCreateRequest(BaseModel):
     format: str | None = None
 
 
+class DeckUpdateRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    format: str | None = None
+    intended_format: str | None = None
+
+
+class SetPrintingRequest(BaseModel):
+    printing_uuid: str
+
+
 class AddCardRequest(BaseModel):
     card_uuid: str
     count: int = 1
@@ -131,6 +142,7 @@ class AddCardRequest(BaseModel):
 
 class UserDeckResponse(BaseModel):
     id: int
+    uuid: str = ""
     name: str
     description: str | None = None
     format: str | None = None
@@ -206,6 +218,41 @@ async def remove_card_from_deck(
     return {"status": "removed"}
 
 
+@router.put("/{deck_id}/cards/{card_uuid}/printing")
+async def set_card_printing(deck_id: int, card_uuid: str, req: SetPrintingRequest) -> dict:
+    """Set the preferred printing for a card in a deck."""
+    from mtgsim.api.data import decks_data
+
+    success = decks_data.set_preferred_printing(deck_id, card_uuid, req.printing_uuid)
+    if not success:
+        raise HTTPException(status_code=404, detail="Card not found in deck or invalid printing")
+    return {"status": "updated"}
+
+
+@router.post("/{file}/duplicate", response_model=UserDeckResponse)
+async def duplicate_deck(file: str) -> UserDeckResponse:
+    """Duplicate any deck (user or precon) as a new user deck."""
+    result = await deck_service.duplicate_deck(file)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
+    return UserDeckResponse(**result)
+
+
+@router.patch("/{deck_id}", response_model=UserDeckResponse)
+async def update_deck(deck_id: int, req: DeckUpdateRequest) -> UserDeckResponse:
+    """Update a user deck's metadata (name, description, format, intended_format)."""
+    result = await deck_service.update_user_deck(
+        deck_id=deck_id,
+        name=req.name,
+        description=req.description,
+        format=req.format,
+        intended_format=req.intended_format,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
+    return UserDeckResponse(**result)
+
+
 @router.delete("/{deck_id}")
 async def delete_deck(deck_id: int) -> dict:
     """Delete a user deck."""
@@ -213,6 +260,17 @@ async def delete_deck(deck_id: int) -> dict:
     if not success:
         raise HTTPException(status_code=404, detail=f"Deck not found: {deck_id}")
     return {"status": "deleted"}
+
+
+@router.get("/{file}/features")
+async def get_deck_features(file: str) -> dict:
+    """Get L2-normalized aggregate compact vector for a deck."""
+    from mtgsim.api.services.feature_service import feature_service
+
+    result = feature_service.deck_vector(file)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Deck not found: {file}")
+    return result
 
 
 @router.get("/{file}/raw")

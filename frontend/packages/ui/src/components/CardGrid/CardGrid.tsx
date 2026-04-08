@@ -10,6 +10,7 @@ type CardGridProps = {
   onPageChange?: (page: number) => void;
   onPin?: (uuid: string) => void;
   onAddToDeck?: (uuid: string) => void;
+  onFindSimilar?: (uuid: string) => void;
   onAddToCollection?: (uuid: string) => void;
   onCardClick?: (uuid: string) => void;
   onSetClick?: (code: string) => void;
@@ -23,6 +24,7 @@ export function CardGrid({
   onPageChange,
   onPin,
   onAddToDeck,
+  onFindSimilar,
   onAddToCollection,
   onCardClick,
   onSetClick,
@@ -46,6 +48,7 @@ export function CardGrid({
             quantity={quantities?.[card.uuid]}
             onPin={onPin}
             onAddToDeck={onAddToDeck}
+            onFindSimilar={onFindSimilar}
             onAddToCollection={onAddToCollection}
             onClick={onCardClick}
             onSetClick={onSetClick}

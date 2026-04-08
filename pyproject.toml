@@ -18,6 +18,9 @@ dependencies = [
     "llmex",
     "rapidfuzz>=3.14.3",
     "srs",
+    "python-multipart>=0.0.21",
+    "pillow>=12.1.0",
+    "pydantic-settings>=2.13.1",
 ]
 
 [tool.uv.workspace]

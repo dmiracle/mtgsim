@@ -34,8 +34,10 @@ from mtgsim.api.routers import (
 )
 from mtgsim.config import get_resources_dir
 
-# Configure logging based on MTGSIM_DEBUG env var
-DEBUG = os.environ.get("MTGSIM_DEBUG", "0") == "1"
+# Configure logging based on settings (reads .env automatically)
+from mtgsim.settings import settings as app_settings
+
+DEBUG = app_settings.debug or os.environ.get("MTGSIM_DEBUG", "0") == "1"
 log_level = logging.DEBUG if DEBUG else logging.INFO
 
 logging.basicConfig(
@@ -118,7 +120,15 @@ async def lifespan(app: FastAPI):
 
     from mtgsim.api.profiler import attach_profiler
 
-    attach_profiler(get_engine())
+    engine = get_engine()
+    attach_profiler(engine)
+
+    from mtgdb.embeddings.vec import load_sqlite_vec, register_sqlite_vec
+
+    register_sqlite_vec(engine)
+    # Also load on any existing pooled connection from init_databases()
+    with engine.connect() as conn:
+        load_sqlite_vec(conn.connection.dbapi_connection)
     logger.info(f"Server ready ({(_time.perf_counter() - t0) * 1000:.0f}ms startup)")
 
     yield
