@@ -110,6 +110,77 @@ async def search_cards(
     )
 
 
+@router.get("/download")
+async def download_cards(
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0),
+    price_max: float | None = Query(None, ge=0),
+    owns: bool | None = Query(None),
+    owns_platform: str | None = Query(None, pattern="^(paper|mtga)$"),
+    wants: bool | None = Query(None),
+    unique: bool = Query(True, description="One printing per card name (default true for downloads)"),
+    price_mode: str = Query("min", pattern="^(min|max)$"),
+    sort: str = Query("name"),
+    order: str = Query("asc", pattern="^(asc|desc)$"),
+    limit: int = Query(10000, ge=1, le=50000, description="Max cards to export"),
+):
+    """Download filtered cards as a JSON file."""
+    import json
+
+    from fastapi.responses import Response
+
+    color_list = list(colors.upper()) if colors else None
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+    mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
+
+    result = await card_service.search_cards(
+        q=q,
+        text=text,
+        set_code=set,
+        set_codes=set_code_list,
+        rarity=rarity,
+        card_type=type,
+        colors=color_list,
+        mana_values=mv_list,
+        format_legal=format,
+        keywords=keyword_list,
+        tags=tag_list,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        owns_platform=owns_platform,
+        wants=wants,
+        unique=unique,
+        price_mode=price_mode,
+        sort=sort,
+        order=order,
+        page=1,
+        limit=limit,
+    )
+
+    content = json.dumps(
+        {"cards": [card.model_dump() for card in result.data], "total": result.pagination.total},
+        indent=2,
+    )
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=cards.json"},
+    )
+
+
 @router.get("/stats", response_model=CardStatsResponse)
 async def get_card_stats(
     q: str | None = Query(None, description="Search by name, type, or oracle text"),
