@@ -1,10 +1,13 @@
 import type { DeckSummary } from "@/types/api";
 import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
+import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 
 type DeckListItemProps = {
   deck: DeckSummary;
   pinned?: boolean;
+  vector?: number[];
+  featureNames?: string[];
   onTogglePin?: (file: string) => void;
   onDuplicate?: (file: string) => void;
   onDelete?: (file: string) => void;
@@ -19,7 +22,7 @@ const iconBtn = "text-xs w-7 h-7 rounded flex items-center justify-center border
 const iconBtnEnabled = "bg-bg-tertiary text-text-muted border-border";
 const iconBtnDisabled = "bg-bg-tertiary text-text-muted/20 border-border/50 cursor-default";
 
-export function DeckListItem({ deck, pinned, onTogglePin, onDuplicate, onDelete, onClick }: DeckListItemProps) {
+export function DeckListItem({ deck, pinned, vector, featureNames, onTogglePin, onDuplicate, onDelete, onClick }: DeckListItemProps) {
   const isUserDeck = deck.source === "user" || deck.source === "import";
   const legalFormats = Object.entries(deck.legality)
     .filter(([, v]) => v)
@@ -37,6 +40,13 @@ export function DeckListItem({ deck, pinned, onTogglePin, onDuplicate, onDelete,
           onToggle={onTogglePin ? () => onTogglePin(deck.uuid) : undefined}
         />
       </div>
+
+      {/* Fingerprint */}
+      {vector && (
+        <div className="shrink-0 hidden sm:block">
+          <VectorHeatmap vector={vector} featureNames={featureNames} size="xs" />
+        </div>
+      )}
 
       {/* Color identity */}
       <div className="shrink-0">

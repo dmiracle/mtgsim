@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse } from "@/types/api";
+import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse, AggregateVectorResponse } from "@/types/api";
+import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
@@ -46,6 +47,7 @@ type CardBrowserPageProps = {
   onPageChange: (page: number) => void;
   onSearch: (params: CardSearchParams) => void;
   onImportMtga?: () => void;
+  aggregateVector?: AggregateVectorResponse;
 };
 
 const emptyFilters: CardFilters = {
@@ -70,6 +72,7 @@ export function CardBrowserPage({
   onPageChange,
   onSearch,
   onImportMtga,
+  aggregateVector,
 }: CardBrowserPageProps) {
   const [nameSearch, setNameSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
@@ -239,6 +242,15 @@ export function CardBrowserPage({
 
         {/* Sidebar: stats + keywords */}
         <div className="space-y-4">
+          <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-medium text-text-secondary">Collection Fingerprint</h3>
+            <VectorHeatmap
+              vector={aggregateVector?.vector ?? []}
+              featureNames={aggregateVector?.dimension_names}
+              label={aggregateVector ? `${aggregateVector.card_count} cards` : undefined}
+              size="sm"
+            />
+          </div>
           {hasActiveFilter && cardStats && (
             <CardResultStats stats={cardStats} />
           )}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { CardSummary, DeckDetail, TagCount } from "@/types/api";
+import type { CardSummary, DeckDetail, TagCount, AggregateVectorResponse } from "@/types/api";
+import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { DeckStats } from "@/components/DeckStats/DeckStats";
 import { DeckCards } from "@/components/DeckCards/DeckCards";
 import { DeckCardList } from "@/components/DeckCardList/DeckCardList";
@@ -25,6 +26,7 @@ type DeckDetailPageProps = {
   onRemoveCard?: (uuid: string) => void;
   onSearchCards?: (query: string) => void;
   onRename?: (name: string) => void;
+  deckVector?: AggregateVectorResponse;
 };
 
 const emptyFilters: CardFilters = {
@@ -49,6 +51,7 @@ export function DeckDetailPage({
   onRemoveCard,
   onSearchCards,
   onRename,
+  deckVector,
 }: DeckDetailPageProps) {
   const [tab, setTab] = useState<"stats" | "cards" | "edit">("stats");
   const [filters, setFilters] = useState(emptyFilters);
@@ -151,6 +154,18 @@ export function DeckDetailPage({
 
       {deck.meta.description && (
         <p className="text-sm text-text-secondary">{deck.meta.description}</p>
+      )}
+
+      {/* Deck fingerprint */}
+      {deckVector && (
+        <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
+          <h3 className="text-sm font-medium text-text-secondary">Deck Fingerprint</h3>
+          <VectorHeatmap
+            vector={deckVector.vector}
+            featureNames={deckVector.dimension_names}
+            label={`${deckVector.card_count} cards`}
+          />
+        </div>
       )}
 
       {/* Tabs */}

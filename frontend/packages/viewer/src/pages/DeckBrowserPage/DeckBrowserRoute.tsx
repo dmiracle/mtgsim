@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useDecks, useDeleteDeck, useDuplicateDeck, useCreateDeck, useImportDeck } from "@/api/hooks";
+import { useDecks, useDeleteDeck, useDuplicateDeck, useCreateDeck, useImportDeck, useDeckVectors } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import { DeckCreateModal } from "@/components/DeckCreateModal/DeckCreateModal";
 import { DeckImportModal } from "@/components/DeckImportModal/DeckImportModal";
@@ -22,6 +22,8 @@ export function DeckBrowserRoute() {
 
   const { data } = useDecks({ ...searchParams, page, limit: 50 });
   const allDecks = data?.data ?? [];
+  const allFiles = [...pinnedDecks.map((d) => d.file), ...allDecks.map((d) => d.file)];
+  const deckVectors = useDeckVectors(allFiles);
 
   function setPage(p: number) {
     setSp((prev) => {
@@ -57,6 +59,7 @@ export function DeckBrowserRoute() {
           });
         }}
         onDeleteDeck={handleDelete}
+        deckVectors={deckVectors}
         onDeckClick={(file) => navigate(`/decks/${file}`)}
         onPageChange={setPage}
         onSearch={handleSearch}

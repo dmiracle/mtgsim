@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDeck, useDeleteDeck, useDuplicateDeck, useRenameDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards } from "@/api/hooks";
+import { useDeck, useDeleteDeck, useDuplicateDeck, useRenameDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards, useDeckVector } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import type { TagCount } from "@/types/api";
 import { DeckDetailPage } from "./DeckDetailPage";
@@ -15,6 +15,7 @@ export function DeckDetailRoute() {
   const renameDeck = useRenameDeck();
   const addCard = useAddCardToDeck();
   const removeCard = useRemoveCardFromDeck();
+  const { data: deckVector } = useDeckVector(file ?? "");
 
   const [searchQuery, setSearchQuery] = useState("");
   const { data: searchData, isFetching: searching } = useCards(
@@ -72,6 +73,7 @@ export function DeckDetailRoute() {
       }}
       onSearchCards={handleSearchCards}
       onRename={isEditable ? (name) => renameDeck.mutate({ deckId, name }) : undefined}
+      deckVector={deckVector}
     />
   );
 }

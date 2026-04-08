@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection, useImportMtga } from "@/api/hooks";
+import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection, useImportMtga, useAggregateVector } from "@/api/hooks";
 import { useActiveDeck } from "@/context/ActiveDeckContext";
 import { MtgaImportModal } from "@/components/MtgaImportModal/MtgaImportModal";
 import { CardBrowserPage } from "./CardBrowserPage";
@@ -21,6 +21,7 @@ export function CardBrowserRoute() {
   const [setSearchQuery, setSetSearchQuery] = useState("");
 
   const { data: cardsData } = useCards({ ...searchParams, page, limit: 50 });
+  const { data: aggregateVector } = useAggregateVector(searchParams);
   const { data: cardStats } = useCardStats(searchParams);
   const { data: tags } = useCardTags({
     format: searchParams.format,
@@ -68,6 +69,7 @@ export function CardBrowserRoute() {
         onPageChange={setPage}
         onSearch={handleSearch}
         onImportMtga={() => setMtgaOpen(true)}
+        aggregateVector={aggregateVector}
       />
       <MtgaImportModal
         open={mtgaOpen}
