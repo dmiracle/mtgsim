@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse } from "@/types/api";
+import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse, AggregateVectorResponse } from "@/types/api";
+import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
@@ -44,6 +45,7 @@ type CardBrowserPageProps = {
   onAddToCollection?: (uuid: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: CardSearchParams) => void;
+  aggregateVector?: AggregateVectorResponse;
 };
 
 const emptyFilters: CardFilters = {
@@ -67,6 +69,7 @@ export function CardBrowserPage({
   onAddToCollection,
   onPageChange,
   onSearch,
+  aggregateVector,
 }: CardBrowserPageProps) {
   const [nameSearch, setNameSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
@@ -75,7 +78,7 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || selectedKeywords.length);
+  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
 
   // Build and emit search params whenever any filter changes
   useEffect(() => {
@@ -225,6 +228,15 @@ export function CardBrowserPage({
 
         {/* Sidebar: stats + keywords */}
         <div className="space-y-4">
+          <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-medium text-text-secondary">Collection Fingerprint</h3>
+            <VectorHeatmap
+              vector={aggregateVector?.vector ?? []}
+              featureNames={aggregateVector?.dimension_names}
+              label={aggregateVector ? `${aggregateVector.card_count} cards` : undefined}
+              size="sm"
+            />
+          </div>
           {hasActiveFilter && cardStats && (
             <CardResultStats stats={cardStats} />
           )}

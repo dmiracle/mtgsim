@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDeck, useDeleteDeck, useDuplicateDeck, useUpdateDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards, usePrintings, useSetPrinting } from "@/api/hooks";
+import { useDeck, useDeleteDeck, useDuplicateDeck, useUpdateDeck, useAddCardToDeck, useRemoveCardFromDeck, useCards, useDeckVector, usePrintings, useSetPrinting } from "@/api/hooks";
 import { usePinnedDecks } from "@/hooks/usePinnedDecks";
 import type { TagCount } from "@/types/api";
 import { DeckDetailPage } from "./DeckDetailPage";
@@ -18,6 +18,7 @@ export function DeckDetailRoute() {
   const { data: printings } = usePrintings(printingCardUuid);
   const addCard = useAddCardToDeck();
   const removeCard = useRemoveCardFromDeck();
+  const { data: deckVector } = useDeckVector(file ?? "");
 
   const [searchQuery, setSearchQuery] = useState("");
   const { data: searchData, isFetching: searching } = useCards(
@@ -84,6 +85,7 @@ export function DeckDetailRoute() {
       } : undefined}
       onClosePrintings={() => setPrintingCardUuid("")}
       printingCardUuid={printingCardUuid}
+      deckVector={deckVector}
     />
   );
 }

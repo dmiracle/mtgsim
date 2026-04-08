@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, buildParams } from "./client";
 import type {
   HomeStats,
@@ -20,6 +20,7 @@ import type {
   QuadrantRating,
   SimilarCardsResponse,
   Strategy,
+  AggregateVectorResponse,
   DeckCardPrinting,
 } from "@/types/api";
 
@@ -357,6 +358,52 @@ export function useStrategies() {
     queryKey: ["cards", "similar", "strategies"],
     queryFn: () => apiFetch<Strategy[]>("/cards/similar/strategies"),
     staleTime: Infinity,
+  });
+}
+
+// --- Feature Vectors ---
+
+export function useAggregateVector(params: Record<string, string | number | boolean | null | undefined>) {
+  const hasFilter = Object.values(params).some((v) => v !== undefined && v !== null && v !== "");
+  return useQuery({
+    queryKey: ["cards", "features", "aggregate", params],
+    queryFn: () => apiFetch<AggregateVectorResponse>(`/cards/features/aggregate${buildParams(params)}`),
+    enabled: hasFilter,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCardVector(uuid: string) {
+  return useQuery({
+    queryKey: ["cards", "features", "compact", uuid],
+    queryFn: () => apiFetch<AggregateVectorResponse>(`/cards/${uuid}/features/compact`),
+    enabled: !!uuid,
+  });
+}
+
+export function useDeckVector(file: string) {
+  return useQuery({
+    queryKey: ["decks", "features", file],
+    queryFn: () => apiFetch<AggregateVectorResponse>(`/decks/${file}/features`),
+    enabled: !!file,
+  });
+}
+
+export function useDeckVectors(files: string[]) {
+  return useQueries({
+    queries: files.map((file) => ({
+      queryKey: ["decks", "features", file],
+      queryFn: () => apiFetch<AggregateVectorResponse>(`/decks/${file}/features`),
+      enabled: !!file,
+      staleTime: 60_000,
+    })),
+    combine: (results) => {
+      const map: Record<string, AggregateVectorResponse> = {};
+      for (let i = 0; i < files.length; i++) {
+        if (results[i].data) map[files[i]] = results[i].data!;
+      }
+      return map;
+    },
   });
 }
 
