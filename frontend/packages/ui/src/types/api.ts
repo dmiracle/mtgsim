@@ -430,3 +430,25 @@ export type Strategy = {
   name: string;
   description: string;
 };
+
+// --- Feature Vectors ---
+
+export type AggregateVectorResponse = {
+  vector: number[];
+  dimensions: number;
+  dimension_names: string[];
+  card_count: number;
+};
+
+export type CompactVectorCard = {
+  uuid: string;
+  name: string;
+  vector: number[];
+};
+
+export type BatchCompactVectorResponse = {
+  cards: CompactVectorCard[];
+  dimensions: number;
+  dimension_names: string[];
+  total: number;
+};

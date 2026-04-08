@@ -85,6 +85,7 @@ export { StatCard } from "./components/StatCard/StatCard";
 export { StrategyPicker } from "./components/StrategyPicker/StrategyPicker";
 export { StudyAnalytics } from "./components/StudyAnalytics/StudyAnalytics";
 export { StudyDashboard } from "./components/StudyDashboard/StudyDashboard";
+export { VectorHeatmap } from "./components/VectorHeatmap/VectorHeatmap";
 export { VBarChart } from "./components/charts/VBarChart/VBarChart";
 export { HBarChart } from "./components/charts/HBarChart/HBarChart";
 export { DonutChart } from "./components/charts/DonutChart/DonutChart";
