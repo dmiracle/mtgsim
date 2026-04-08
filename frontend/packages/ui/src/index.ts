@@ -55,6 +55,7 @@ export { GlossaryBrowser } from "./components/GlossaryBrowser/GlossaryBrowser";
 export { KeywordBrowser } from "./components/KeywordBrowser/KeywordBrowser";
 export { KeywordCloud } from "./components/KeywordCloud/KeywordCloud";
 export { ManaSymbols } from "./components/ManaSymbols/ManaSymbols";
+export { MtgaImportModal } from "./components/MtgaImportModal/MtgaImportModal";
 export { OracleTagsDropdown } from "./components/OracleTagsDropdown/OracleTagsDropdown";
 export { OtherPrintings } from "./components/OtherPrintings/OtherPrintings";
 export { OwnershipToggle } from "./components/OwnershipToggle/OwnershipToggle";

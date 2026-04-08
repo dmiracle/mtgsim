@@ -20,6 +20,7 @@ type CardFilters = {
   tags: string[];
   manaValue: number[];
   ownership: "all" | "owned" | "not_owned";
+  platform: "any" | "paper" | "mtga";
   sort: string;
   order: "asc" | "desc";
   unique: boolean;
@@ -344,7 +345,9 @@ export function CardFilterBar({
               />
               <OwnershipToggle
                 value={filters.ownership}
-                onChange={(ownership) => update({ ownership })}
+                platform={filters.platform}
+                onChange={(ownership) => update({ ownership, platform: ownership === "owned" ? filters.platform : "any" })}
+                onPlatformChange={(platform) => update({ platform })}
               />
               {showUnique && (
                 <label className="inline-flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
@@ -371,6 +374,7 @@ export function CardFilterBar({
                       tags: [],
                       manaValue: [],
                       ownership: "all",
+                      platform: "any",
                       sort: filters.sort,
                       order: filters.order,
                       unique: filters.unique,

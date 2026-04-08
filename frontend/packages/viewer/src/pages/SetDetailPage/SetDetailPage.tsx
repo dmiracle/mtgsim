@@ -38,7 +38,7 @@ type SetDetailPageProps = {
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", sort: "number", order: "asc", unique: true, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "number", order: "asc", unique: true, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 export function SetDetailPage({ set, cards, cardPagination, availableTags = [], onBack, onCardClick, onSetClick, onCardPageChange, onCardFiltersChange }: SetDetailPageProps) {

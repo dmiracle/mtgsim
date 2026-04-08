@@ -23,6 +23,7 @@ export type CardSearchParams = {
   keywords?: string;
   mana_value?: string;
   owns?: boolean;
+  owns_platform?: string;
   unique?: boolean;
   sort?: string;
   order?: string;
@@ -45,12 +46,13 @@ type CardBrowserPageProps = {
   onAddToCollection?: (uuid: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: CardSearchParams) => void;
+  onImportMtga?: () => void;
   aggregateVector?: AggregateVectorResponse;
 };
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 export function CardBrowserPage({
@@ -69,6 +71,7 @@ export function CardBrowserPage({
   onAddToCollection,
   onPageChange,
   onSearch,
+  onImportMtga,
   aggregateVector,
 }: CardBrowserPageProps) {
   const [nameSearch, setNameSearch] = useState("");
@@ -98,6 +101,7 @@ export function CardBrowserPage({
     if (filters.manaValue.length) params.mana_value = filters.manaValue.join(",");
     if (filters.ownership === "owned") params.owns = true;
     if (filters.ownership === "not_owned") params.owns = false;
+    if (filters.ownership === "owned" && filters.platform !== "any") params.owns_platform = filters.platform;
     if (filters.unique) params.unique = true;
     if (filters.sort !== "name") params.sort = filters.sort;
     if (filters.order !== "asc") params.order = filters.order;
@@ -128,7 +132,17 @@ export function CardBrowserPage({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-text-primary">Cards</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-text-primary">Cards</h2>
+        {onImportMtga && (
+          <button
+            onClick={onImportMtga}
+            className="text-xs font-medium px-3 py-1.5 rounded border border-border text-text-secondary hover:border-accent hover:text-accent transition-colors"
+          >
+            Import MTGA
+          </button>
+        )}
+      </div>
 
       {/* Top search bar */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">

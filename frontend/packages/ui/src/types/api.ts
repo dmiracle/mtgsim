@@ -177,10 +177,19 @@ export type CardPrinting = {
 export type CardCollection = {
   quantity_owned: number;
   quantity_owned_foil: number;
+  quantity_owned_mtga: number;
+  quantity_owned_mtga_foil: number;
   quantity_wanted: number;
   quantity_wanted_foil: number;
   condition: string | null;
   notes: string | null;
+};
+
+export type MtgaImportResult = {
+  matched: number;
+  created: number;
+  updated: number;
+  unmatched: string[];
 };
 
 export type QuadrantRating = {

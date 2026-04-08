@@ -38,7 +38,7 @@ type DeckDetailPageProps = {
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 export function DeckDetailPage({
