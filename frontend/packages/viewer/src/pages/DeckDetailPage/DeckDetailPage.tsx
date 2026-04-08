@@ -1,6 +1,7 @@
 import { useState } from "react";
-import type { CardSummary, DeckDetail, TagCount, AggregateVectorResponse } from "@/types/api";
+import type { CardSummary, DeckDetail, TagCount, AggregateVectorResponse, DeckCardPrinting } from "@/types/api";
 import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
+import { PrintingPicker } from "@/components/PrintingPicker/PrintingPicker";
 import { DeckStats } from "@/components/DeckStats/DeckStats";
 import { DeckCards } from "@/components/DeckCards/DeckCards";
 import { DeckCardList } from "@/components/DeckCardList/DeckCardList";
@@ -26,6 +27,12 @@ type DeckDetailPageProps = {
   onRemoveCard?: (uuid: string) => void;
   onSearchCards?: (query: string) => void;
   onRename?: (name: string) => void;
+  onSetFormat?: (format: string) => void;
+  printings?: DeckCardPrinting[];
+  printingCardUuid?: string;
+  onLoadPrintings?: (uuid: string) => void;
+  onSetPrinting?: (cardUuid: string, printingUuid: string) => void;
+  onClosePrintings?: () => void;
   deckVector?: AggregateVectorResponse;
 };
 
@@ -51,6 +58,12 @@ export function DeckDetailPage({
   onRemoveCard,
   onSearchCards,
   onRename,
+  onSetFormat,
+  printings,
+  printingCardUuid,
+  onLoadPrintings,
+  onSetPrinting,
+  onClosePrintings,
   deckVector,
 }: DeckDetailPageProps) {
   const [tab, setTab] = useState<"stats" | "cards" | "edit">("stats");
@@ -122,7 +135,20 @@ export function DeckDetailPage({
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-0.5">
-            {deck.meta.format && <span className="text-xs text-text-muted capitalize">{deck.meta.format}</span>}
+            {onSetFormat ? (
+              <select
+                value={deck.meta.format ?? ""}
+                onChange={(e) => onSetFormat(e.target.value)}
+                className="text-xs bg-bg-tertiary border border-border rounded px-1.5 py-0.5 text-text-muted focus:outline-none focus:border-accent capitalize"
+              >
+                <option value="">Any format</option>
+                {["standard", "pioneer", "modern", "legacy", "vintage", "commander", "pauper"].map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            ) : (
+              deck.meta.format && <span className="text-xs text-text-muted capitalize">{deck.meta.format}</span>
+            )}
             <span className="text-xs text-text-muted">{deck.meta.source}</span>
             {deck.meta.release_date && <span className="text-xs text-text-muted">{deck.meta.release_date}</span>}
           </div>
@@ -208,6 +234,7 @@ export function DeckDetailPage({
               title="Commander"
               cards={deck.commander}
               onRemove={onRemoveCard}
+              onChangePrinting={onLoadPrintings}
               onCardClick={onCardClick}
               onAddCard={() => openAddModal("commander")}
             />
@@ -216,6 +243,7 @@ export function DeckDetailPage({
             title="Main Board"
             cards={deck.main_board}
             onRemove={onRemoveCard}
+            onChangePrinting={onLoadPrintings}
             onCardClick={onCardClick}
             onAddCard={() => openAddModal("main")}
           />
@@ -223,6 +251,7 @@ export function DeckDetailPage({
             title="Sideboard"
             cards={deck.side_board}
             onRemove={onRemoveCard}
+            onChangePrinting={onLoadPrintings}
             onCardClick={onCardClick}
             onAddCard={() => openAddModal("side")}
           />
@@ -244,6 +273,17 @@ export function DeckDetailPage({
             onAddCard(uuid, board, count);
           }}
           onClose={() => setAddModalOpen(false)}
+        />
+      )}
+
+      {/* Printing picker modal */}
+      {onSetPrinting && onClosePrintings && (
+        <PrintingPicker
+          open={!!printingCardUuid}
+          cardName={[...deck.commander, ...deck.main_board, ...deck.side_board].find((c) => c.uuid === printingCardUuid)?.name ?? ""}
+          printings={printings ?? []}
+          onSelect={(printingUuid) => onSetPrinting(printingCardUuid ?? "", printingUuid)}
+          onClose={onClosePrintings}
         />
       )}
     </div>

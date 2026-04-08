@@ -21,6 +21,7 @@ import type {
   SimilarCardsResponse,
   Strategy,
   AggregateVectorResponse,
+  DeckCardPrinting,
 } from "@/types/api";
 
 // --- Stats ---
@@ -143,14 +144,14 @@ export function useUnpinDeck() {
   });
 }
 
-export function useRenameDeck() {
+export function useUpdateDeck() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ deckId, name }: { deckId: number; name: string }) =>
+    mutationFn: ({ deckId, ...body }: { deckId: number; name?: string; intended_format?: string | null }) =>
       apiFetch<UserDeckResponse>(`/decks/${deckId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(body),
       }),
     onSuccess: (_, { deckId }) => {
       qc.invalidateQueries({ queryKey: ["decks"] });
@@ -402,6 +403,33 @@ export function useDeckVectors(files: string[]) {
         if (results[i].data) map[files[i]] = results[i].data!;
       }
       return map;
+    },
+  });
+}
+
+// --- Printings ---
+
+export function usePrintings(uuid: string) {
+  return useQuery({
+    queryKey: ["cards", uuid, "printings"],
+    queryFn: () => apiFetch<DeckCardPrinting[]>(`/cards/${uuid}/printings`),
+    enabled: !!uuid,
+    staleTime: 300_000,
+  });
+}
+
+export function useSetPrinting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ deckId, cardUuid, printingUuid }: { deckId: number; cardUuid: string; printingUuid: string }) =>
+      apiFetch(`/decks/${deckId}/cards/${cardUuid}/printing`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ printing_uuid: printingUuid }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decks"] });
+      qc.invalidateQueries({ queryKey: ["deck"] });
     },
   });
 }

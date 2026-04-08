@@ -5,11 +5,12 @@ type DeckCardListProps = {
   title: string;
   cards: DeckCard[];
   onRemove?: (uuid: string) => void;
+  onChangePrinting?: (uuid: string) => void;
   onCardClick?: (uuid: string) => void;
   onAddCard?: () => void;
 };
 
-export function DeckCardList({ title, cards, onRemove, onCardClick, onAddCard }: DeckCardListProps) {
+export function DeckCardList({ title, cards, onRemove, onChangePrinting, onCardClick, onAddCard }: DeckCardListProps) {
   const total = cards.reduce((s, c) => s + c.count, 0);
 
   return (
@@ -40,6 +41,7 @@ export function DeckCardList({ title, cards, onRemove, onCardClick, onAddCard }:
               key={card.uuid}
               card={card}
               onRemove={onRemove}
+              onChangePrinting={onChangePrinting}
               onClick={onCardClick}
             />
           ))}
