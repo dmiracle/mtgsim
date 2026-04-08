@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { DeckSummary, Pagination as PaginationType } from "@/types/api";
+import type { DeckSummary, Pagination as PaginationType, AggregateVectorResponse } from "@/types/api";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { ColorIdentityPicker } from "@/components/ColorIdentityPicker/ColorIdentityPicker";
 import { SortSelect } from "@/components/SortSelect/SortSelect";
@@ -26,6 +26,7 @@ type DeckBrowserPageProps = {
   onTogglePin: (file: string) => void;
   onDuplicateDeck: (file: string) => void;
   onDeleteDeck: (file: string) => void;
+  deckVectors?: Record<string, AggregateVectorResponse>;
   onDeckClick: (file: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: DeckSearchParams) => void;
@@ -49,6 +50,7 @@ export function DeckBrowserPage({
   onTogglePin,
   onDuplicateDeck,
   onDeleteDeck,
+  deckVectors,
   onDeckClick,
   onPageChange,
   onSearch,
@@ -150,6 +152,8 @@ export function DeckBrowserPage({
               key={`pinned-${d.file}`}
               deck={d}
               pinned
+              vector={deckVectors?.[d.file]?.vector}
+              featureNames={deckVectors?.[d.file]?.dimension_names}
               onTogglePin={onTogglePin}
               onDuplicate={onDuplicateDeck}
               onDelete={onDeleteDeck}
@@ -168,6 +172,8 @@ export function DeckBrowserPage({
             <DeckListItem
               key={d.file}
               deck={d}
+              vector={deckVectors?.[d.file]?.vector}
+              featureNames={deckVectors?.[d.file]?.dimension_names}
               onTogglePin={onTogglePin}
               onDuplicate={onDuplicateDeck}
               onDelete={onDeleteDeck}

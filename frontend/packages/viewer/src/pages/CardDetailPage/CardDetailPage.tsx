@@ -1,4 +1,5 @@
-import type { CardDetail, KeywordsResponse, SimilarCardResult, Strategy } from "@/types/api";
+import type { CardDetail, KeywordsResponse, SimilarCardResult, Strategy, AggregateVectorResponse } from "@/types/api";
+import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import { StrategyPicker } from "@/components/StrategyPicker/StrategyPicker";
@@ -33,6 +34,7 @@ type CardDetailPageProps = {
   similarFilters?: CardFilters;
   onSimilarFiltersChange?: (filters: CardFilters) => void;
   onSimilarCardClick?: (uuid: string) => void;
+  cardVector?: AggregateVectorResponse;
 };
 
 function buildKeywordGroups(card: CardDetail, keywordTypes?: KeywordsResponse) {
@@ -76,6 +78,7 @@ export function CardDetailPage({
   similarFilters,
   onSimilarFiltersChange,
   onSimilarCardClick,
+  cardVector,
 }: CardDetailPageProps) {
   const keywordGroups = buildKeywordGroups(card, keywordTypes);
 
@@ -195,6 +198,18 @@ export function CardDetailPage({
               </div>
             )}
           </div>
+
+          {/* Feature fingerprint */}
+          {cardVector && (
+            <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
+              <h3 className="text-sm font-medium text-text-secondary">Feature Fingerprint</h3>
+              <VectorHeatmap
+                vector={cardVector.vector}
+                featureNames={cardVector.dimension_names}
+                size="md"
+              />
+            </div>
+          )}
 
           <CardMetadata
             set_code={card.set_code}
