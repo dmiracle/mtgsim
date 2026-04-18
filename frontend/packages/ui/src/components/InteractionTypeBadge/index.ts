@@ -1,0 +1,1 @@
+export { InteractionTypeBadge } from "./InteractionTypeBadge";

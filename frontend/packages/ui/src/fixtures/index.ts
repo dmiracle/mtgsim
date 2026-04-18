@@ -4,3 +4,4 @@ export { deckSummaries, deckDetail, userDecks } from "./decks";
 export { homeStats } from "./stats";
 export { keywordsResponse, keywordFrequencies } from "./keywords";
 export { priceSummaries } from "./prices";
+export { interactions } from "./interactions";
