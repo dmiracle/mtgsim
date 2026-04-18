@@ -85,7 +85,22 @@ def resolve_printing_image(
             if row:
                 return build_image_url(row[1])
 
-    # 4. Fall back to original printing
+    # 4. Prefer newest printing (helps basic lands and widely-reprinted cards)
+    from mtgdb.models import MJSet
+
+    row = session.exec(
+        select(MJCardIdentifier.scryfall_id)
+        .join(MJCard, MJCardIdentifier.card_uuid == MJCard.uuid)
+        .join(MJSet, MJCard.set_code == MJSet.code)
+        .where(MJCard.name == card_name)
+        .where(MJSet.type.in_(["expansion", "core"]))
+        .order_by(MJSet.release_date.desc())
+        .limit(1)
+    ).first()
+    if row:
+        return build_image_url(row)
+
+    # 5. Fall back to original printing
     row = session.exec(select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == card_uuid)).first()
     return build_image_url(row) if row else None
 

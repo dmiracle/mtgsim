@@ -263,6 +263,42 @@ def db_sync_17l_personal(
         raise typer.Exit(1)
 
 
+@db_app.command("import-mtga")
+def db_import_mtga(
+    csv_path: str = typer.Argument(help="Path to MTGA collection CSV"),
+):
+    """Import an MTGA collection CSV to mark cards as owned on MTGA.
+
+    The CSV should be in MTGA export format with columns:
+    Id, Name, Set, Color, Rarity, Count, PrintCount
+    """
+    from pathlib import Path
+
+    from mtgdb.session import init_db
+
+    from mtgsim.mtga_import import import_mtga_collection
+
+    init_db()
+
+    path = Path(csv_path)
+    if not path.exists():
+        typer.echo(f"File not found: {csv_path}")
+        raise typer.Exit(1)
+
+    result = import_mtga_collection(path)
+    typer.echo(f"Total rows: {result.total_rows}")
+    typer.echo(f"Matched: {result.matched}")
+    typer.echo(f"Created: {result.cards_created}")
+    typer.echo(f"Updated: {result.cards_updated}")
+    typer.echo(f"Unmatched: {result.unmatched}")
+    if result.unmatched_cards:
+        typer.echo("Unmatched cards:")
+        for c in result.unmatched_cards[:20]:
+            typer.echo(f"  {c['name']} ({c['set_code']})")
+        if len(result.unmatched_cards) > 20:
+            typer.echo(f"  ... and {len(result.unmatched_cards) - 20} more")
+
+
 @db_app.command("stats")
 def db_stats():
     """Show database statistics."""

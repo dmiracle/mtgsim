@@ -91,6 +91,7 @@ def apply_card_filters(
     tags: list[str] | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
+    owns_platform: str | None = None,
     session=None,
 ):
     """Apply common card filters to a query that joins MJCard and optionally UserCard."""
@@ -131,11 +132,26 @@ def apply_card_filters(
             exists(sa_select(MJCardTag.id).where((MJCardTag.card_name == MJCard.name) & (MJCardTag.tag.in_(tags))))
         )
     if owns is True:
-        query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+        query = query.where(
+            (UserCard.quantity_owned > 0)
+            | (UserCard.quantity_owned_foil > 0)
+            | (UserCard.quantity_owned_mtga > 0)
+            | (UserCard.quantity_owned_mtga_foil > 0)
+        )
     elif owns is False:
         query = query.where(
-            (UserCard.id.is_(None)) | ((UserCard.quantity_owned == 0) & (UserCard.quantity_owned_foil == 0))
+            (UserCard.id.is_(None))
+            | (
+                (UserCard.quantity_owned == 0)
+                & (UserCard.quantity_owned_foil == 0)
+                & (UserCard.quantity_owned_mtga == 0)
+                & (UserCard.quantity_owned_mtga_foil == 0)
+            )
         )
+    if owns_platform == "paper":
+        query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+    elif owns_platform == "mtga":
+        query = query.where((UserCard.quantity_owned_mtga > 0) | (UserCard.quantity_owned_mtga_foil > 0))
     if wants is True:
         query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
     elif wants is False:
@@ -199,7 +215,12 @@ def card_to_api_dict(
     collection = None
 
     if user_card:
-        total_owned = (user_card.quantity_owned or 0) + (user_card.quantity_owned_foil or 0)
+        total_owned = (
+            (user_card.quantity_owned or 0)
+            + (user_card.quantity_owned_foil or 0)
+            + (user_card.quantity_owned_mtga or 0)
+            + (user_card.quantity_owned_mtga_foil or 0)
+        )
         total_wanted = (user_card.quantity_wanted or 0) + (user_card.quantity_wanted_foil or 0)
         owns = total_owned > 0
         wants = total_wanted > 0
@@ -208,6 +229,8 @@ def card_to_api_dict(
             collection = {
                 "quantity_owned": user_card.quantity_owned,
                 "quantity_owned_foil": user_card.quantity_owned_foil,
+                "quantity_owned_mtga": user_card.quantity_owned_mtga,
+                "quantity_owned_mtga_foil": user_card.quantity_owned_mtga_foil,
                 "quantity_wanted": user_card.quantity_wanted,
                 "quantity_wanted_foil": user_card.quantity_wanted_foil,
                 "condition": user_card.condition,
