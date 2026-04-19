@@ -1,10 +1,35 @@
 import base64
+import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 from openai import OpenAI
+from pydantic import BaseModel
 
 from ..domain.card import Card, CardType, ManaCost, Rarity, Supertype
+
+logger = logging.getLogger("mtgsim.extract.pipelines")
+
+
+class LLMUsage(BaseModel):
+    """LLM call metadata returned alongside extraction results."""
+
+    provider: str = ""
+    model: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms: float = 0.0
+    status: str = "success"
+    error_message: str | None = None
+
+
+class ExtractionResult(BaseModel):
+    """Extraction output: the card plus optional LLM usage metadata."""
+
+    card: Card
+    llm_usage: LLMUsage | None = None
+
 
 SYSTEM_PROMPT = """You are an expert Magic: The Gathering card scanner.
 Analyze the provided card image and extract the data strictly adhering to the schema.
@@ -22,7 +47,18 @@ Separate the type line into:
 Distinguish between Oracle text (rules text) and Flavor text (italicized text).
 Identify the rarity from the set symbol color (black=common, silver=uncommon, gold=rare, orange-red=mythic).
 For creatures, extract power and toughness. For planeswalkers, extract starting loyalty.
-For battles, extract defense."""
+For battles, extract defense.
+
+Set and printing identification:
+- set_code: the 3-4 letter set code (e.g. M19, KLD, ZNR). Read from the bottom or the expansion symbol.
+- set_name: the full set name (e.g. "Core Set 2019", "Kaladesh").
+- collector_number: the card number shown at the bottom (e.g. "089/280", just the number before the slash).
+- finish: "normal", "foil" (rainbow/holographic sheen visible), or "etched" (textured foil on frame only).
+- language: 2-letter code (en, ja, de, fr, es, it, pt, ko, ru, zhs, zht). Default "en" for English.
+- border_color: "black", "white", "borderless", "silver", or "gold".
+- frame_version: the year-style frame (e.g. "2015", "2003", "1993").
+- is_promo: true if this is a promotional printing (stamped, alternate art, prerelease, etc.).
+- is_reprint: true if this card has been printed in a previous set."""
 
 
 class ExtractionPipeline(ABC):
@@ -37,6 +73,11 @@ class ExtractionPipeline(ABC):
     def extract_bytes(self, data: bytes, mime_type: str) -> Card:
         """Extract card data from raw image bytes."""
         pass
+
+    def extract_bytes_with_usage(self, data: bytes, mime_type: str) -> ExtractionResult:
+        """Extract card data and return LLM usage if applicable."""
+        card = self.extract_bytes(data, mime_type)
+        return ExtractionResult(card=card)
 
 
 class OpenAIExtractionPipeline(ExtractionPipeline):
@@ -66,35 +107,64 @@ class OpenAIExtractionPipeline(ExtractionPipeline):
         }
         return mime_types.get(suffix, "image/jpeg")
 
-    def _call_openai(self, base64_image: str, mime_type: str) -> Card:
-        completion = self.client.beta.chat.completions.parse(
+    def _call_openai(self, base64_image: str, mime_type: str) -> tuple[Card, LLMUsage]:
+        t0 = time.perf_counter()
+
+        try:
+            completion = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime_type};base64,{base64_image}"},
+                            }
+                        ],
+                    },
+                ],
+                response_format=Card,
+            )
+        except Exception as exc:
+            latency_ms = (time.perf_counter() - t0) * 1000
+            usage = LLMUsage(
+                provider="openai",
+                model=self.model,
+                latency_ms=round(latency_ms, 2),
+                status="error",
+                error_message=str(exc),
+            )
+            raise type(exc)(str(exc)) from exc  # re-raise, usage lost on error path
+
+        latency_ms = (time.perf_counter() - t0) * 1000
+        raw_usage = completion.usage
+        usage = LLMUsage(
+            provider="openai",
             model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime_type};base64,{base64_image}"},
-                        }
-                    ],
-                },
-            ],
-            response_format=Card,
+            prompt_tokens=raw_usage.prompt_tokens if raw_usage else 0,
+            completion_tokens=raw_usage.completion_tokens if raw_usage else 0,
+            latency_ms=round(latency_ms, 2),
         )
-        return completion.choices[0].message.parsed
+        return completion.choices[0].message.parsed, usage
 
     def extract(self, image_path: Path) -> Card:
         base64_image = self._encode_image(image_path)
         mime_type = self._get_mime_type(image_path)
-        card = self._call_openai(base64_image, mime_type)
+        card, _usage = self._call_openai(base64_image, mime_type)
         card.image_url = str(image_path)
         return card
 
     def extract_bytes(self, data: bytes, mime_type: str) -> Card:
         base64_image = base64.b64encode(data).decode("utf-8")
-        return self._call_openai(base64_image, mime_type)
+        card, _usage = self._call_openai(base64_image, mime_type)
+        return card
+
+    def extract_bytes_with_usage(self, data: bytes, mime_type: str) -> ExtractionResult:
+        base64_image = base64.b64encode(data).decode("utf-8")
+        card, usage = self._call_openai(base64_image, mime_type)
+        return ExtractionResult(card=card, llm_usage=usage)
 
 
 class MockExtractionPipeline(ExtractionPipeline):
@@ -165,10 +235,19 @@ class MockExtractionPipeline(ExtractionPipeline):
 
 
 def get_pipeline(pipeline_name: str = "mock", **kwargs) -> ExtractionPipeline:
-    """Factory function to get an extraction pipeline by name."""
+    """Factory function to get an extraction pipeline by name.
+
+    Available pipelines:
+        - "mock": Returns hardcoded cards for testing (no external deps)
+        - "openai": Uses OpenAI Vision API (requires OPENAI_API_KEY)
+        - "tesseract": Local OCR via tesseract (requires tesseract binary)
+    """
+    from mtgsim.extract.ocr import TesseractExtractionPipeline
+
     pipelines = {
         "mock": MockExtractionPipeline,
         "openai": OpenAIExtractionPipeline,
+        "tesseract": TesseractExtractionPipeline,
     }
 
     if pipeline_name not in pipelines:

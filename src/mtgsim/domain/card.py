@@ -54,6 +54,12 @@ class ManaCost(BaseModel):
         return self.white + self.blue + self.black + self.red + self.green + self.colorless + self.generic
 
 
+class Finish(str, Enum):
+    NORMAL = "normal"
+    FOIL = "foil"
+    ETCHED = "etched"
+
+
 class Card(BaseModel):
     """Domain model for cards - focuses on business logic and validation."""
 
@@ -73,3 +79,14 @@ class Card(BaseModel):
     defense: int | None = None
     color_identity: list[Color] = []
     rarity: Rarity = Rarity.COMMON
+
+    # Set and printing info
+    set_code: str = ""
+    set_name: str = ""
+    collector_number: str = ""
+    finish: Finish = Finish.NORMAL
+    language: str = "en"
+    border_color: str = ""
+    frame_version: str = ""
+    is_promo: bool = False
+    is_reprint: bool = False
