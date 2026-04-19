@@ -4,6 +4,7 @@ import { fn } from "storybook/test";
 import { InteractionBuilder } from "./InteractionBuilder";
 import { cardSummaries, interactions } from "@/fixtures";
 import type { InteractionCard } from "@/types/api";
+import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 
 const sourceCard: InteractionCard = {
   uuid: "bolt-uuid",
@@ -13,69 +14,59 @@ const sourceCard: InteractionCard = {
   image_url: "https://cards.scryfall.io/normal/front/f/2/f29ba16f-c8fb-42fe-aabf-87089cb214a7.jpg",
 };
 
+const emptyFilters: CardFilters = {
+  text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+};
+
 const meta: Meta<typeof InteractionBuilder> = {
   title: "Interactions/InteractionBuilder",
   component: InteractionBuilder,
   tags: ["autodocs"],
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "padded" },
   args: {
-    open: true,
     sourceCard,
-    searchResults: [],
-    onSearch: fn(),
+    cards: cardSummaries,
+    filters: emptyFilters,
+    onFiltersChange: fn(),
     onSave: fn(),
-    onClose: fn(),
+    onBack: fn(),
+    onCardClick: fn(),
   },
+  decorators: [(Story) => <div className="bg-bg-primary max-w-5xl"><Story /></div>],
 };
 
 export default meta;
 type Story = StoryObj<typeof InteractionBuilder>;
 
-export const Empty: Story = {};
+export const Default: Story = {};
 
-export const WithResults: Story = {
-  args: { searchResults: cardSummaries },
+export const WithPagination: Story = {
+  args: {
+    pagination: { page: 1, pages: 3, total: 15, limit: 5 },
+    onPageChange: fn(),
+  },
 };
 
 export const Editing: Story = {
   args: {
     editing: interactions[0],
-    searchResults: [],
+    cards: cardSummaries,
   },
 };
 
 export const Interactive: Story = {
   render: () => {
-    const [open, setOpen] = useState(true);
-    const [results, setResults] = useState(cardSummaries);
-    const [searching, setSearching] = useState(false);
-
-    function handleSearch(q: string) {
-      setSearching(true);
-      setTimeout(() => {
-        setResults(cardSummaries.filter((c) =>
-          c.name.toLowerCase().includes(q.toLowerCase()) ||
-          c.text.toLowerCase().includes(q.toLowerCase()),
-        ));
-        setSearching(false);
-      }, 300);
-    }
-
+    const [filters, setFilters] = useState(emptyFilters);
     return (
-      <div className="h-screen bg-bg-primary p-8">
-        <button onClick={() => setOpen(true)} className="text-sm px-3 py-1.5 rounded bg-accent text-white">
-          Open Builder
-        </button>
-        <InteractionBuilder
-          open={open}
-          sourceCard={sourceCard}
-          searchResults={results}
-          searching={searching}
-          onSearch={handleSearch}
-          onSave={(data) => { console.log("save", data); setOpen(false); }}
-          onClose={() => setOpen(false)}
-        />
-      </div>
+      <InteractionBuilder
+        sourceCard={sourceCard}
+        cards={cardSummaries}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onSave={(data) => console.log("save", data)}
+        onBack={() => console.log("back")}
+      />
     );
   },
 };
