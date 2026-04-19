@@ -469,3 +469,52 @@ export type BatchCompactVectorResponse = {
   dimension_names: string[];
   total: number;
 };
+
+// --- Interactions ---
+
+export type InteractionCard = {
+  uuid: string;
+  name: string;
+  type_line: string;
+  mana_cost: string;
+  image_url: string | null;
+};
+
+export type Interaction = {
+  id: number;
+  source_card: InteractionCard;
+  target_card: InteractionCard;
+  interaction_type: string;
+  is_bidirectional: boolean;
+  description: string | null;
+  strength: number | null;
+  extra: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InteractionListResponse = {
+  data: Interaction[];
+  pagination: Pagination;
+};
+
+export type CreateInteractionBody = {
+  source_card_uuid: string;
+  target_card_uuid: string;
+  interaction_type: string;
+  is_bidirectional?: boolean;
+  description?: string;
+  strength?: number;
+};
+
+export type InteractionGraphNode = {
+  card: InteractionCard;
+  interactions: Interaction[];
+};
+
+export type InteractionGraphResponse = {
+  root_card: InteractionCard;
+  depth: number;
+  nodes: InteractionGraphNode[];
+  total_interactions: number;
+};

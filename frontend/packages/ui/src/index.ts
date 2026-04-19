@@ -51,6 +51,10 @@ export { FlashcardCard } from "./components/FlashcardCard/FlashcardCard";
 export { FlipCard } from "./components/FlipCard/FlipCard";
 export { FormatLegalityBadges } from "./components/FormatLegalityBadges/FormatLegalityBadges";
 export { GenerateDialog } from "./components/GenerateDialog/GenerateDialog";
+export { InteractionBuilder } from "./components/InteractionBuilder/InteractionBuilder";
+export { InteractionList } from "./components/InteractionList/InteractionList";
+export { InteractionListItem } from "./components/InteractionListItem/InteractionListItem";
+export { InteractionTypeBadge } from "./components/InteractionTypeBadge/InteractionTypeBadge";
 export { GlossaryBrowser } from "./components/GlossaryBrowser/GlossaryBrowser";
 export { KeywordBrowser } from "./components/KeywordBrowser/KeywordBrowser";
 export { KeywordCloud } from "./components/KeywordCloud/KeywordCloud";
@@ -83,6 +87,7 @@ export { SimilarityScoreBadge } from "./components/SimilarityScoreBadge/Similari
 export { SetFlashcardGenerator } from "./components/SetFlashcardGenerator/SetFlashcardGenerator";
 export { SetIcon } from "./components/SetIcon/SetIcon";
 export { SortSelect } from "./components/SortSelect/SortSelect";
+export { StrengthRating } from "./components/StrengthRating/StrengthRating";
 export { StatCard } from "./components/StatCard/StatCard";
 export { StrategyPicker } from "./components/StrategyPicker/StrategyPicker";
 export { StudyAnalytics } from "./components/StudyAnalytics/StudyAnalytics";

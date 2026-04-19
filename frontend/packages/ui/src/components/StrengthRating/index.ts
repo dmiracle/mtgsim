@@ -1,0 +1,1 @@
+export { StrengthRating } from "./StrengthRating";
