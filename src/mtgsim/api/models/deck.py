@@ -26,6 +26,7 @@ class DeckLegality(BaseModel):
 class DeckSummary(BaseModel):
     """Summary deck information for list views."""
 
+    uuid: str = ""
     file: str
     name: str
     code: str = ""
@@ -123,6 +124,7 @@ class DeckStats(BaseModel):
 class DeckMeta(BaseModel):
     """Deck metadata."""
 
+    uuid: str = ""
     file: str
     name: str
     code: str = ""

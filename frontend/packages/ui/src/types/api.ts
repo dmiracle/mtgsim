@@ -12,6 +12,7 @@ export type Pagination = {
 // --- Decks ---
 
 export type DeckSummary = {
+  uuid: string;
   file: string;
   name: string;
   code: string;
@@ -71,6 +72,7 @@ export type DeckStats = {
 
 export type DeckDetail = {
   meta: {
+    uuid: string;
     name: string;
     file: string;
     code: string;
@@ -96,6 +98,7 @@ export type DeckDetail = {
 };
 
 export type UserDeckResponse = {
+  uuid: string;
   id: number;
   name: string;
   description: string | null;
@@ -151,6 +154,14 @@ export type CardPrice = {
   price: number;
 };
 
+export type DeckCardPrinting = {
+  uuid: string;
+  set_code: string;
+  set_name: string;
+  number: string;
+  image_url: string | null;
+};
+
 export type CardPrinting = {
   set_code: string;
   set_name: string;
@@ -166,10 +177,19 @@ export type CardPrinting = {
 export type CardCollection = {
   quantity_owned: number;
   quantity_owned_foil: number;
+  quantity_owned_mtga: number;
+  quantity_owned_mtga_foil: number;
   quantity_wanted: number;
   quantity_wanted_foil: number;
   condition: string | null;
   notes: string | null;
+};
+
+export type MtgaImportResult = {
+  matched: number;
+  created: number;
+  updated: number;
+  unmatched: string[];
 };
 
 export type QuadrantRating = {
@@ -392,4 +412,109 @@ export type KeywordsResponse = {
   keyword_abilities: KeywordEntry[];
   keyword_actions: KeywordEntry[];
   ability_words: KeywordEntry[];
+};
+
+// --- Similarity ---
+
+export type SimilarCardSummary = {
+  uuid: string;
+  name: string;
+  type: string;
+  mana_cost: string;
+  mana_value: number;
+  rarity: string;
+  set_code: string;
+  color_identity: string[];
+  image_url: string | null;
+  owns: boolean;
+  total_owned: number;
+};
+
+export type SimilarCardResult = {
+  card: SimilarCardSummary;
+  score: number;
+  strategy_scores: Record<string, number>;
+};
+
+export type SimilarCardsResponse = {
+  source: SimilarCardSummary;
+  strategies_used: string[];
+  results: SimilarCardResult[];
+  total: number;
+};
+
+export type Strategy = {
+  name: string;
+  description: string;
+};
+
+// --- Feature Vectors ---
+
+export type AggregateVectorResponse = {
+  vector: number[];
+  dimensions: number;
+  dimension_names: string[];
+  card_count: number;
+};
+
+export type CompactVectorCard = {
+  uuid: string;
+  name: string;
+  vector: number[];
+};
+
+export type BatchCompactVectorResponse = {
+  cards: CompactVectorCard[];
+  dimensions: number;
+  dimension_names: string[];
+  total: number;
+};
+
+// --- Interactions ---
+
+export type InteractionCard = {
+  uuid: string;
+  name: string;
+  type_line: string;
+  mana_cost: string;
+  image_url: string | null;
+};
+
+export type Interaction = {
+  id: number;
+  source_card: InteractionCard;
+  target_card: InteractionCard;
+  interaction_type: string;
+  is_bidirectional: boolean;
+  description: string | null;
+  strength: number | null;
+  extra: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InteractionListResponse = {
+  data: Interaction[];
+  pagination: Pagination;
+};
+
+export type CreateInteractionBody = {
+  source_card_uuid: string;
+  target_card_uuid: string;
+  interaction_type: string;
+  is_bidirectional?: boolean;
+  description?: string;
+  strength?: number;
+};
+
+export type InteractionGraphNode = {
+  card: InteractionCard;
+  interactions: Interaction[];
+};
+
+export type InteractionGraphResponse = {
+  root_card: InteractionCard;
+  depth: number;
+  nodes: InteractionGraphNode[];
+  total_interactions: number;
 };

@@ -5,6 +5,7 @@ import logging
 from mtgdb.models import (
     MJCard,
     MJCardIdentifier,
+    MJCardLegality,
     MJCardPrice,
     MJCardTag,
     MJDeck,
@@ -20,6 +21,88 @@ from sqlmodel import func, select
 from .helpers import build_image_url, deck_card_to_api_dict, deck_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.decks")
+
+# Cache for format-legal set codes (cleared on sync)
+_format_sets_cache: dict[str, set[str]] = {}
+
+
+def get_format_legal_set_codes(session, format_name: str) -> set[str]:
+    """Return set codes that contain cards legal in the given format. Cached."""
+    if format_name in _format_sets_cache:
+        return _format_sets_cache[format_name]
+    rows = session.exec(
+        select(MJCard.set_code)
+        .join(MJCardLegality, MJCard.uuid == MJCardLegality.card_uuid)
+        .where(MJCardLegality.format == format_name, MJCardLegality.status == "Legal")
+        .distinct()
+    ).all()
+    result = set(rows)
+    _format_sets_cache[format_name] = result
+    return result
+
+
+def resolve_printing_image(
+    session,
+    card_name: str,
+    card_uuid: str,
+    preferred_printing_uuid: str | None,
+    intended_format: str | None,
+    deck_set_codes: set[str] | None,
+) -> str | None:
+    """Resolve the best image URL for a card in a deck context.
+
+    Priority: preferred printing > deck-set printing > format-legal printing > original.
+    """
+    # 1. Preferred printing override
+    if preferred_printing_uuid:
+        row = session.exec(
+            select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == preferred_printing_uuid)
+        ).first()
+        if row:
+            return build_image_url(row)
+
+    # 2. Check if original printing is already in a deck set
+    if deck_set_codes:
+        orig_set = session.exec(select(MJCard.set_code).where(MJCard.uuid == card_uuid)).first()
+        if orig_set and orig_set in deck_set_codes:
+            row = session.exec(
+                select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == card_uuid)
+            ).first()
+            if row:
+                return build_image_url(row)
+
+    # 3. Format-legal printing
+    if intended_format:
+        legal_sets = get_format_legal_set_codes(session, intended_format)
+        if legal_sets:
+            # Find a printing of this card in a legal set
+            row = session.exec(
+                select(MJCard.uuid, MJCardIdentifier.scryfall_id)
+                .join(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+                .where(MJCard.name == card_name, MJCard.set_code.in_(legal_sets))
+                .limit(1)
+            ).first()
+            if row:
+                return build_image_url(row[1])
+
+    # 4. Prefer newest printing (helps basic lands and widely-reprinted cards)
+    from mtgdb.models import MJSet
+
+    row = session.exec(
+        select(MJCardIdentifier.scryfall_id)
+        .join(MJCard, MJCardIdentifier.card_uuid == MJCard.uuid)
+        .join(MJSet, MJCard.set_code == MJSet.code)
+        .where(MJCard.name == card_name)
+        .where(MJSet.type.in_(["expansion", "core"]))
+        .order_by(MJSet.release_date.desc())
+        .limit(1)
+    ).first()
+    if row:
+        return build_image_url(row)
+
+    # 5. Fall back to original printing
+    row = session.exec(select(MJCardIdentifier.scryfall_id).where(MJCardIdentifier.card_uuid == card_uuid)).first()
+    return build_image_url(row) if row else None
 
 
 class DecksData:
@@ -322,6 +405,7 @@ class DecksData:
             decks.append(
                 {
                     "id": deck.id,
+                    "uuid": deck.uuid,
                     "name": deck.name,
                     "description": deck.description,
                     "format": deck.format,
@@ -525,10 +609,20 @@ class DecksData:
             if not deck:
                 return None
 
-            # Get cards by board
-            main_board = self._get_user_deck_cards(session, deck.id, "main")
-            side_board = self._get_user_deck_cards(session, deck.id, "side")
-            commander = self._get_user_deck_cards(session, deck.id, "commander")
+            # Compute deck set codes for image resolution
+            deck_set_rows = session.exec(
+                select(MJCard.set_code)
+                .join(UserDeckCard, MJCard.uuid == UserDeckCard.card_uuid)
+                .where(UserDeckCard.deck_id == deck.id)
+                .distinct()
+            ).all()
+            deck_set_codes = set(deck_set_rows) if deck_set_rows else None
+
+            # Get cards by board with smart image resolution
+            img_kwargs = {"intended_format": deck.intended_format, "deck_set_codes": deck_set_codes}
+            main_board = self._get_user_deck_cards(session, deck.id, "main", **img_kwargs)
+            side_board = self._get_user_deck_cards(session, deck.id, "side", **img_kwargs)
+            commander = self._get_user_deck_cards(session, deck.id, "commander", **img_kwargs)
 
             # Colors
             colors = self._get_user_deck_colors(session, deck.id)
@@ -544,6 +638,7 @@ class DecksData:
 
             return {
                 "id": deck.id,
+                "uuid": deck.uuid,
                 "meta": {
                     "name": deck.name,
                     "description": deck.description,
@@ -630,8 +725,15 @@ class DecksData:
 
         return cards
 
-    def _get_user_deck_cards(self, session, deck_id: int, board: str) -> list[dict]:
-        """Get cards from a user deck board."""
+    def _get_user_deck_cards(
+        self,
+        session,
+        deck_id: int,
+        board: str,
+        intended_format: str | None = None,
+        deck_set_codes: set[str] | None = None,
+    ) -> list[dict]:
+        """Get cards from a user deck board with smart image resolution."""
         query = (
             select(UserDeckCard, MJCard, MJCardIdentifier)
             .join(MJCard, UserDeckCard.card_uuid == MJCard.uuid)
@@ -668,10 +770,25 @@ class DecksData:
         card_names = [r[1].name for r in results]
         tags_map = self._get_tags_for_names(session, card_names)
 
+        # Check if any card needs smart image resolution
+        needs_smart_resolve = intended_format or deck_set_codes or any(r[0].preferred_printing_uuid for r in results)
+
         cards = []
         for deck_card, mj_card, identifier in results:
             owned_count = ownership_map.get(mj_card.uuid, 0)
             count = deck_card.count or 1
+
+            if needs_smart_resolve:
+                image_url = resolve_printing_image(
+                    session,
+                    card_name=mj_card.name,
+                    card_uuid=mj_card.uuid,
+                    preferred_printing_uuid=deck_card.preferred_printing_uuid,
+                    intended_format=intended_format,
+                    deck_set_codes=deck_set_codes,
+                )
+            else:
+                image_url = build_image_url(identifier.scryfall_id if identifier else None)
 
             cards.append(
                 {
@@ -687,7 +804,7 @@ class DecksData:
                     "rarity": mj_card.rarity or "",
                     "keywords": mj_card.keywords or [],
                     "tags": tags_map.get(mj_card.name, []),
-                    "image_url": build_image_url(identifier.scryfall_id if identifier else None),
+                    "image_url": image_url,
                     "price": price_map.get(mj_card.uuid),
                     "is_foil": deck_card.is_foil,
                     "owns_enough": owned_count >= count,
@@ -865,6 +982,7 @@ class DecksData:
 
             return {
                 "id": deck.id,
+                "uuid": deck.uuid,
                 "name": deck.name,
                 "description": deck.description,
                 "format": deck.format,
@@ -874,8 +992,24 @@ class DecksData:
                 "source": deck.source,
             }
 
-    def duplicate_user_deck(self, deck_id: int) -> dict | None:
-        """Duplicate a user deck with all its cards. Returns new deck dict or None if not found."""
+    def duplicate_deck(self, identifier: str) -> dict | None:
+        """Duplicate any deck (user or precon) as a new user deck.
+
+        Args:
+            identifier: numeric deck ID (user deck) or file name (precon deck)
+
+        Returns new deck dict or None if not found.
+        """
+        # Try as user deck first
+        try:
+            deck_id = int(identifier)
+            return self._duplicate_user_deck(deck_id)
+        except ValueError:
+            pass
+        # Try as precon deck
+        return self._duplicate_precon_deck(identifier)
+
+    def _duplicate_user_deck(self, deck_id: int) -> dict | None:
         with get_session() as session:
             original = session.exec(select(UserDeck).where(UserDeck.id == deck_id)).first()
             if not original:
@@ -885,7 +1019,7 @@ class DecksData:
                 name=f"{original.name} (Copy)",
                 description=original.description,
                 format=original.format,
-                source=original.source,
+                source="user",
             )
             session.add(new_deck)
             session.flush()
@@ -908,6 +1042,53 @@ class DecksData:
             total = sum(c.count for c in cards)
             return {
                 "id": new_deck.id,
+                "uuid": new_deck.uuid,
+                "name": new_deck.name,
+                "description": new_deck.description,
+                "format": new_deck.format,
+                "card_count": total,
+                "source": new_deck.source,
+            }
+
+    def _duplicate_precon_deck(self, file_name: str) -> dict | None:
+        if file_name.endswith(".json"):
+            file_name = file_name[:-5]
+
+        with get_session() as session:
+            deck = session.exec(select(MJDeck).where(MJDeck.file_name == file_name)).first()
+            if not deck:
+                return None
+
+            new_deck = UserDeck(
+                name=f"{deck.name} (Copy)",
+                source="user",
+            )
+            session.add(new_deck)
+            session.flush()
+
+            # Map precon board names to user deck board names
+            board_map = {"mainBoard": "main", "sideBoard": "side", "commander": "commander"}
+            precon_cards = session.exec(select(MJDeckCard).where(MJDeckCard.deck_uuid == deck.uuid)).all()
+
+            for card in precon_cards:
+                if not card.card_uuid:
+                    continue
+                session.add(
+                    UserDeckCard(
+                        deck_id=new_deck.id,
+                        card_uuid=card.card_uuid,
+                        board=board_map.get(card.board, "main"),
+                        count=card.count or 1,
+                    )
+                )
+
+            session.commit()
+            session.refresh(new_deck)
+
+            total = sum((c.count or 1) for c in precon_cards if c.card_uuid)
+            return {
+                "id": new_deck.id,
+                "uuid": new_deck.uuid,
                 "name": new_deck.name,
                 "description": new_deck.description,
                 "format": new_deck.format,
@@ -921,6 +1102,7 @@ class DecksData:
         name: str | None = None,
         description: str | None = None,
         format: str | None = None,
+        intended_format: str | None = None,
     ) -> dict | None:
         """Update a user deck's metadata."""
         with get_session() as session:
@@ -934,11 +1116,26 @@ class DecksData:
                 deck.description = description
             if format is not None:
                 deck.format = format
+            if intended_format is not None:
+                deck.intended_format = intended_format
 
             session.add(deck)
             session.commit()
+            session.refresh(deck)
 
-            return self._get_user_deck(deck_id)
+            card_count_row = session.exec(
+                select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
+            ).first()
+
+            return {
+                "id": deck.id,
+                "uuid": deck.uuid,
+                "name": deck.name,
+                "description": deck.description,
+                "format": deck.format,
+                "card_count": card_count_row or 0,
+                "source": deck.source,
+            }
 
     def delete_user_deck(self, deck_id: int) -> bool:
         """Delete a user deck and all its cards."""
@@ -1026,6 +1223,59 @@ class DecksData:
             session.commit()
             return True
 
+    def set_preferred_printing(self, deck_id: int, card_uuid: str, printing_uuid: str) -> bool:
+        """Set the preferred printing for a card in a deck. Returns True if updated."""
+        with get_session() as session:
+            # Validate printing exists and has the same card name
+            original = session.exec(select(MJCard.name).where(MJCard.uuid == card_uuid)).first()
+            printing = session.exec(select(MJCard.name).where(MJCard.uuid == printing_uuid)).first()
+            if not original or not printing or original != printing:
+                return False
+
+            deck_card = session.exec(
+                select(UserDeckCard).where((UserDeckCard.deck_id == deck_id) & (UserDeckCard.card_uuid == card_uuid))
+            ).first()
+            if not deck_card:
+                return False
+
+            deck_card.preferred_printing_uuid = printing_uuid
+            session.add(deck_card)
+            session.commit()
+            return True
+
+    def get_card_printings(self, card_uuid: str) -> list[dict] | None:
+        """Get all printings of a card (by name) with image URLs."""
+        with get_session() as session:
+            card_name = session.exec(select(MJCard.name).where(MJCard.uuid == card_uuid)).first()
+            if not card_name:
+                return None
+
+            rows = session.exec(
+                select(MJCard.uuid, MJCard.set_code, MJCard.number, MJCardIdentifier.scryfall_id)
+                .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
+                .where(MJCard.name == card_name)
+                .order_by(MJCard.set_code, MJCard.number)
+            ).all()
+
+            from mtgdb.models import MJSet
+
+            set_names = {}
+            set_codes = list({r[1] for r in rows})
+            if set_codes:
+                for code, name in session.exec(select(MJSet.code, MJSet.name).where(MJSet.code.in_(set_codes))).all():
+                    set_names[code] = name
+
+            return [
+                {
+                    "uuid": uuid,
+                    "set_code": set_code,
+                    "set_name": set_names.get(set_code, ""),
+                    "number": number,
+                    "image_url": build_image_url(scryfall_id),
+                }
+                for uuid, set_code, number, scryfall_id in rows
+            ]
+
     def get_available_sets(self) -> list[str]:
         """Get list of set codes that have precon decks."""
         with get_session() as session:
@@ -1050,31 +1300,31 @@ class DecksData:
 
     # ── Pinned decks ──────────────────────────────────────────────────
 
-    def get_pinned_files(self) -> list[str]:
-        """Return all pinned deck file identifiers ordered by pin time."""
+    def get_pinned_uuids(self) -> list[str]:
+        """Return all pinned deck UUIDs ordered by pin time."""
         with get_session() as session:
-            query = select(PinnedDeck.deck_file).order_by(PinnedDeck.pinned_at.asc())
+            query = select(PinnedDeck.deck_uuid).order_by(PinnedDeck.pinned_at.asc())
             return list(session.exec(query).all())
 
-    def is_pinned(self, deck_file: str) -> bool:
+    def is_pinned(self, deck_uuid: str) -> bool:
         with get_session() as session:
-            row = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            row = session.exec(select(PinnedDeck).where(PinnedDeck.deck_uuid == deck_uuid)).first()
             return row is not None
 
-    def pin_deck(self, deck_file: str) -> bool:
-        """Pin a deck. Returns True if newly pinned, False if already pinned."""
+    def pin_deck(self, deck_uuid: str) -> bool:
+        """Pin a deck by UUID. Returns True if newly pinned, False if already pinned."""
         with get_session() as session:
-            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_uuid == deck_uuid)).first()
             if existing:
                 return False
-            session.add(PinnedDeck(deck_file=deck_file))
+            session.add(PinnedDeck(deck_uuid=deck_uuid))
             session.commit()
             return True
 
-    def unpin_deck(self, deck_file: str) -> bool:
-        """Unpin a deck. Returns True if unpinned, False if wasn't pinned."""
+    def unpin_deck(self, deck_uuid: str) -> bool:
+        """Unpin a deck by UUID. Returns True if unpinned, False if wasn't pinned."""
         with get_session() as session:
-            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_file == deck_file)).first()
+            existing = session.exec(select(PinnedDeck).where(PinnedDeck.deck_uuid == deck_uuid)).first()
             if not existing:
                 return False
             session.delete(existing)
@@ -1083,49 +1333,42 @@ class DecksData:
 
     def get_pinned_summaries(self) -> list[dict]:
         """Return full deck summaries for all pinned decks, in pin order."""
-        pinned_files = self.get_pinned_files()
-        if not pinned_files:
+        pinned_uuids = self.get_pinned_uuids()
+        if not pinned_uuids:
             return []
 
         summaries = []
         with get_session() as session:
-            for deck_file in pinned_files:
-                summary = self._get_pinned_deck_summary(session, deck_file)
+            for deck_uuid in pinned_uuids:
+                summary = self._get_pinned_deck_summary(session, deck_uuid)
                 if summary:
                     summaries.append(summary)
         return summaries
 
-    def _get_pinned_deck_summary(self, session, deck_file: str) -> dict | None:
-        """Get a single deck summary by file identifier (precon or user)."""
-        # Try user deck (numeric id)
-        try:
-            deck_id = int(deck_file)
-            user_deck = session.exec(select(UserDeck).where(UserDeck.id == deck_id)).first()
-            if user_deck:
-                card_count_row = session.exec(
-                    select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == deck_id)
-                ).first()
-                colors_map = self._get_batch_user_deck_colors(session, [deck_id])
-                price_map = self._get_batch_user_deck_prices(session, [deck_id])
-                return {
-                    "file": str(user_deck.id),
-                    "name": user_deck.name,
-                    "code": "",
-                    "card_count": card_count_row or 0,
-                    "colors": colors_map.get(deck_id, []),
-                    "price": price_map.get(deck_id),
-                    "release_date": None,
-                    "source": user_deck.source,
-                }
-        except ValueError:
-            pass
+    def _get_pinned_deck_summary(self, session, deck_uuid: str) -> dict | None:
+        """Get a single deck summary by UUID (looks in both user and precon tables)."""
+        # Try user deck
+        user_deck = session.exec(select(UserDeck).where(UserDeck.uuid == deck_uuid)).first()
+        if user_deck:
+            card_count_row = session.exec(
+                select(func.sum(UserDeckCard.count)).where(UserDeckCard.deck_id == user_deck.id)
+            ).first()
+            colors_map = self._get_batch_user_deck_colors(session, [user_deck.id])
+            price_map = self._get_batch_user_deck_prices(session, [user_deck.id])
+            return {
+                "uuid": user_deck.uuid,
+                "file": str(user_deck.id),
+                "name": user_deck.name,
+                "code": "",
+                "card_count": card_count_row or 0,
+                "colors": colors_map.get(user_deck.id, []),
+                "price": price_map.get(user_deck.id),
+                "release_date": None,
+                "source": user_deck.source,
+            }
 
         # Try precon deck
-        file_name = deck_file
-        if file_name.endswith(".json"):
-            file_name = file_name[:-5]
-
-        deck = session.exec(select(MJDeck).where(MJDeck.file_name == file_name)).first()
+        deck = session.exec(select(MJDeck).where(MJDeck.uuid == deck_uuid)).first()
         if not deck:
             return None
 

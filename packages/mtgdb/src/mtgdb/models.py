@@ -414,9 +414,13 @@ class UserCard(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     card_uuid: str = Field(foreign_key="mj_card.uuid", index=True)
 
-    # Ownership
+    # Ownership (paper)
     quantity_owned: int = 0
     quantity_owned_foil: int = 0
+
+    # Ownership (MTGA)
+    quantity_owned_mtga: int = 0
+    quantity_owned_mtga_foil: int = 0
 
     # Wishlist
     quantity_wanted: int = 0
@@ -488,10 +492,12 @@ class UserDeck(SQLModel, table=True):
     __tablename__ = "user_deck"
 
     id: int | None = Field(default=None, primary_key=True)
+    uuid: str = Field(default_factory=lambda: str(__import__("uuid").uuid4()), unique=True, index=True)
     name: str = Field(index=True)
     description: str | None = None
 
-    format: str | None = None  # standard, modern, commander, etc.
+    format: str | None = None  # computed legal formats
+    intended_format: str | None = None  # user's declared target format
     source: str = Field(default="user", index=True)  # user, import, test, ...
 
     # Timestamps
@@ -511,6 +517,7 @@ class UserDeckCard(SQLModel, table=True):
     board: str = "main"  # main, side, commander, maybe
     count: int = 1
     is_foil: bool = False
+    preferred_printing_uuid: str | None = None  # override: show this printing's art
 
 
 class User17LEvent(SQLModel, table=True):
@@ -541,12 +548,12 @@ class User17LEvent(SQLModel, table=True):
 
 
 class PinnedDeck(SQLModel, table=True):
-    """A pinned deck reference. Stores the deck file identifier and pin order."""
+    """A pinned deck reference by UUID. Works for both precon and user decks."""
 
     __tablename__ = "pinned_deck"
 
     id: int | None = Field(default=None, primary_key=True)
-    deck_file: str = Field(unique=True, index=True)
+    deck_uuid: str = Field(unique=True, index=True)
     pinned_at: datetime = Field(default_factory=datetime.utcnow)
 
 

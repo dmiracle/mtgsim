@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse } from "@/types/api";
+import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse, AggregateVectorResponse } from "@/types/api";
+import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
@@ -22,6 +23,7 @@ export type CardSearchParams = {
   keywords?: string;
   mana_value?: string;
   owns?: boolean;
+  owns_platform?: string;
   unique?: boolean;
   sort?: string;
   order?: string;
@@ -44,11 +46,14 @@ type CardBrowserPageProps = {
   onAddToCollection?: (uuid: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: CardSearchParams) => void;
+  onDownload?: () => void;
+  onImportMtga?: () => void;
+  aggregateVector?: AggregateVectorResponse;
 };
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
 };
 
 export function CardBrowserPage({
@@ -67,6 +72,9 @@ export function CardBrowserPage({
   onAddToCollection,
   onPageChange,
   onSearch,
+  onDownload,
+  onImportMtga,
+  aggregateVector,
 }: CardBrowserPageProps) {
   const [nameSearch, setNameSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
@@ -75,7 +83,7 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || selectedKeywords.length);
+  const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
 
   // Build and emit search params whenever any filter changes
   useEffect(() => {
@@ -95,6 +103,7 @@ export function CardBrowserPage({
     if (filters.manaValue.length) params.mana_value = filters.manaValue.join(",");
     if (filters.ownership === "owned") params.owns = true;
     if (filters.ownership === "not_owned") params.owns = false;
+    if (filters.ownership === "owned" && filters.platform !== "any") params.owns_platform = filters.platform;
     if (filters.unique) params.unique = true;
     if (filters.sort !== "name") params.sort = filters.sort;
     if (filters.order !== "asc") params.order = filters.order;
@@ -125,7 +134,17 @@ export function CardBrowserPage({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-text-primary">Cards</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-text-primary">Cards</h2>
+        {onImportMtga && (
+          <button
+            onClick={onImportMtga}
+            className="text-xs font-medium px-3 py-1.5 rounded border border-border text-text-secondary hover:border-accent hover:text-accent transition-colors"
+          >
+            Import MTGA
+          </button>
+        )}
+      </div>
 
       {/* Top search bar */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -168,7 +187,7 @@ export function CardBrowserPage({
             </div>
           </div>
 
-          {/* View toggle */}
+          {/* View toggle + download */}
           <div className="flex items-center justify-end gap-1">
             <button
               onClick={() => setViewMode("grid")}
@@ -192,6 +211,19 @@ export function CardBrowserPage({
             >
               Table
             </button>
+            {onDownload && hasActiveFilter && (
+              <button
+                onClick={onDownload}
+                className="px-2 py-1 rounded text-xs font-medium border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors ml-2"
+                title={`Download ${pagination.total.toLocaleString()} cards as JSON`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 inline -mt-0.5 mr-1">
+                  <path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14H2.75Z" />
+                  <path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z" />
+                </svg>
+                {pagination.total.toLocaleString()}
+              </button>
+            )}
           </div>
 
           {!hasActiveFilter ? (
@@ -225,6 +257,15 @@ export function CardBrowserPage({
 
         {/* Sidebar: stats + keywords */}
         <div className="space-y-4">
+          <div className="bg-bg-secondary border border-border rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-medium text-text-secondary">Collection Fingerprint</h3>
+            <VectorHeatmap
+              vector={aggregateVector?.vector ?? []}
+              featureNames={aggregateVector?.dimension_names}
+              label={aggregateVector ? `${aggregateVector.card_count} cards` : undefined}
+              size="sm"
+            />
+          </div>
           {hasActiveFilter && cardStats && (
             <CardResultStats stats={cardStats} />
           )}

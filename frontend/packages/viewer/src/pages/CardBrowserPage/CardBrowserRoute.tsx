@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection } from "@/api/hooks";
+import { useCards, useCardStats, useCardTags, useKeywordFrequencies, useSets, useAddToCollection, useImportMtga, useAggregateVector } from "@/api/hooks";
+import { buildParams } from "@/api/client";
 import { useActiveDeck } from "@/context/ActiveDeckContext";
+import { MtgaImportModal } from "@/components/MtgaImportModal/MtgaImportModal";
 import { CardBrowserPage } from "./CardBrowserPage";
 import type { CardSearchParams } from "./CardBrowserPage";
 
@@ -9,6 +11,8 @@ export function CardBrowserRoute() {
   const navigate = useNavigate();
   const { quickAddCard } = useActiveDeck();
   const addToCollection = useAddToCollection();
+  const importMtga = useImportMtga();
+  const [mtgaOpen, setMtgaOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(() => {
     const stored = localStorage.getItem("pinnedCards");
     return new Set<string>(stored ? JSON.parse(stored) : []);
@@ -18,6 +22,7 @@ export function CardBrowserRoute() {
   const [setSearchQuery, setSetSearchQuery] = useState("");
 
   const { data: cardsData } = useCards({ ...searchParams, page, limit: 50 });
+  const { data: aggregateVector } = useAggregateVector(searchParams);
   const { data: cardStats } = useCardStats(searchParams);
   const { data: tags } = useCardTags({
     format: searchParams.format,
@@ -47,22 +52,37 @@ export function CardBrowserRoute() {
   }, []);
 
   return (
-    <CardBrowserPage
-      cards={cardsData?.data ?? []}
-      cardStats={cardStats ?? undefined}
-      pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
-      availableTags={tags ?? []}
-      availableSets={setsData?.data}
-      onSetSearch={setSetSearchQuery}
-      keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
-      pinnedIds={pinnedIds}
-      onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
-      onSetClick={(code) => navigate(`/sets/${code}`)}
-      onPin={togglePin}
-      onAddToDeck={quickAddCard}
-      onAddToCollection={(uuid) => addToCollection.mutate(uuid)}
-      onPageChange={setPage}
-      onSearch={handleSearch}
-    />
+    <>
+      <CardBrowserPage
+        cards={cardsData?.data ?? []}
+        cardStats={cardStats ?? undefined}
+        pagination={cardsData?.pagination ?? { page: 1, pages: 1, total: 0, limit: 50 }}
+        availableTags={tags ?? []}
+        availableSets={setsData?.data}
+        onSetSearch={setSetSearchQuery}
+        keywordFrequencies={kwFreqs ?? { keyword_abilities: {}, keyword_actions: {}, ability_words: {} }}
+        pinnedIds={pinnedIds}
+        onCardClick={(uuid) => navigate(`/cards/${uuid}`)}
+        onSetClick={(code) => navigate(`/sets/${code}`)}
+        onPin={togglePin}
+        onAddToDeck={quickAddCard}
+        onAddToCollection={(uuid) => addToCollection.mutate(uuid)}
+        onPageChange={setPage}
+        onSearch={handleSearch}
+        onImportMtga={() => setMtgaOpen(true)}
+        onDownload={() => {
+          const base = import.meta.env.VITE_API_URL ?? "/api";
+          window.location.href = `${base}/cards/download${buildParams(searchParams)}`;
+        }}
+        aggregateVector={aggregateVector}
+      />
+      <MtgaImportModal
+        open={mtgaOpen}
+        importing={importMtga.isPending}
+        result={importMtga.data}
+        onImport={(file) => importMtga.mutate(file)}
+        onClose={() => { setMtgaOpen(false); importMtga.reset(); }}
+      />
+    </>
   );
 }

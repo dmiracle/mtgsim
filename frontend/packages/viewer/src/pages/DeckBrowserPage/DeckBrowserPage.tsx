@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { DeckSummary, Pagination as PaginationType } from "@/types/api";
+import type { DeckSummary, Pagination as PaginationType, AggregateVectorResponse } from "@/types/api";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { ColorIdentityPicker } from "@/components/ColorIdentityPicker/ColorIdentityPicker";
 import { SortSelect } from "@/components/SortSelect/SortSelect";
@@ -24,7 +24,9 @@ type DeckBrowserPageProps = {
   availableSources: string[];
   pinnedIds: Set<string>;
   onTogglePin: (file: string) => void;
+  onDuplicateDeck: (file: string) => void;
   onDeleteDeck: (file: string) => void;
+  deckVectors?: Record<string, AggregateVectorResponse>;
   onDeckClick: (file: string) => void;
   onPageChange: (page: number) => void;
   onSearch: (params: DeckSearchParams) => void;
@@ -46,7 +48,9 @@ export function DeckBrowserPage({
   availableSources,
   pinnedIds,
   onTogglePin,
+  onDuplicateDeck,
   onDeleteDeck,
+  deckVectors,
   onDeckClick,
   onPageChange,
   onSearch,
@@ -148,7 +152,10 @@ export function DeckBrowserPage({
               key={`pinned-${d.file}`}
               deck={d}
               pinned
+              vector={deckVectors?.[d.file]?.vector}
+              featureNames={deckVectors?.[d.file]?.dimension_names}
               onTogglePin={onTogglePin}
+              onDuplicate={onDuplicateDeck}
               onDelete={onDeleteDeck}
               onClick={onDeckClick}
             />
@@ -161,11 +168,14 @@ export function DeckBrowserPage({
         <div className="flex items-center justify-center py-16 text-text-muted">No decks found</div>
       ) : (
         <div className="space-y-2">
-          {decks.filter((d) => !pinnedIds.has(d.file)).map((d) => (
+          {decks.filter((d) => !pinnedIds.has(d.uuid)).map((d) => (
             <DeckListItem
               key={d.file}
               deck={d}
+              vector={deckVectors?.[d.file]?.vector}
+              featureNames={deckVectors?.[d.file]?.dimension_names}
               onTogglePin={onTogglePin}
+              onDuplicate={onDuplicateDeck}
               onDelete={onDeleteDeck}
               onClick={onDeckClick}
             />

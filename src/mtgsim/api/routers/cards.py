@@ -67,6 +67,7 @@ async def search_cards(
     price_min: float | None = Query(None, ge=0, description="Minimum price"),
     price_max: float | None = Query(None, ge=0, description="Maximum price"),
     owns: bool | None = Query(None, description="Filter by ownership"),
+    owns_platform: str | None = Query(None, pattern="^(paper|mtga)$", description="Filter by ownership platform"),
     wants: bool | None = Query(None, description="Filter by want status"),
     unique: bool = Query(False, description="Show only one printing per card name"),
     price_mode: str = Query("min", pattern="^(min|max)$", description="Price mode: min (cheapest) or max"),
@@ -98,6 +99,7 @@ async def search_cards(
         price_min=price_min,
         price_max=price_max,
         owns=owns,
+        owns_platform=owns_platform,
         wants=wants,
         unique=unique,
         price_mode=price_mode,
@@ -105,6 +107,76 @@ async def search_cards(
         order=order,
         page=page,
         limit=limit,
+    )
+
+
+@router.get("/download")
+async def download_cards(
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0),
+    price_max: float | None = Query(None, ge=0),
+    owns: bool | None = Query(None),
+    owns_platform: str | None = Query(None, pattern="^(paper|mtga)$"),
+    wants: bool | None = Query(None),
+    unique: bool = Query(True, description="One printing per card name (default true for downloads)"),
+    price_mode: str = Query("min", pattern="^(min|max)$"),
+    sort: str = Query("name"),
+    order: str = Query("asc", pattern="^(asc|desc)$"),
+    limit: int = Query(10000, ge=1, le=50000, description="Max cards to export"),
+):
+    """Download filtered cards as a JSON file."""
+    import json
+
+    from fastapi.responses import Response
+
+    color_list = list(colors.upper()) if colors else None
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+    mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
+
+    from mtgsim.api.data import cards_data
+
+    cards, total = cards_data.search_cards(
+        q=q,
+        text=text,
+        set_code=set,
+        set_codes=set_code_list,
+        rarity=rarity,
+        card_type=type,
+        colors=color_list,
+        mana_values=mv_list,
+        format_legal=format,
+        keywords=keyword_list,
+        tags=tag_list,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        owns_platform=owns_platform,
+        wants=wants,
+        unique=unique,
+        price_mode=price_mode,
+        sort=sort,
+        order=order,
+        page=1,
+        limit=limit,
+    )
+
+    content = json.dumps({"cards": cards, "total": total}, indent=2)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=cards.json"},
     )
 
 
@@ -206,6 +278,124 @@ async def get_keyword_frequencies(
     return keywords_data.categorize_keyword_freq(freq)
 
 
+@router.get("/features/grid-layout")
+async def get_feature_grid_layout() -> dict:
+    """Get the optimal 8x8 grid layout for the 64 compact feature dimensions.
+
+    Uses PCA on feature co-occurrence + Hungarian algorithm to assign
+    each feature to a grid cell preserving spatial relationships.
+    The layout is deterministic for a given card database.
+    """
+    from mtgsim.api.services.feature_service import feature_service
+
+    return feature_service.compute_grid_layout()
+
+
+@router.get("/features/compact")
+async def batch_compact_vectors(
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0),
+    price_max: float | None = Query(None, ge=0),
+    owns: bool | None = Query(None),
+    wants: bool | None = Query(None),
+    limit: int = Query(200, ge=1, le=4096, description="Max cards to return"),
+) -> dict:
+    """Get compact 64-dim feature vectors for cards matching filters."""
+    from mtgsim.api.services.feature_service import feature_service
+
+    return feature_service.batch_compact_vectors(
+        q=q,
+        text=text,
+        set_code=set,
+        set_codes=[s.strip() for s in sets.split(",") if s.strip()] if sets else None,
+        rarity=rarity,
+        card_type=type,
+        colors=list(colors.upper()) if colors else None,
+        mana_values=[int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None,
+        format_legal=format,
+        keywords=[k.strip() for k in keywords.split(",") if k.strip()] if keywords else None,
+        tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else None,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        wants=wants,
+        limit=limit,
+    )
+
+
+@router.get("/features/aggregate")
+async def aggregate_vectors(
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
+    set: str | None = Query(None, description="Filter by set code"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0),
+    price_max: float | None = Query(None, ge=0),
+    owns: bool | None = Query(None),
+    wants: bool | None = Query(None),
+) -> dict:
+    """Get L2-normalized aggregate of compact vectors for matching cards."""
+    from mtgsim.api.services.feature_service import feature_service
+
+    return feature_service.aggregate_vectors(
+        q=q,
+        text=text,
+        set_code=set,
+        set_codes=[s.strip() for s in sets.split(",") if s.strip()] if sets else None,
+        rarity=rarity,
+        card_type=type,
+        colors=list(colors.upper()) if colors else None,
+        mana_values=[int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None,
+        format_legal=format,
+        keywords=[k.strip() for k in keywords.split(",") if k.strip()] if keywords else None,
+        tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else None,
+        price_min=price_min,
+        price_max=price_max,
+        owns=owns,
+        wants=wants,
+    )
+
+
+@router.post("/collection/import-mtga")
+async def import_mtga_collection(file: UploadFile) -> dict:
+    """Import an MTGA collection CSV to mark cards as owned on MTGA."""
+    import tempfile
+
+    from mtgsim.mtga_import import import_mtga_collection
+
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a .csv")
+
+    contents = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="wb") as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    from pathlib import Path
+
+    result = import_mtga_collection(Path(tmp_path))
+    Path(tmp_path).unlink(missing_ok=True)
+
+    return result.model_dump()
+
+
 @router.post("/scan", response_model=ScanResponse)
 async def scan_card(
     request: Request,
@@ -254,6 +444,159 @@ async def scan_card(
     except Exception:
         logger.exception("Card scan failed")
         raise HTTPException(status_code=502, detail="Card extraction service unavailable")
+
+
+@router.get("/similar/strategies")
+async def get_similarity_strategies() -> list[dict]:
+    """List available similarity search strategies."""
+    from mtgsim.api.services.similarity_service import similarity_service
+
+    return similarity_service.get_strategies()
+
+
+@router.get("/{uuid}/similar")
+async def get_similar_cards(
+    uuid: str,
+    strategies: str = Query("keywords,tags", description="Comma-separated strategy names"),
+    weights: str | None = Query(None, description="Comma-separated weights (must match strategies count)"),
+    limit: int = Query(20, ge=1, le=100, description="Max results"),
+    # Card filters (same as search endpoint)
+    text: str | None = Query(None, description="Filter by oracle text"),
+    sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
+    rarity: str | None = Query(None, description="Filter by rarity"),
+    type: str | None = Query(None, description="Filter by card type"),
+    colors: str | None = Query(None, description="Filter by color identity"),
+    format: str | None = Query(None, description="Filter by format legality"),
+    keywords: str | None = Query(None, description="Filter by keywords (comma-separated)"),
+    tags: str | None = Query(None, description="Filter by oracle tags (comma-separated)"),
+    mana_value: str | None = Query(None, description="Filter by mana values (comma-separated)"),
+    price_min: float | None = Query(None, ge=0, description="Minimum price"),
+    price_max: float | None = Query(None, ge=0, description="Maximum price"),
+    owns: bool | None = Query(None, description="Filter by ownership"),
+    wants: bool | None = Query(None, description="Filter by want status"),
+) -> dict:
+    """Find cards similar to the given card using composable strategies.
+
+    Each strategy scores candidates differently. Results are merged by weighted
+    average and include per-strategy score breakdowns. All standard card filters
+    can be applied to narrow results.
+    """
+    from mtgsim.api.services.similarity_service import similarity_service
+
+    strategy_list = [s.strip() for s in strategies.split(",") if s.strip()]
+    weight_list = None
+    if weights:
+        weight_list = [float(w) for w in weights.split(",") if w.strip()]
+
+    color_list = list(colors.upper()) if colors else None
+    set_code_list = [s.strip() for s in sets.split(",") if s.strip()] if sets else None
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+    mv_list = [int(v) for v in mana_value.split(",") if v.strip().isdigit()] if mana_value else None
+
+    try:
+        result = similarity_service.search_similar(
+            card_uuid=uuid,
+            strategy_names=strategy_list,
+            weights=weight_list,
+            limit=limit,
+            rarity=rarity,
+            card_type=type,
+            text=text,
+            colors=color_list,
+            mana_values=mv_list,
+            format_legal=format,
+            keywords=keyword_list,
+            tags=tag_list,
+            set_codes=set_code_list,
+            price_min=price_min,
+            price_max=price_max,
+            owns=owns,
+            wants=wants,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+    return result
+
+
+@router.get("/{uuid}/features/compact")
+async def get_card_features_compact(uuid: str) -> dict:
+    """Get the compact (~60-dim) feature vector for a card.
+
+    Keywords are grouped into functional categories (evasion, graveyard, etc.),
+    subtypes collapsed to a boolean, and numeric values normalized 0-1.
+    """
+    from mtgdb.models import MJCard as MJCardModel
+    from mtgdb.models import MJCardTag
+    from mtgdb.session import get_session
+    from sqlmodel import select
+
+    from mtgsim.api.similarity.compact_vector import compact_dimension_names, compact_size, encode_compact
+
+    with get_session() as session:
+        card = session.exec(select(MJCardModel).where(MJCardModel.uuid == uuid)).first()
+        if not card:
+            raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+
+        card_tags = list(session.exec(select(MJCardTag.tag).where(MJCardTag.card_name == card.name)).all())
+        vec = encode_compact(card, tags=card_tags)
+        dim_names = compact_dimension_names()
+
+        features = {dim_names[i]: v for i, v in enumerate(vec) if v != 0.0}
+        return {
+            "uuid": uuid,
+            "name": card.printed_name or card.name,
+            "dimensions": compact_size(),
+            "nonzero": len(features),
+            "features": features,
+            "vector": vec,
+        }
+
+
+@router.get("/{uuid}/features")
+async def get_card_features(uuid: str) -> dict:
+    """Get the feature vector for a card.
+
+    Returns a sparse representation (only non-zero dimensions) and metadata.
+    """
+    from mtgdb.models import MJCard, MJCardTag
+    from mtgdb.session import get_session
+    from sqlmodel import select
+
+    from mtgsim.api.similarity.feature_vector import encode_card, get_vocabulary
+
+    with get_session() as session:
+        card = session.exec(select(MJCard).where(MJCard.uuid == uuid)).first()
+        if not card:
+            raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+
+        card_tags = list(session.exec(select(MJCardTag.tag).where(MJCardTag.card_name == card.name)).all())
+        vec = encode_card(card, session, tags=card_tags)
+        vocab = get_vocabulary()
+
+        # Return sparse representation
+        features = {vocab.dimension_names[i]: v for i, v in enumerate(vec) if v != 0.0}
+        return {
+            "uuid": uuid,
+            "name": card.printed_name or card.name,
+            "dimensions": vocab.size,
+            "nonzero": len(features),
+            "features": features,
+        }
+
+
+@router.get("/{uuid}/printings")
+async def get_card_printings(uuid: str) -> list[dict]:
+    """List all printings of a card with image URLs for a printing picker."""
+    from mtgsim.api.data import decks_data
+
+    result = decks_data.get_card_printings(uuid)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Card not found: {uuid}")
+    return result
 
 
 @router.get("/{uuid}", response_model=CardDetail)

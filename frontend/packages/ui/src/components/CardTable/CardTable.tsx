@@ -2,6 +2,7 @@ import type { CardSummary, Pagination as PaginationType } from "@/types/api";
 import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 import { SetBadge } from "@/components/SetBadge/SetBadge";
 import { Pagination } from "@/components/Pagination/Pagination";
+import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
 
 type CardTableProps = {
   cards: CardSummary[];
@@ -68,15 +69,7 @@ export function CardTable({
                 >
                   {/* Pin */}
                   <td className="px-3 py-2">
-                    <button
-                      onClick={() => onPin?.(card.uuid)}
-                      className={`text-sm transition-colors ${
-                        pinned ? "text-warning" : "text-border hover:text-warning"
-                      }`}
-                      title={pinned ? "Unpin" : "Pin"}
-                    >
-                      {pinned ? "★" : "☆"}
-                    </button>
+                    <PinnedBadge pinned={pinned} onToggle={onPin ? () => onPin(card.uuid) : undefined} size="sm" />
                   </td>
 
                   {/* Name */}
