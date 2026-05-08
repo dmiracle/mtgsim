@@ -43,8 +43,20 @@ def init_db(db_path: Path | None = None) -> Engine:
 
     engine = get_engine(db_path)
     SQLModel.metadata.create_all(engine)
+    _ensure_columns(engine)
     _ensure_fts_table(engine)
     return engine
+
+
+def _ensure_columns(engine: Engine) -> None:
+    """Add columns introduced after initial table creation."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(mj_card)")).fetchall()}
+        if "side" not in existing:
+            conn.execute(text("ALTER TABLE mj_card ADD COLUMN side VARCHAR"))
+            conn.commit()
 
 
 def _ensure_fts_table(engine: Engine) -> None:

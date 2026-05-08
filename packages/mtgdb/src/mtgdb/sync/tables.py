@@ -177,7 +177,7 @@ def _sync_cards_table(conn, engine) -> int:
         cursor = conn.execute("""
             SELECT uuid, name, printedName, setCode, manaCost, manaValue, type, text,
                    power, toughness, loyalty, defense, rarity, number, artist,
-                   layout, borderColor, frameVersion, flavorText,
+                   layout, side, borderColor, frameVersion, flavorText,
                    colors, colorIdentity, types, subtypes, supertypes, keywords,
                    finishes, isReprint, isReserved, isPromo
             FROM cards
@@ -203,6 +203,7 @@ def _sync_cards_table(conn, engine) -> int:
                     number=row["number"],
                     artist=row["artist"],
                     layout=row["layout"],
+                    side=row["side"],
                     border_color=row["borderColor"],
                     frame_version=row["frameVersion"],
                     flavor_text=row["flavorText"],

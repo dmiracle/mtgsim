@@ -101,7 +101,11 @@ def apply_card_filters(
     from sqlmodel import func
 
     if rarity:
-        query = query.where(MJCard.rarity == rarity)
+        rarities = [r.strip() for r in rarity.split(",") if r.strip()]
+        if len(rarities) == 1:
+            query = query.where(MJCard.rarity == rarities[0])
+        elif rarities:
+            query = query.where(MJCard.rarity.in_(rarities))
     if card_type:
         query = query.where(MJCard.type_line.contains(card_type))
     if text:
