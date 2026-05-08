@@ -272,6 +272,30 @@ class TestGetSet:
         filtered_total = filtered_response.json()["cards"]["pagination"]["total"]
         assert filtered_total <= all_total
 
+    def test_get_set_filter_cards_by_multiple_rarities(self, client, sample_set_code):
+        """Comma-separated rarities filter as a union (mythic OR rare)."""
+        mythic = client.get(f"/api/sets/{sample_set_code}?rarity=mythic&card_limit=100").json()
+        rare = client.get(f"/api/sets/{sample_set_code}?rarity=rare&card_limit=100").json()
+        both = client.get(f"/api/sets/{sample_set_code}?rarity=mythic,rare&card_limit=100").json()
+        mythic_total = mythic["cards"]["pagination"]["total"]
+        rare_total = rare["cards"]["pagination"]["total"]
+        both_total = both["cards"]["pagination"]["total"]
+        assert both_total == mythic_total + rare_total
+        rarities = {c["rarity"] for c in both["cards"]["data"]}
+        assert rarities <= {"mythic", "rare"}
+
+    def test_get_set_excludes_split_card_back_face(self, client):
+        """Cards listing only returns the main face of split/dual-face cards.
+
+        SOS uses the 'prepare' layout where each printing has two rows in mj_card
+        (side='a' main card, side='b' prepared spell). The listing must show only side='a'.
+        """
+        response = client.get("/api/sets/SOS?rarity=mythic&unique=true&card_limit=100")
+        assert response.status_code == 200
+        cards = response.json()["cards"]["data"]
+        names = [c["name"] for c in cards]
+        assert len(names) == len(set(names)), f"duplicate names in mythic SOS: {names}"
+
     def test_get_set_not_found(self, client):
         """Non-existent set returns 404."""
         response = client.get("/api/sets/NOTASET")

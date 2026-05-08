@@ -47,6 +47,7 @@ class MJCard(SQLModel, table=True):
     number: str | None = None
     artist: str | None = None
     layout: str | None = None
+    side: str | None = None
     border_color: str | None = None
     frame_version: str | None = None
 

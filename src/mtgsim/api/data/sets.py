@@ -234,6 +234,7 @@ class SetsData:
                 .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
                 .outerjoin(UserCard, MJCard.uuid == UserCard.card_uuid)
                 .where(MJCard.set_code == code)
+                .where((MJCard.side == None) | (MJCard.side == "a"))  # noqa: E711
             )
             query, price_col = add_price_join(query)
             query = query.add_columns(price_col)
