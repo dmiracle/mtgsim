@@ -272,6 +272,41 @@ class TestGetSet:
         filtered_total = filtered_response.json()["cards"]["pagination"]["total"]
         assert filtered_total <= all_total
 
+    def test_get_set_gold_alone_returns_only_multicolor(self, client, sample_set_code):
+        """colors=M filters to cards with 2+ colors in color_identity."""
+        response = client.get(f"/api/sets/{sample_set_code}?colors=M&card_limit=100")
+        assert response.status_code == 200
+        cards = response.json()["cards"]["data"]
+        assert cards, "expected at least one multicolor card in KLD"
+        for card in cards:
+            assert len(card["color_identity"]) >= 2, card
+
+    def test_get_set_gold_with_color_requires_that_color(self, client, sample_set_code):
+        """colors=MW filters to multicolor cards that include W."""
+        gold = client.get(f"/api/sets/{sample_set_code}?colors=M&card_limit=100").json()
+        gold_w = client.get(f"/api/sets/{sample_set_code}?colors=MW&card_limit=100").json()
+        gold_total = gold["cards"]["pagination"]["total"]
+        gold_w_total = gold_w["cards"]["pagination"]["total"]
+        assert gold_w_total <= gold_total
+        for card in gold_w["cards"]["data"]:
+            assert len(card["color_identity"]) >= 2
+            assert "W" in card["color_identity"]
+
+    def test_get_set_gold_with_two_colors_requires_both(self, client, sample_set_code):
+        """colors=MWU filters to multicolor cards including BOTH W and U."""
+        gold_w = client.get(f"/api/sets/{sample_set_code}?colors=MW&card_limit=100").json()
+        gold_wu = client.get(f"/api/sets/{sample_set_code}?colors=MWU&card_limit=100").json()
+        assert gold_wu["cards"]["pagination"]["total"] <= gold_w["cards"]["pagination"]["total"]
+        for card in gold_wu["cards"]["data"]:
+            assert "W" in card["color_identity"]
+            assert "U" in card["color_identity"]
+
+    def test_get_set_color_filter_without_gold_is_or(self, client, sample_set_code):
+        """colors=WU without M still matches W OR U (existing behavior)."""
+        wu = client.get(f"/api/sets/{sample_set_code}?colors=WU&card_limit=100").json()
+        for card in wu["cards"]["data"]:
+            assert "W" in card["color_identity"] or "U" in card["color_identity"], card
+
     def test_get_set_filter_cards_by_multiple_rarities(self, client, sample_set_code):
         """Comma-separated rarities filter as a union (mythic OR rare)."""
         mythic = client.get(f"/api/sets/{sample_set_code}?rarity=mythic&card_limit=100").json()

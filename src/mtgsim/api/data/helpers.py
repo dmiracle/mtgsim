@@ -115,9 +115,19 @@ def apply_card_filters(
         else:
             query = query.where(MJCard.oracle_text.contains(text))
     if colors:
-        from sqlalchemy import or_
+        from sqlalchemy import and_, or_
 
-        query = query.where(or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors]))
+        is_multicolor = "M" in colors
+        real_colors = [c for c in colors if c != "M"]
+        if is_multicolor:
+            conditions = [func.json_array_length(MJCard.color_identity) >= 2]
+            for c in real_colors:
+                conditions.append(func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"'))
+            query = query.where(and_(*conditions))
+        elif real_colors:
+            query = query.where(
+                or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in real_colors])
+            )
     if mana_values:
         from sqlalchemy import or_
 

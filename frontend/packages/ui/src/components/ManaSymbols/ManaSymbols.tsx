@@ -58,11 +58,14 @@ type ManaIconProps = {
   glowing?: boolean;
 };
 
+const SYMBOL_CLASS: Record<string, string> = { m: "multicolor" };
+
 export function ManaIcon({ symbol, size = "md", shadow = true, dimmed = false, glowing = false }: ManaIconProps) {
+  const lower = symbol.toLowerCase();
   const classes = [
     "ms",
     "ms-cost",
-    `ms-${symbol.toLowerCase()}`,
+    `ms-${SYMBOL_CLASS[lower] ?? lower}`,
   ].join(" ");
 
   const style: React.CSSProperties = {
