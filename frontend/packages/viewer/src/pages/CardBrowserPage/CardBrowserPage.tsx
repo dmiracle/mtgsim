@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse, AggregateVectorResponse } from "@/types/api";
 import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
@@ -76,11 +77,11 @@ export function CardBrowserPage({
   onImportMtga,
   aggregateVector,
 }: CardBrowserPageProps) {
-  const [nameSearch, setNameSearch] = useState("");
-  const [formatFilter, setFormatFilter] = useState("");
-  const [setFilter, setSetFilter] = useState("");
-  const [filters, setFilters] = useState(emptyFilters);
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [nameSearch, setNameSearch] = usePersistedState("cards.nameSearch", "");
+  const [formatFilter, setFormatFilter] = usePersistedState("cards.formatFilter", "");
+  const [setFilter, setSetFilter] = usePersistedState("cards.setFilter", "");
+  const [filters, setFilters] = usePersistedState<CardFilters>("cards.filters", emptyFilters);
+  const [selectedKeywords, setSelectedKeywords] = usePersistedState<string[]>("cards.keywords", []);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
