@@ -182,7 +182,8 @@ async def download_cards(
 
 @router.get("/stats", response_model=CardStatsResponse)
 async def get_card_stats(
-    q: str | None = Query(None, description="Search by name, type, or oracle text"),
+    q: str | None = Query(None, description="Search by card name"),
+    text: str | None = Query(None, description="Filter by oracle text"),
     set: str | None = Query(None, description="Filter by set code"),
     sets: str | None = Query(None, description="Filter by set codes (comma-separated)"),
     rarity: str | None = Query(None, description="Filter by rarity"),
@@ -213,6 +214,7 @@ async def get_card_stats(
 
     stats = cards_data.get_card_stats(
         q=q,
+        text=text,
         set_code=set,
         set_codes=set_code_list,
         rarity=rarity,

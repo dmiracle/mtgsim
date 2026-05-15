@@ -246,6 +246,19 @@ class TestCardStats:
         unique_data = client.get(f"/api/cards/stats?set={sample_set_code}&unique=true").json()
         assert unique_data["total"] <= all_data["total"]
 
+    def test_stats_text_filter_applies(self, client):
+        """Stats endpoint honors the text filter (was silently dropped)."""
+        bare = client.get("/api/cards/stats?rarity=mythic&unique=true").json()
+        with_text = client.get("/api/cards/stats?rarity=mythic&unique=true&text=enchantment").json()
+        assert with_text["total"] < bare["total"]
+
+    def test_stats_total_matches_cards_listing(self, client):
+        """Filtered total from /cards/stats must equal /cards pagination.total under the same filters."""
+        qs = "type=Creature&rarity=mythic&format=standard&unique=true&text=enchantment"
+        cards = client.get(f"/api/cards?{qs}&limit=1").json()
+        stats = client.get(f"/api/cards/stats?{qs}").json()
+        assert stats["total"] == cards["pagination"]["total"]
+
 
 class TestGetTags:
     """Tests for GET /api/cards/tags endpoint."""

@@ -326,12 +326,52 @@ class CardsData:
                 query = query.where(price_col <= price_max)
 
             if unique:
-                subq = select(func.min(MJCard.uuid)).group_by(MJCard.name)
+                # Match search_cards: rank printings per name by cheapest tcgplayer
+                # normal-retail price, keep rn=1. Identical semantics so the cards
+                # listing and the stats total agree.
+                from sqlalchemy.orm import aliased
+
+                MJCard2 = aliased(MJCard)
+                MJCardPrice2 = aliased(MJCardPrice)
+                row_num = (
+                    func.row_number()
+                    .over(
+                        partition_by=MJCard2.name,
+                        order_by=[MJCardPrice2.price.asc().nulls_last(), MJCard2.uuid.asc()],
+                    )
+                    .label("rn")
+                )
+                ranked = select(MJCard2.uuid.label("ranked_uuid"), row_num).outerjoin(
+                    MJCardPrice2,
+                    (MJCardPrice2.card_uuid == MJCard2.uuid)
+                    & (MJCardPrice2.provider == "tcgplayer")
+                    & (MJCardPrice2.finish == "normal")
+                    & (MJCardPrice2.listing_type == "retail"),
+                )
                 if set_code:
-                    subq = subq.where(MJCard.set_code == set_code)
+                    ranked = ranked.where(MJCard2.set_code == set_code)
                 if set_codes:
-                    subq = subq.where(MJCard.set_code.in_(set_codes))
-                query = query.where(MJCard.uuid.in_(subq))
+                    ranked = ranked.where(MJCard2.set_code.in_(set_codes))
+                if format_legal:
+                    MJCardLegality2 = aliased(MJCardLegality)
+                    MJSet2 = aliased(MJSet)
+                    ranked = (
+                        ranked.join(
+                            MJCardLegality2,
+                            (MJCard2.uuid == MJCardLegality2.card_uuid)
+                            & (MJCardLegality2.format == format_legal)
+                            & (MJCardLegality2.status == "Legal"),
+                        )
+                        .join(MJSet2, MJCard2.set_code == MJSet2.code)
+                        .where(MJSet2.type.in_(["expansion", "core"]))
+                    )
+                    if format_legal == "standard":
+                        cutoff = _standard_cutoff_date(session)
+                        if cutoff:
+                            ranked = ranked.where(MJSet2.release_date >= cutoff)
+                ranked_subq = ranked.subquery()
+                best_uuids = select(ranked_subq.c.ranked_uuid).where(ranked_subq.c.rn == 1)
+                query = query.where(MJCard.uuid.in_(best_uuids))
 
             # Collect matching UUIDs once, then aggregate in Python + 1 price query
             uuid_rows = session.exec(query).all()
