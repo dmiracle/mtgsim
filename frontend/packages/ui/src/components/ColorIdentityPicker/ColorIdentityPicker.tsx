@@ -6,6 +6,7 @@ const COLORS = [
   { id: "B", label: "Black" },
   { id: "R", label: "Red" },
   { id: "G", label: "Green" },
+  { id: "M", label: "Gold (multicolor)" },
   { id: "C", label: "Colorless" },
 ];
 
