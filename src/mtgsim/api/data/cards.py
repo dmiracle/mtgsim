@@ -196,15 +196,22 @@ class CardsData:
                     .label("rn")
                 )
 
-                ranked = select(MJCard2.uuid.label("ranked_uuid"), row_num).outerjoin(
-                    MJCardPrice2,
-                    (MJCardPrice2.card_uuid == MJCard2.uuid)
-                    & (MJCardPrice2.provider == "tcgplayer")
-                    & (MJCardPrice2.finish == "normal")
-                    & (MJCardPrice2.listing_type == "retail"),
+                UserCard2 = aliased(UserCard)
+                ranked = (
+                    select(MJCard2.uuid.label("ranked_uuid"), row_num)
+                    .outerjoin(
+                        MJCardPrice2,
+                        (MJCardPrice2.card_uuid == MJCard2.uuid)
+                        & (MJCardPrice2.provider == "tcgplayer")
+                        & (MJCardPrice2.finish == "normal")
+                        & (MJCardPrice2.listing_type == "retail"),
+                    )
+                    .outerjoin(UserCard2, MJCard2.uuid == UserCard2.card_uuid)
                 )
 
-                # Apply same filters to the ranking subquery
+                # Restrict ranking to printings that match every active filter so the
+                # canonical pick can never collapse a matching card into a printing
+                # that fails the user's filters (e.g. a mythic with a cheaper rare reprint).
                 if set_code:
                     ranked = ranked.where(MJCard2.set_code == set_code)
                 if set_codes:
@@ -225,6 +232,22 @@ class CardsData:
                         cutoff = _standard_cutoff_date(session)
                         if cutoff:
                             ranked = ranked.where(MJSet2.release_date >= cutoff)
+                ranked = apply_card_filters(
+                    ranked,
+                    rarity=rarity,
+                    card_type=card_type,
+                    text=text,
+                    colors=colors,
+                    mana_values=mana_values,
+                    keywords=keywords,
+                    tags=tags,
+                    owns=owns,
+                    wants=wants,
+                    owns_platform=owns_platform,
+                    session=session,
+                    mjcard=MJCard2,
+                    user_card=UserCard2,
+                )
 
                 ranked_subq = ranked.subquery()
                 best_uuids = select(ranked_subq.c.ranked_uuid).where(ranked_subq.c.rn == 1)
@@ -341,12 +364,17 @@ class CardsData:
                     )
                     .label("rn")
                 )
-                ranked = select(MJCard2.uuid.label("ranked_uuid"), row_num).outerjoin(
-                    MJCardPrice2,
-                    (MJCardPrice2.card_uuid == MJCard2.uuid)
-                    & (MJCardPrice2.provider == "tcgplayer")
-                    & (MJCardPrice2.finish == "normal")
-                    & (MJCardPrice2.listing_type == "retail"),
+                UserCard2 = aliased(UserCard)
+                ranked = (
+                    select(MJCard2.uuid.label("ranked_uuid"), row_num)
+                    .outerjoin(
+                        MJCardPrice2,
+                        (MJCardPrice2.card_uuid == MJCard2.uuid)
+                        & (MJCardPrice2.provider == "tcgplayer")
+                        & (MJCardPrice2.finish == "normal")
+                        & (MJCardPrice2.listing_type == "retail"),
+                    )
+                    .outerjoin(UserCard2, MJCard2.uuid == UserCard2.card_uuid)
                 )
                 if set_code:
                     ranked = ranked.where(MJCard2.set_code == set_code)
@@ -369,6 +397,21 @@ class CardsData:
                         cutoff = _standard_cutoff_date(session)
                         if cutoff:
                             ranked = ranked.where(MJSet2.release_date >= cutoff)
+                ranked = apply_card_filters(
+                    ranked,
+                    rarity=rarity,
+                    card_type=card_type,
+                    text=text,
+                    colors=colors,
+                    mana_values=mana_values,
+                    keywords=keywords,
+                    tags=tags,
+                    owns=owns,
+                    wants=wants,
+                    session=session,
+                    mjcard=MJCard2,
+                    user_card=UserCard2,
+                )
                 ranked_subq = ranked.subquery()
                 best_uuids = select(ranked_subq.c.ranked_uuid).where(ranked_subq.c.rn == 1)
                 query = query.where(MJCard.uuid.in_(best_uuids))

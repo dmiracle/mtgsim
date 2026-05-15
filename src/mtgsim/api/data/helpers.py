@@ -93,46 +93,57 @@ def apply_card_filters(
     wants: bool | None = None,
     owns_platform: str | None = None,
     session=None,
+    *,
+    mjcard=None,
+    user_card=None,
 ):
-    """Apply common card filters to a query that joins MJCard and optionally UserCard."""
+    """Apply common card filters to a query that joins MJCard and optionally UserCard.
+
+    Pass `mjcard` / `user_card` to bind filters to alias tables when reusing this
+    helper inside a window/ranking subquery (so the canonical printing picked by
+    `unique=true` respects every active filter, not just set/format).
+    """
     from mtgdb.models import MJCard, MJCardTag, UserCard
     from sqlalchemy import exists
     from sqlalchemy import select as sa_select
     from sqlmodel import func
 
+    M = mjcard if mjcard is not None else MJCard
+    U = user_card if user_card is not None else UserCard
+
     if rarity:
         rarities = [r.strip() for r in rarity.split(",") if r.strip()]
         if len(rarities) == 1:
-            query = query.where(MJCard.rarity == rarities[0])
+            query = query.where(M.rarity == rarities[0])
         elif rarities:
-            query = query.where(MJCard.rarity.in_(rarities))
+            query = query.where(M.rarity.in_(rarities))
     if card_type:
         from sqlalchemy import or_
 
         types = [t.strip() for t in card_type.split(",") if t.strip()]
         if len(types) == 1:
-            query = query.where(MJCard.type_line.contains(types[0]))
+            query = query.where(M.type_line.contains(types[0]))
         elif types:
-            query = query.where(or_(*[MJCard.type_line.contains(t) for t in types]))
+            query = query.where(or_(*[M.type_line.contains(t) for t in types]))
     if text:
         if session:
             uuids = fts_search_uuids(session, "oracle_text", text)
-            query = query.where(MJCard.uuid.in_(uuids))
+            query = query.where(M.uuid.in_(uuids))
         else:
-            query = query.where(MJCard.oracle_text.contains(text))
+            query = query.where(M.oracle_text.contains(text))
     if colors:
         from sqlalchemy import and_, or_
 
         is_multicolor = "M" in colors
         real_colors = [c for c in colors if c != "M"]
         if is_multicolor:
-            conditions = [func.json_array_length(MJCard.color_identity) >= 2]
+            conditions = [func.json_array_length(M.color_identity) >= 2]
             for c in real_colors:
-                conditions.append(func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"'))
+                conditions.append(func.json_extract(M.color_identity, "$").contains(f'"{c}"'))
             query = query.where(and_(*conditions))
         elif real_colors:
             query = query.where(
-                or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in real_colors])
+                or_(*[func.json_extract(M.color_identity, "$").contains(f'"{c}"') for c in real_colors])
             )
     if mana_values:
         from sqlalchemy import or_
@@ -140,43 +151,43 @@ def apply_card_filters(
         mv_conditions = []
         for mv in mana_values:
             if mv >= 7:
-                mv_conditions.append(MJCard.mana_value >= 7)
+                mv_conditions.append(M.mana_value >= 7)
             else:
-                mv_conditions.append(MJCard.mana_value == mv)
+                mv_conditions.append(M.mana_value == mv)
         query = query.where(or_(*mv_conditions))
     if keywords:
         for kw in keywords:
-            query = query.where(func.json_extract(MJCard.keywords, "$").contains(f'"{kw}"'))
+            query = query.where(func.json_extract(M.keywords, "$").contains(f'"{kw}"'))
     if tags:
         query = query.where(
-            exists(sa_select(MJCardTag.id).where((MJCardTag.card_name == MJCard.name) & (MJCardTag.tag.in_(tags))))
+            exists(sa_select(MJCardTag.id).where((MJCardTag.card_name == M.name) & (MJCardTag.tag.in_(tags))))
         )
     if owns is True:
         query = query.where(
-            (UserCard.quantity_owned > 0)
-            | (UserCard.quantity_owned_foil > 0)
-            | (UserCard.quantity_owned_mtga > 0)
-            | (UserCard.quantity_owned_mtga_foil > 0)
+            (U.quantity_owned > 0)
+            | (U.quantity_owned_foil > 0)
+            | (U.quantity_owned_mtga > 0)
+            | (U.quantity_owned_mtga_foil > 0)
         )
     elif owns is False:
         query = query.where(
-            (UserCard.id.is_(None))
+            (U.id.is_(None))
             | (
-                (UserCard.quantity_owned == 0)
-                & (UserCard.quantity_owned_foil == 0)
-                & (UserCard.quantity_owned_mtga == 0)
-                & (UserCard.quantity_owned_mtga_foil == 0)
+                (U.quantity_owned == 0)
+                & (U.quantity_owned_foil == 0)
+                & (U.quantity_owned_mtga == 0)
+                & (U.quantity_owned_mtga_foil == 0)
             )
         )
     if owns_platform == "paper":
-        query = query.where((UserCard.quantity_owned > 0) | (UserCard.quantity_owned_foil > 0))
+        query = query.where((U.quantity_owned > 0) | (U.quantity_owned_foil > 0))
     elif owns_platform == "mtga":
-        query = query.where((UserCard.quantity_owned_mtga > 0) | (UserCard.quantity_owned_mtga_foil > 0))
+        query = query.where((U.quantity_owned_mtga > 0) | (U.quantity_owned_mtga_foil > 0))
     if wants is True:
-        query = query.where((UserCard.quantity_wanted > 0) | (UserCard.quantity_wanted_foil > 0))
+        query = query.where((U.quantity_wanted > 0) | (U.quantity_wanted_foil > 0))
     elif wants is False:
         query = query.where(
-            (UserCard.id.is_(None)) | ((UserCard.quantity_wanted == 0) & (UserCard.quantity_wanted_foil == 0))
+            (U.id.is_(None)) | ((U.quantity_wanted == 0) & (U.quantity_wanted_foil == 0))
         )
     return query
 

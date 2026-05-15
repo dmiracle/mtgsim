@@ -260,6 +260,23 @@ class TestCardStats:
         assert stats["total"] == cards["pagination"]["total"]
 
 
+class TestUniqueCanonicalPick:
+    """Regression: unique=true must pick a canonical printing that respects every filter."""
+
+    def test_unique_does_not_drop_cards_with_cheaper_offrarity_reprints(self, client):
+        """Cards whose cheapest standard printing is rare but also have a mythic
+        printing must still appear when filtering rarity=mythic with unique=true.
+
+        Concrete case: Enduring Courage in DSK ships as both rare ($2.32 normal)
+        and mythic. Before fix, the unique row-number picked the cheapest printing
+        (rare) and the main query's rarity=mythic filter then dropped the card.
+        """
+        qs = "type=Creature&rarity=mythic&format=standard&unique=true&text=enchantment"
+        data = client.get(f"/api/cards?{qs}&limit=100").json()
+        names = [c["name"] for c in data["data"]]
+        assert "Enduring Courage" in names
+
+
 class TestGetTags:
     """Tests for GET /api/cards/tags endpoint."""
 
