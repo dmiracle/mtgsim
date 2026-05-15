@@ -83,6 +83,17 @@ class TestSearchCards:
         response = client.get("/api/cards?type=Land")
         assert response.status_code == 200
 
+    def test_search_cards_filter_by_multiple_types_is_union(self, client):
+        """type=Creature,Instant unions to (Creature OR Instant), not intersect."""
+        creature = client.get("/api/cards?type=Creature&limit=1").json()
+        instant = client.get("/api/cards?type=Instant&limit=1").json()
+        both = client.get("/api/cards?type=Creature,Instant&limit=1").json()
+        c_total = creature["pagination"]["total"]
+        i_total = instant["pagination"]["total"]
+        both_total = both["pagination"]["total"]
+        assert both_total >= max(c_total, i_total)
+        assert both_total <= c_total + i_total
+
     def test_search_cards_filter_by_colors_single(self, client):
         """Filter by single color works."""
         response = client.get("/api/cards?colors=W")

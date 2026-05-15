@@ -107,7 +107,13 @@ def apply_card_filters(
         elif rarities:
             query = query.where(MJCard.rarity.in_(rarities))
     if card_type:
-        query = query.where(MJCard.type_line.contains(card_type))
+        from sqlalchemy import or_
+
+        types = [t.strip() for t in card_type.split(",") if t.strip()]
+        if len(types) == 1:
+            query = query.where(MJCard.type_line.contains(types[0]))
+        elif types:
+            query = query.where(or_(*[MJCard.type_line.contains(t) for t in types]))
     if text:
         if session:
             uuids = fts_search_uuids(session, "oracle_text", text)
