@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 
 from sqlalchemy import text
 
@@ -27,22 +28,52 @@ def parse_json_column(value: str | list | None, default=None) -> list:
         return default if default is not None else []
 
 
-def _escape_fts_query(q: str) -> str:
-    """Escape an FTS5 query term so special characters are treated as literals.
+_FTS_OPERATORS = {"AND", "OR", "NOT"}
+# Tokenize: quoted phrase | open-paren | close-paren | bare word (no parens / quotes / spaces).
+# Greedy \S+ would glue `reach)` into a single token; the explicit class avoids that.
+_FTS_TOKEN_RE = re.compile(r'"[^"]*"|\(|\)|[^\s()"]+')
 
-    Wraps each whitespace-separated token in double quotes unless the user
-    already provided a quoted phrase.  This prevents FTS5 syntax errors from
-    characters like parentheses, colons, hyphens, etc.
+
+def _escape_fts_query(q: str) -> str:
+    """Translate a user query into a safe FTS5 MATCH expression.
+
+    Passes through FTS5 boolean operators (AND / OR / NOT, case-insensitive),
+    parentheses, quoted phrases, and a trailing ``*`` prefix operator. Every
+    other bare token is wrapped in double quotes so punctuation (``-`` ``:``
+    ``+`` ``^`` etc.) is treated as literal text instead of FTS5 syntax.
+    Stray double quotes inside bare tokens are stripped.
+
+    Examples (left = user input, right = emitted FTS5 expression)::
+
+        flying lifelink              → "flying" "lifelink"
+        flying OR lifelink           → "flying" OR "lifelink"
+        flying NOT vigilance         → "flying" NOT "vigilance"
+        "trigger an ability"         → "trigger an ability"
+        (flying OR reach) AND lifelink → ( "flying" OR "reach" ) AND "lifelink"
+        enchant*                     → "enchant"*
     """
     q = q.strip()
     if not q:
         return q
-    # If the whole query is already a quoted phrase, pass it through
-    if q.startswith('"') and q.endswith('"'):
-        return q
-    # Quote each token individually to escape special chars
-    tokens = q.split()
-    return " ".join(f'"{t}"' for t in tokens)
+    out: list[str] = []
+    for raw in _FTS_TOKEN_RE.findall(q):
+        if raw in ("(", ")"):
+            out.append(raw)
+            continue
+        if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
+            out.append(raw)
+            continue
+        upper = raw.upper()
+        if upper in _FTS_OPERATORS:
+            out.append(upper)
+            continue
+        prefix = raw.endswith("*")
+        word = raw[:-1] if prefix else raw
+        word = word.replace('"', "")
+        if not word:
+            continue
+        out.append(f'"{word}"*' if prefix else f'"{word}"')
+    return " ".join(out)
 
 
 def fts_search_uuids(session, column: str, query: str) -> list[str]:
@@ -59,7 +90,9 @@ def fts_search_uuids(session, column: str, query: str) -> list[str]:
     escaped = _escape_fts_query(query)
     if not escaped:
         return []
-    fts_query = f"{column} : {escaped}"
+    # Wrap in parens so the column filter binds to the whole boolean expression,
+    # not just the first phrase/group inside it.
+    fts_query = f"{column} : ({escaped})"
     result = session.exec(
         text("SELECT uuid FROM mj_card_fts WHERE mj_card_fts MATCH :q"),
         params={"q": fts_query},
@@ -72,7 +105,7 @@ def fts_name_search_uuids(session, query: str) -> list[str]:
     escaped = _escape_fts_query(query)
     if not escaped:
         return []
-    fts_query = f"{{name printed_name}} : {escaped}"
+    fts_query = f"{{name printed_name}} : ({escaped})"
     result = session.exec(
         text("SELECT uuid FROM mj_card_fts WHERE mj_card_fts MATCH :q"),
         params={"q": fts_query},

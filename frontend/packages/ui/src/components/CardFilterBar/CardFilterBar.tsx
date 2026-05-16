@@ -124,7 +124,7 @@ export function CardFilterBar({
         <div className="flex-1 min-w-[150px]">
           <SearchInput
             value={filters.text}
-            placeholder="Search oracle text..."
+            placeholder='Search oracle text — supports AND / OR / NOT, "phrase", (groups), prefix*'
             onChange={(text) => update({ text })}
           />
         </div>
