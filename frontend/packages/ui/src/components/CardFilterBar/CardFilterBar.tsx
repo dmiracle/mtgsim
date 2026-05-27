@@ -252,7 +252,7 @@ export function CardFilterBar({
                             }`}
                           >
                             <SetBadge code={s.code} name={s.name} size="sm" />
-                            <span className="text-text-muted">{s.base_set_size}</span>
+                            <span className="text-text-muted">{s.collection_stats?.total_cards ?? s.base_set_size}</span>
                           </button>
                         );
                       })}
