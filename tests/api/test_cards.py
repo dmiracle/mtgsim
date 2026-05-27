@@ -277,6 +277,45 @@ class TestUniqueCanonicalPick:
         assert "Enduring Courage" in names
 
 
+class TestFtsBooleanSearch:
+    """The text= filter passes FTS5 boolean syntax through (AND / OR / NOT / parens / phrase)."""
+
+    def test_escape_emits_quoted_tokens(self):
+        from mtgsim.api.data.helpers import _escape_fts_query
+
+        assert _escape_fts_query("flying lifelink") == '"flying" "lifelink"'
+        assert _escape_fts_query("flying AND lifelink") == '"flying" AND "lifelink"'
+        assert _escape_fts_query("flying OR lifelink") == '"flying" OR "lifelink"'
+        assert _escape_fts_query("flying NOT vigilance") == '"flying" NOT "vigilance"'
+        assert _escape_fts_query("flying and lifelink") == '"flying" AND "lifelink"'  # case-insensitive ops
+        assert _escape_fts_query("enchant*") == '"enchant"*'
+        assert _escape_fts_query('"trigger an ability"') == '"trigger an ability"'
+        assert _escape_fts_query("(flying OR reach) AND lifelink") == '( "flying" OR "reach" ) AND "lifelink"'
+        assert _escape_fts_query("") == ""
+        assert _escape_fts_query("flying-lifelink") == '"flying-lifelink"'  # hyphens stay literal
+
+    def test_and_narrows_results(self, client):
+        flying = client.get("/api/cards?text=flying&limit=1").json()["pagination"]["total"]
+        lifelink = client.get("/api/cards?text=lifelink&limit=1").json()["pagination"]["total"]
+        both = client.get("/api/cards?text=flying+AND+lifelink&limit=1").json()["pagination"]["total"]
+        assert both < flying
+        assert both < lifelink
+
+    def test_or_broadens_results(self, client):
+        flying = client.get("/api/cards?text=flying&limit=1").json()["pagination"]["total"]
+        either = client.get("/api/cards?text=flying+OR+lifelink&limit=1").json()["pagination"]["total"]
+        assert either >= flying
+
+    def test_not_excludes_results(self, client):
+        flying = client.get("/api/cards?text=flying&limit=1").json()["pagination"]["total"]
+        without = client.get("/api/cards?text=flying+NOT+vigilance&limit=1").json()["pagination"]["total"]
+        assert without < flying
+
+    def test_parens_group_correctly(self, client):
+        grouped = client.get("/api/cards", params={"text": "(flying OR reach) AND lifelink", "limit": 1}).json()
+        assert grouped["pagination"]["total"] > 0
+
+
 class TestGetTags:
     """Tests for GET /api/cards/tags endpoint."""
 
