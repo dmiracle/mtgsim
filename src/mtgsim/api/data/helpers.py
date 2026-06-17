@@ -167,17 +167,29 @@ def apply_card_filters(
     if colors:
         from sqlalchemy import and_, or_
 
-        is_multicolor = "M" in colors
-        real_colors = [c for c in colors if c != "M"]
-        if is_multicolor:
+        has_multicolor = "M" in colors
+        has_colorless = "C" in colors
+        wubrg = [c for c in colors if c in "WUBRG"]
+
+        clauses = []
+        if has_multicolor:
+            # Gold: multicolor cards (2+ colors) that include every selected color.
             conditions = [func.json_array_length(M.color_identity) >= 2]
-            for c in real_colors:
+            for c in wubrg:
                 conditions.append(func.json_extract(M.color_identity, "$").contains(f'"{c}"'))
-            query = query.where(and_(*conditions))
-        elif real_colors:
-            query = query.where(
-                or_(*[func.json_extract(M.color_identity, "$").contains(f'"{c}"') for c in real_colors])
+            clauses.append(and_(*conditions))
+        elif wubrg:
+            # Plain colors (no gold): only mono-colored cards of a selected color.
+            clauses.append(
+                and_(
+                    func.json_array_length(M.color_identity) == 1,
+                    or_(*[func.json_extract(M.color_identity, "$").contains(f'"{c}"') for c in wubrg]),
+                )
             )
+        if has_colorless:
+            clauses.append(func.json_array_length(M.color_identity) == 0)
+        if clauses:
+            query = query.where(or_(*clauses))
     if mana_values:
         from sqlalchemy import or_
 
