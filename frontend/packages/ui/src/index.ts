@@ -16,6 +16,11 @@ export * from "./fixtures/index";
 // Components — re-export each component directory
 export { AddCardToDeckModal } from "./components/AddCardToDeckModal/AddCardToDeckModal";
 export { AddToDeckModal } from "./components/AddToDeckModal/AddToDeckModal";
+export { CameraViewfinder } from "./components/CameraViewfinder/CameraViewfinder";
+export type { DetectionStatus } from "./components/CameraViewfinder/CameraViewfinder";
+export { CaptureFab } from "./components/CaptureFab/CaptureFab";
+export { CardCapture } from "./components/CardCapture/CardCapture";
+export { CardCaptureResult } from "./components/CardCaptureResult/CardCaptureResult";
 export { AppLayout } from "./components/AppLayout/AppLayout";
 export { CardFilterBar } from "./components/CardFilterBar/CardFilterBar";
 export type { CardFilters } from "./components/CardFilterBar/CardFilterBar";
