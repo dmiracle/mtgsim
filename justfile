@@ -46,6 +46,14 @@ db-sync:
 db-sync-force:
     uv run mtgsim db sync --force
 
+# Start the full stack (API server + deck viewer frontend)
+dev:
+    #!/usr/bin/env bash
+    trap 'kill 0' EXIT
+    uv run mtgsim-api &
+    cd frontend && npm run dev &
+    wait
+
 # Start the deck viewer frontend (dev server)
 dev-viewer:
     cd frontend && npm run dev
