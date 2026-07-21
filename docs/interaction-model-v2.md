@@ -165,7 +165,7 @@ A `matches_selector(card, selector) -> bool` function evaluates a card against a
 
 ### C1. The Phase/Timing Gap Is Severe
 
-17Lands `MJ17LReplayTurn` records what happened on a *turn number*, not within which *phase* or *step*. You know "Murder was cast on turn 5" but not whether it was during Main Phase or in response to Declare Attackers. **Tier 3 phase-level analysis cannot be data-driven from 17Lands.** Phase context must be rules-inferred ("Murder is an instant, so it CAN be cast during combat") not data-validated ("Murder IS cast during combat X% of the time"). The UI should label this distinction clearly.
+17Lands `SLReplayTurn` records what happened on a *turn number*, not within which *phase* or *step*. You know "Murder was cast on turn 5" but not whether it was during Main Phase or in response to Declare Attackers. **Tier 3 phase-level analysis cannot be data-driven from 17Lands.** Phase context must be rules-inferred ("Murder is an instant, so it CAN be cast during combat") not data-validated ("Murder IS cast during combat X% of the time"). The UI should label this distinction clearly.
 
 **What 17Lands CAN validate:** Turn-range effectiveness (early/mid/late), game-state correlation (win rate when drawn while ahead/behind via life-total differentials), and card co-occurrence in winning decks.
 

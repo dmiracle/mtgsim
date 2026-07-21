@@ -29,7 +29,8 @@ python -c "from mtgdb.sync import sync_all; sync_all(force=True)"
 
 ### Data Model Naming
 
-- **MJ prefix** (mj_* tables): MTGJSON reference data - read-only, synced from external sources
+- **MJ prefix** (mj_* tables): MTGJSON reference data - read-only, synced from MTGJSON
+- **SL prefix** (sl_* tables): 17Lands reference data - read-only, synced/computed from 17Lands
 - **User prefix** (user_* tables): User-modifiable data (collection, decks)
 
 ### Core Modules

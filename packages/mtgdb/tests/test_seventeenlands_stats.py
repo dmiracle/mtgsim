@@ -77,15 +77,15 @@ class TestIngestIdempotency:
         engine, draft_csv, _ = seventeenlands_db
         assert ingest_draft_csv(draft_csv) == 3
         assert ingest_draft_csv(draft_csv) == 3
-        assert _counts(engine, "mj_17l_draft_pick") == 3
-        assert _counts(engine, "mj_17l_draft_card") == 6
+        assert _counts(engine, "sl_draft_pick") == 3
+        assert _counts(engine, "sl_draft_card") == 6
 
     def test_game_reingest_does_not_duplicate(self, seventeenlands_db):
         engine, _, game_csv = seventeenlands_db
         assert ingest_game_csv(game_csv) == 3
         assert ingest_game_csv(game_csv) == 3
-        assert _counts(engine, "mj_17l_game") == 3
-        assert _counts(engine, "mj_17l_game_card") == 7
+        assert _counts(engine, "sl_game") == 3
+        assert _counts(engine, "sl_game_card") == 7
 
 
 class TestComputeCardStats:
@@ -96,7 +96,7 @@ class TestComputeCardStats:
         ingest_game_csv(game_csv)
         assert compute_card_stats("TST", "PremierDraft") == 3
         with engine.connect() as conn:
-            rows = conn.execute(text("SELECT * FROM mj_17l_card_stat")).mappings().all()
+            rows = conn.execute(text("SELECT * FROM sl_card_stat")).mappings().all()
         return {r["card_name"]: r for r in rows}
 
     def test_draft_metrics(self, stats):
@@ -139,7 +139,7 @@ class TestComputeCardStats:
         ingest_game_csv(game_csv)
         compute_card_stats("TST", "PremierDraft")
         compute_card_stats("TST", "PremierDraft")
-        assert _counts(engine, "mj_17l_card_stat") == 3
+        assert _counts(engine, "sl_card_stat") == 3
 
 
 RATINGS_PAYLOAD = [
@@ -199,13 +199,13 @@ class TestStoreCardRatings:
         engine, _, _ = seventeenlands_db
         assert store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21") == 2
         assert store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21") == 2
-        assert _counts(engine, "mj_17l_card_stat") == 2
+        assert _counts(engine, "sl_card_stat") == 2
 
     def test_stored_values(self, seventeenlands_db):
         engine, _, _ = seventeenlands_db
         store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21")
         with engine.connect() as conn:
-            rows = conn.execute(text("SELECT * FROM mj_17l_card_stat ORDER BY card_name")).mappings().all()
+            rows = conn.execute(text("SELECT * FROM sl_card_stat ORDER BY card_name")).mappings().all()
         a, b = rows
         assert (a["card_name"], a["source"], a["mtga_id"]) == ("Ash Zealot", "17lands", 12345)
         assert (a["avg_seen"], a["ever_drawn_win_rate"], a["dataset_last_updated"]) == (4.2, 0.59, "2026-07-21")
@@ -220,6 +220,6 @@ class TestStoreCardRatings:
         compute_card_stats("TST", "PremierDraft")
         with engine.connect() as conn:
             by_source = dict(
-                conn.execute(text("SELECT source, COUNT(*) FROM mj_17l_card_stat GROUP BY source")).fetchall()
+                conn.execute(text("SELECT source, COUNT(*) FROM sl_card_stat GROUP BY source")).fetchall()
             )
         assert by_source == {"public_dataset": 3, "17lands": 2}

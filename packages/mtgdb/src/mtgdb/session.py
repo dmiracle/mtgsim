@@ -42,10 +42,35 @@ def init_db(db_path: Path | None = None) -> Engine:
     import mtgdb.models  # noqa: F401
 
     engine = get_engine(db_path)
+    _rename_17l_tables(engine)
     SQLModel.metadata.create_all(engine)
     _ensure_columns(engine)
     _ensure_fts_table(engine)
     return engine
+
+
+def _rename_17l_tables(engine: Engine) -> None:
+    """Rename legacy mj_17l_* tables to sl_* (17Lands data is not from MTGJSON)."""
+    from sqlalchemy import text
+
+    renames = {
+        "mj_17l_dataset": "sl_dataset",
+        "mj_17l_draft_pick": "sl_draft_pick",
+        "mj_17l_draft_card": "sl_draft_card",
+        "mj_17l_game": "sl_game",
+        "mj_17l_game_card": "sl_game_card",
+        "mj_17l_replay": "sl_replay",
+        "mj_17l_replay_turn": "sl_replay_turn",
+        "mj_17l_card_stat": "sl_card_stat",
+    }
+    with engine.connect() as conn:
+        existing = {
+            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
+        }
+        for old, new in renames.items():
+            if old in existing and new not in existing:
+                conn.execute(text(f"ALTER TABLE {old} RENAME TO {new}"))
+        conn.commit()
 
 
 def _ensure_columns(engine: Engine) -> None:
@@ -54,8 +79,8 @@ def _ensure_columns(engine: Engine) -> None:
 
     added_columns = {
         "mj_card": {"side": "VARCHAR"},
-        "mj_17l_card_stat": {"mtga_id": "INTEGER"},
-        "mj_17l_dataset": {
+        "sl_card_stat": {"mtga_id": "INTEGER"},
+        "sl_dataset": {
             "draft_data_downloaded_version": "VARCHAR",
             "game_data_downloaded_version": "VARCHAR",
             "replay_data_downloaded_version": "VARCHAR",

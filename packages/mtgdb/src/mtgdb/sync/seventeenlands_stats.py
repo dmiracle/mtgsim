@@ -18,7 +18,7 @@ import requests
 from sqlalchemy import text
 from sqlmodel import select
 
-from mtgdb.models import MJ17LCardStat, MJ17LDataset, MJCard
+from mtgdb.models import MJCard, SLCardStat, SLDataset
 from mtgdb.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 CARD_RATINGS_URL = "https://www.17lands.com/card_ratings/data"
 USER_AGENT = "mtgsim/0.1 (github.com/dmiracle/mtgsim; occasional single-set fetches)"
 
-# card_ratings/data response fields that map 1:1 onto MJ17LCardStat columns
+# card_ratings/data response fields that map 1:1 onto SLCardStat columns
 _RATING_FIELDS = [
     "mtga_id",
     "rarity",
@@ -51,7 +51,7 @@ _RATING_FIELDS = [
 
 _DRAFT_PICK_SQL = """
 SELECT pick AS card_name, COUNT(*) AS pick_count, AVG(pick_number + 1) AS avg_pick
-FROM mj_17l_draft_pick
+FROM sl_draft_pick
 WHERE expansion = :expansion AND event_type = :format AND pick IS NOT NULL
 GROUP BY pick
 """
@@ -62,9 +62,9 @@ _DRAFT_SEEN_SQL = """
 SELECT card_name, COUNT(*) AS seen_count, AVG(last_seen) AS avg_seen
 FROM (
     SELECT dc.card_name, MAX(dc.pick_number) + 1 AS last_seen
-    FROM mj_17l_draft_card dc
+    FROM sl_draft_card dc
     JOIN (
-        SELECT DISTINCT draft_id FROM mj_17l_draft_pick
+        SELECT DISTINCT draft_id FROM sl_draft_pick
         WHERE expansion = :expansion AND event_type = :format
     ) d ON d.draft_id = dc.draft_id
     WHERE dc.in_pack
@@ -87,8 +87,8 @@ SELECT
     COUNT(*) FILTER (WHERE (gc.in_opening_hand > 0 OR gc.drawn > 0) AND g.won) AS gih_wins,
     COUNT(*) FILTER (WHERE gc.in_deck > 0 AND gc.in_opening_hand = 0 AND gc.drawn = 0) AS gns_count,
     COUNT(*) FILTER (WHERE gc.in_deck > 0 AND gc.in_opening_hand = 0 AND gc.drawn = 0 AND g.won) AS gns_wins
-FROM mj_17l_game_card gc
-JOIN mj_17l_game g
+FROM sl_game_card gc
+JOIN sl_game g
     ON g.draft_id = gc.draft_id
     AND g.build_index IS gc.build_index
     AND g.game_number IS gc.game_number
@@ -108,7 +108,7 @@ def _card_identity(session, expansion: str) -> dict[str, tuple[str, str | None]]
 
 
 def compute_card_stats(expansion: str, format: str) -> int:
-    """Compute per-card stats for one expansion/format and replace mj_17l_card_stat rows.
+    """Compute per-card stats for one expansion/format and replace sl_card_stat rows.
 
     Returns the number of card rows written.
     """
@@ -143,13 +143,13 @@ def compute_card_stats(expansion: str, format: str) -> int:
 
         identity = _card_identity(session, expansion)
         dataset = session.exec(
-            select(MJ17LDataset).where((MJ17LDataset.expansion == expansion) & (MJ17LDataset.format == format))
+            select(SLDataset).where((SLDataset.expansion == expansion) & (SLDataset.format == format))
         ).first()
         computed_at = datetime.now(UTC).isoformat()
 
         conn.execute(
             text(
-                "DELETE FROM mj_17l_card_stat "
+                "DELETE FROM sl_card_stat "
                 "WHERE expansion = :expansion AND format = :format AND source = 'public_dataset'"
             ),
             params,
@@ -162,7 +162,7 @@ def compute_card_stats(expansion: str, format: str) -> int:
                 values["drawn_improvement_win_rate"] = gih_wr - gns_wr
             color, rarity = identity.get(card_name, (None, None))
             session.add(
-                MJ17LCardStat(
+                SLCardStat(
                     expansion=expansion,
                     format=format,
                     card_name=card_name,
@@ -181,12 +181,12 @@ def compute_card_stats(expansion: str, format: str) -> int:
 
 
 def store_card_ratings(cards: list[dict], expansion: str, format: str, end_date: str) -> int:
-    """Replace mj_17l_card_stat rows (source='17lands') with site-calculated ratings."""
+    """Replace sl_card_stat rows (source='17lands') with site-calculated ratings."""
     computed_at = datetime.now(UTC).isoformat()
 
     with get_session() as session:
         session.connection().execute(
-            text("DELETE FROM mj_17l_card_stat WHERE expansion = :expansion AND format = :format AND source = :src"),
+            text("DELETE FROM sl_card_stat WHERE expansion = :expansion AND format = :format AND source = :src"),
             {"expansion": expansion, "format": format, "src": "17lands"},
         )
         for card in cards:
@@ -194,7 +194,7 @@ def store_card_ratings(cards: list[dict], expansion: str, format: str, end_date:
             for count_field in (f for f in _RATING_FIELDS if f.endswith("_count")):
                 values[count_field] = values[count_field] or 0
             session.add(
-                MJ17LCardStat(
+                SLCardStat(
                     expansion=expansion,
                     format=format,
                     card_name=card["name"],

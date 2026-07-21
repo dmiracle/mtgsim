@@ -2,7 +2,7 @@
 
 import logging
 
-from mtgdb.models import MJ17LCardStat, MJ17LDataset, MJ17LDraftPick, MJ17LGame, MJ17LReplay
+from mtgdb.models import SLCardStat, SLDataset, SLDraftPick, SLGame, SLReplay
 from mtgdb.session import get_session
 from sqlmodel import func, select
 
@@ -23,23 +23,23 @@ class SeventeenLandsData:
         limit: int = 50,
     ) -> tuple[list[dict], int]:
         with get_session() as session:
-            query = select(MJ17LDataset)
+            query = select(SLDataset)
 
             if expansion:
-                query = query.where(MJ17LDataset.expansion == expansion)
+                query = query.where(SLDataset.expansion == expansion)
             if format:
-                query = query.where(MJ17LDataset.format == format)
+                query = query.where(SLDataset.format == format)
             if has_draft is True:
-                query = query.where(MJ17LDataset.draft_data_url.is_not(None))
+                query = query.where(SLDataset.draft_data_url.is_not(None))
             if has_game is True:
-                query = query.where(MJ17LDataset.game_data_url.is_not(None))
+                query = query.where(SLDataset.game_data_url.is_not(None))
             if has_replay is True:
-                query = query.where(MJ17LDataset.replay_data_url.is_not(None))
+                query = query.where(SLDataset.replay_data_url.is_not(None))
 
             count_query = select(func.count()).select_from(query.subquery())
             total = session.exec(count_query).one()
 
-            query = query.order_by(MJ17LDataset.last_updated.desc(), MJ17LDataset.expansion)
+            query = query.order_by(SLDataset.last_updated.desc(), SLDataset.expansion)
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
 
@@ -66,18 +66,18 @@ class SeventeenLandsData:
         with get_session() as session:
             query = (
                 select(
-                    MJ17LDataset.expansion,
+                    SLDataset.expansion,
                     func.count().label("dataset_count"),
                 )
-                .group_by(MJ17LDataset.expansion)
-                .order_by(MJ17LDataset.expansion)
+                .group_by(SLDataset.expansion)
+                .order_by(SLDataset.expansion)
             )
             rows = session.exec(query).all()
 
             expansions = []
             for expansion, count in rows:
                 # Get formats and data availability for this expansion
-                detail_query = select(MJ17LDataset).where(MJ17LDataset.expansion == expansion)
+                detail_query = select(SLDataset).where(SLDataset.expansion == expansion)
                 details = session.exec(detail_query).all()
                 formats = sorted({d.format for d in details})
                 has_draft = any(d.draft_data_url for d in details)
@@ -105,16 +105,16 @@ class SeventeenLandsData:
         limit: int = 50,
     ) -> tuple[list[dict], int]:
         with get_session() as session:
-            query = select(MJ17LDraftPick)
+            query = select(SLDraftPick)
             if expansion:
-                query = query.where(MJ17LDraftPick.expansion == expansion)
+                query = query.where(SLDraftPick.expansion == expansion)
             if event_type:
-                query = query.where(MJ17LDraftPick.event_type == event_type)
+                query = query.where(SLDraftPick.event_type == event_type)
             if card_name:
-                query = query.where(MJ17LDraftPick.pick == card_name)
+                query = query.where(SLDraftPick.pick == card_name)
 
             total = session.exec(select(func.count()).select_from(query.subquery())).one()
-            query = query.order_by(MJ17LDraftPick.draft_time.desc())
+            query = query.order_by(SLDraftPick.draft_time.desc())
             query = query.offset((page - 1) * limit).limit(limit)
             results = session.exec(query).all()
 
@@ -144,16 +144,16 @@ class SeventeenLandsData:
         limit: int = 50,
     ) -> tuple[list[dict], int]:
         with get_session() as session:
-            query = select(MJ17LCardStat).where(MJ17LCardStat.expansion == expansion)
+            query = select(SLCardStat).where(SLCardStat.expansion == expansion)
             if format:
-                query = query.where(MJ17LCardStat.format == format)
+                query = query.where(SLCardStat.format == format)
             if card_name:
-                query = query.where(MJ17LCardStat.card_name == card_name)
+                query = query.where(SLCardStat.card_name == card_name)
             if source:
-                query = query.where(MJ17LCardStat.source == source)
+                query = query.where(SLCardStat.source == source)
 
             total = session.exec(select(func.count()).select_from(query.subquery())).one()
-            query = query.order_by(MJ17LCardStat.ever_drawn_win_rate.desc().nulls_last())
+            query = query.order_by(SLCardStat.ever_drawn_win_rate.desc().nulls_last())
             query = query.offset((page - 1) * limit).limit(limit)
             results = session.exec(query).all()
 
@@ -168,16 +168,16 @@ class SeventeenLandsData:
         limit: int = 50,
     ) -> tuple[list[dict], int]:
         with get_session() as session:
-            query = select(MJ17LGame)
+            query = select(SLGame)
             if expansion:
-                query = query.where(MJ17LGame.expansion == expansion)
+                query = query.where(SLGame.expansion == expansion)
             if event_type:
-                query = query.where(MJ17LGame.event_type == event_type)
+                query = query.where(SLGame.event_type == event_type)
             if won is not None:
-                query = query.where(MJ17LGame.won == won)
+                query = query.where(SLGame.won == won)
 
             total = session.exec(select(func.count()).select_from(query.subquery())).one()
-            query = query.order_by(MJ17LGame.draft_time.desc())
+            query = query.order_by(SLGame.draft_time.desc())
             query = query.offset((page - 1) * limit).limit(limit)
             results = session.exec(query).all()
 
@@ -206,16 +206,16 @@ class SeventeenLandsData:
         limit: int = 50,
     ) -> tuple[list[dict], int]:
         with get_session() as session:
-            query = select(MJ17LReplay)
+            query = select(SLReplay)
             if expansion:
-                query = query.where(MJ17LReplay.expansion == expansion)
+                query = query.where(SLReplay.expansion == expansion)
             if format:
-                query = query.where(MJ17LReplay.format == format)
+                query = query.where(SLReplay.format == format)
             if won is not None:
-                query = query.where(MJ17LReplay.won == won)
+                query = query.where(SLReplay.won == won)
 
             total = session.exec(select(func.count()).select_from(query.subquery())).one()
-            query = query.order_by(MJ17LReplay.time.desc())
+            query = query.order_by(SLReplay.time.desc())
             query = query.offset((page - 1) * limit).limit(limit)
             results = session.exec(query).all()
 
