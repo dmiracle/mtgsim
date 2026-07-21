@@ -29,8 +29,8 @@ class TestParseJsonArray:
         assert _parse_json_array('["R", "G"]') == ["R", "G"]
 
     def test_parse_invalid_json(self):
-        """Test parsing invalid JSON returns empty list."""
-        assert _parse_json_array("not json") == []
+        """Test parsing non-JSON strings falls back to comma-splitting."""
+        assert _parse_json_array("R,G") == ["R", "G"]
 
     def test_parse_other_type(self):
         """Test parsing non-string/list returns empty list."""
