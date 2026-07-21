@@ -123,15 +123,19 @@ def db_sync(
             count = sync_dataset_metadata()
             typer.echo(f"17Lands metadata synced: {count} datasets.")
 
+            dt = seventeenlands_data_type or "all"
+            data_types = ["draft", "game", "replay"] if dt == "all" else [dt]
+
             if not seventeenlands_metadata_only and not seventeenlands_ingest and not seventeenlands_stats:
                 downloaded = download_dataset_files(
-                    expansion=seventeenlands_expansion, format=seventeenlands_format, force=force
+                    expansion=seventeenlands_expansion,
+                    format=seventeenlands_format,
+                    force=force,
+                    data_types=data_types,
                 )
                 typer.echo(f"17Lands files downloaded: {downloaded}.")
 
             if seventeenlands_ingest:
-                dt = seventeenlands_data_type or "all"
-                data_types = ["draft", "game", "replay"] if dt == "all" else [dt]
                 results = ingest_datasets(
                     expansion=seventeenlands_expansion,
                     format=seventeenlands_format,

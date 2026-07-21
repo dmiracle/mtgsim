@@ -140,3 +140,33 @@ class TestListReplays:
     def test_list_replays_limit_validation(self, client):
         response = client.get("/api/17lands/replays?limit=200")
         assert response.status_code == 422
+
+
+class TestListCardStats:
+    """Tests for GET /api/17lands/card_stats endpoint."""
+
+    def test_card_stats_returns_200(self, client):
+        response = client.get("/api/17lands/card_stats?expansion=SOS")
+        assert response.status_code == 200
+
+    def test_card_stats_response_structure(self, client):
+        response = client.get("/api/17lands/card_stats?expansion=SOS")
+        data = response.json()
+        assert "data" in data
+        assert "pagination" in data
+        assert "17Lands" in data["attribution"]
+
+    def test_card_stats_row_fields(self, client):
+        response = client.get("/api/17lands/card_stats?expansion=SOS&format=PremierDraft")
+        rows = response.json()["data"]
+        if rows:
+            row = rows[0]
+            assert {"card_name", "avg_seen", "avg_pick", "win_rate", "ever_drawn_win_rate"} <= row.keys()
+
+    def test_card_stats_requires_expansion(self, client):
+        response = client.get("/api/17lands/card_stats")
+        assert response.status_code == 422
+
+    def test_card_stats_limit_validation(self, client):
+        response = client.get("/api/17lands/card_stats?expansion=SOS&limit=200")
+        assert response.status_code == 422

@@ -155,11 +155,14 @@ def download_dataset_files(
     expansion: str | None = None,
     format: str | None = None,
     force: bool = False,
+    data_types: list[str] | None = None,
 ) -> int:
     """Download 17Lands CSV files for matching datasets.
 
     Returns count of files downloaded.
     """
+    if data_types is None:
+        data_types = ["draft", "game", "replay"]
     downloaded = 0
 
     with get_session() as session:
@@ -177,6 +180,8 @@ def download_dataset_files(
                 ("game_data", "game_data_url", "game_data_downloaded"),
                 ("replay_data", "replay_data_url", "replay_data_downloaded"),
             ]:
+                if data_type.removesuffix("_data") not in data_types:
+                    continue
                 url = getattr(ds, url_attr)
                 if not url:
                     continue
