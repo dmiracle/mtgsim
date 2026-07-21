@@ -4,11 +4,14 @@ import csv
 import gzip
 import logging
 import tarfile
+import time
 from datetime import UTC, datetime
 from io import TextIOWrapper
+from itertools import chain
 from pathlib import Path
 
 import requests
+from sqlalchemy import text
 from sqlmodel import select
 
 from mtgdb.config import PRISMIC_API_URL, SEVENTEENLANDS_DIR
@@ -25,6 +28,9 @@ from mtgdb.session import get_session
 from mtgdb.sync.download import download
 
 logger = logging.getLogger(__name__)
+
+# Pause between consecutive S3 downloads; 17Lands rate-limits bulk downloaders.
+DOWNLOAD_DELAY = 3.0
 
 
 def _extract_url(rich_text_field: list[dict]) -> str | None:
@@ -175,8 +181,15 @@ def download_dataset_files(
                 if not url:
                     continue
 
+                version_attr = f"{data_type}_downloaded_version"
                 already_downloaded = getattr(ds, flag_attr)
                 if already_downloaded and not force:
+                    if ds.last_updated and getattr(ds, version_attr) != ds.last_updated:
+                        logger.warning(
+                            f"{ds.expansion}/{ds.format} {data_type} is stale "
+                            f"(downloaded {getattr(ds, version_attr)}, index has {ds.last_updated}); "
+                            "use --force to re-download"
+                        )
                     continue
 
                 dest = _url_to_local_path(url)
@@ -185,9 +198,12 @@ def download_dataset_files(
                     session.add(ds)
                     continue
 
+                if downloaded:
+                    time.sleep(DOWNLOAD_DELAY)
                 logger.info(f"Downloading {ds.expansion}/{ds.format} {data_type}...")
                 if download(url, dest):
                     setattr(ds, flag_attr, True)
+                    setattr(ds, version_attr, ds.last_updated)
                     session.add(ds)
                     downloaded += 1
 
@@ -246,6 +262,50 @@ def _safe_bool(val: str) -> bool | None:
     return val.lower() in ("true", "1", "yes")
 
 
+def _clear_rows(session, child_sql: str, parent_sql: str, expansion: str, event_type: str) -> None:
+    """Delete previously ingested rows for one dataset so re-ingestion is idempotent."""
+    params = {"expansion": expansion, "event_type": event_type}
+    conn = session.connection()
+    child_deleted = conn.execute(text(child_sql), params).rowcount
+    parent_deleted = conn.execute(text(parent_sql), params).rowcount
+    session.commit()
+    if parent_deleted:
+        logger.info(f"Cleared {parent_deleted:,} existing rows (+{child_deleted:,} card/turn rows) before re-ingest")
+
+
+def _clear_draft_rows(session, expansion: str, event_type: str) -> None:
+    _clear_rows(
+        session,
+        "DELETE FROM mj_17l_draft_card WHERE draft_id IN "
+        "(SELECT draft_id FROM mj_17l_draft_pick WHERE expansion = :expansion AND event_type = :event_type)",
+        "DELETE FROM mj_17l_draft_pick WHERE expansion = :expansion AND event_type = :event_type",
+        expansion,
+        event_type,
+    )
+
+
+def _clear_game_rows(session, expansion: str, event_type: str) -> None:
+    _clear_rows(
+        session,
+        "DELETE FROM mj_17l_game_card WHERE draft_id IN "
+        "(SELECT draft_id FROM mj_17l_game WHERE expansion = :expansion AND event_type = :event_type)",
+        "DELETE FROM mj_17l_game WHERE expansion = :expansion AND event_type = :event_type",
+        expansion,
+        event_type,
+    )
+
+
+def _clear_replay_rows(session, expansion: str, format: str) -> None:
+    _clear_rows(
+        session,
+        "DELETE FROM mj_17l_replay_turn WHERE draft_id IN "
+        "(SELECT draft_id FROM mj_17l_replay WHERE expansion = :expansion AND format = :event_type)",
+        "DELETE FROM mj_17l_replay WHERE expansion = :expansion AND format = :event_type",
+        expansion,
+        format,
+    )
+
+
 def ingest_draft_csv(path: Path) -> int:
     """Ingest a draft data CSV into mj_17l_draft_pick and mj_17l_draft_card tables."""
     logger.info(f"Ingesting draft data from {path.name}...")
@@ -262,7 +322,13 @@ def ingest_draft_csv(path: Path) -> int:
     card_batch = []
 
     with get_session() as session:
-        for row in reader:
+        first_row = next(reader, None)
+        if first_row is None:
+            f.close()
+            return 0
+        _clear_draft_rows(session, first_row["expansion"], first_row["event_type"])
+
+        for row in chain([first_row], reader):
             draft_id = row["draft_id"]
             pack_number = _safe_int(row["pack_number"])
             pick_number = _safe_int(row["pick_number"])
@@ -338,7 +404,13 @@ def ingest_game_csv(path: Path) -> int:
     game_batch = []
 
     with get_session() as session:
-        for row in reader:
+        first_row = next(reader, None)
+        if first_row is None:
+            f.close()
+            return 0
+        _clear_game_rows(session, first_row["expansion"], first_row["event_type"])
+
+        for row in chain([first_row], reader):
             draft_id = row["draft_id"]
             build_index = _safe_int(row.get("build_index"))
             game_number = _safe_int(row.get("game_number"))
@@ -459,7 +531,14 @@ def ingest_replay_csv(path: Path) -> int:
     turn_batch = []
 
     with get_session() as session:
-        for row in reader:
+        first_row = next(reader, None)
+        if first_row is None:
+            f.close()
+            return 0
+        if first_row.get("expansion") and first_row.get("format"):
+            _clear_replay_rows(session, first_row["expansion"], first_row["format"])
+
+        for row in chain([first_row], reader):
             replay = MJ17LReplay(
                 expansion=row.get("expansion"),
                 format=row.get("format"),
@@ -564,10 +643,10 @@ def ingest_datasets(
         datasets = session.exec(query).all()
 
     for ds in datasets:
-        for dtype, url_attr, flag_attr, ingest_fn in [
-            ("draft", "draft_data_url", "draft_data_downloaded", ingest_draft_csv),
-            ("game", "game_data_url", "game_data_downloaded", ingest_game_csv),
-            ("replay", "replay_data_url", "replay_data_downloaded", ingest_replay_csv),
+        for dtype, url_attr, flag_attr, ingested_attr, ingest_fn in [
+            ("draft", "draft_data_url", "draft_data_downloaded", "draft_data_ingested_at", ingest_draft_csv),
+            ("game", "game_data_url", "game_data_downloaded", "game_data_ingested_at", ingest_game_csv),
+            ("replay", "replay_data_url", "replay_data_downloaded", "replay_data_ingested_at", ingest_replay_csv),
         ]:
             if dtype not in data_types:
                 continue
@@ -583,5 +662,11 @@ def ingest_datasets(
             key = f"{ds.expansion}.{ds.format}.{dtype}"
             rows = ingest_fn(path)
             results[key] = rows
+
+            with get_session() as session:
+                record = session.get(MJ17LDataset, ds.id)
+                setattr(record, ingested_attr, datetime.now(UTC).isoformat())
+                session.add(record)
+                session.commit()
 
     return results

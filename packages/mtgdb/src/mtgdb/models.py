@@ -234,6 +234,16 @@ class MJ17LDataset(SQLModel, table=True):
     game_data_downloaded: bool = False
     replay_data_downloaded: bool = False
 
+    # last_updated value of the index at the time each file was downloaded;
+    # a newer last_updated means the local file is stale
+    draft_data_downloaded_version: str | None = None
+    game_data_downloaded_version: str | None = None
+    replay_data_downloaded_version: str | None = None
+
+    draft_data_ingested_at: str | None = None
+    game_data_ingested_at: str | None = None
+    replay_data_ingested_at: str | None = None
+
     synced_at: str | None = None
 
 
@@ -309,6 +319,46 @@ class MJ17LGameCard(SQLModel, table=True):
     in_deck: int = 0
     drawn: int = 0
     sideboarded: int = 0
+
+
+class MJ17LCardStat(SQLModel, table=True):
+    """Per-card draft/game statistics computed from ingested 17Lands public data.
+
+    Metric semantics follow https://www.17lands.com/metrics_definitions
+    (ALSA, ATA, GP/OH/GD/GIH/GNS win rates, IWD).
+    """
+
+    __tablename__ = "mj_17l_card_stat"
+
+    id: int | None = Field(default=None, primary_key=True)
+    expansion: str = Field(index=True)
+    format: str = Field(index=True)
+    card_name: str = Field(index=True)
+    source: str = "public_dataset"
+    dataset_last_updated: str | None = None
+    computed_at: str | None = None
+
+    color: str | None = None
+    rarity: str | None = None
+
+    seen_count: int = 0
+    avg_seen: float | None = None  # ALSA
+    pick_count: int = 0
+    avg_pick: float | None = None  # ATA
+    pool_count: int = 0  # games with the card in the drafted pool (deck or sideboard)
+    play_rate: float | None = None  # game_count / pool_count
+
+    game_count: int = 0  # games with the card in the maindeck
+    win_rate: float | None = None  # GP WR
+    opening_hand_game_count: int = 0
+    opening_hand_win_rate: float | None = None  # OH WR
+    drawn_game_count: int = 0
+    drawn_win_rate: float | None = None  # GD WR
+    ever_drawn_game_count: int = 0
+    ever_drawn_win_rate: float | None = None  # GIH WR
+    never_drawn_game_count: int = 0
+    never_drawn_win_rate: float | None = None  # GNS WR
+    drawn_improvement_win_rate: float | None = None  # IWD = GIH WR - GNS WR
 
 
 class MJ17LReplay(SQLModel, table=True):

@@ -52,11 +52,24 @@ def _ensure_columns(engine: Engine) -> None:
     """Add columns introduced after initial table creation."""
     from sqlalchemy import text
 
+    added_columns = {
+        "mj_card": {"side": "VARCHAR"},
+        "mj_17l_dataset": {
+            "draft_data_downloaded_version": "VARCHAR",
+            "game_data_downloaded_version": "VARCHAR",
+            "replay_data_downloaded_version": "VARCHAR",
+            "draft_data_ingested_at": "VARCHAR",
+            "game_data_ingested_at": "VARCHAR",
+            "replay_data_ingested_at": "VARCHAR",
+        },
+    }
     with engine.connect() as conn:
-        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(mj_card)")).fetchall()}
-        if "side" not in existing:
-            conn.execute(text("ALTER TABLE mj_card ADD COLUMN side VARCHAR"))
-            conn.commit()
+        for table, columns in added_columns.items():
+            existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()}
+            for column, col_type in columns.items():
+                if existing and column not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+        conn.commit()
 
 
 def _ensure_fts_table(engine: Engine) -> None:
