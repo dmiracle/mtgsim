@@ -163,6 +163,11 @@ class TestListCardStats:
             row = rows[0]
             assert {"card_name", "avg_seen", "avg_pick", "win_rate", "ever_drawn_win_rate"} <= row.keys()
 
+    def test_card_stats_source_filter(self, client):
+        response = client.get("/api/17lands/card_stats?expansion=MSH&source=17lands")
+        assert response.status_code == 200
+        assert all(row["source"] == "17lands" for row in response.json()["data"])
+
     def test_card_stats_requires_expansion(self, client):
         response = client.get("/api/17lands/card_stats")
         assert response.status_code == 422
