@@ -4,27 +4,33 @@ import csv
 import gzip
 import logging
 import tarfile
+import time
 from datetime import UTC, datetime
 from io import TextIOWrapper
+from itertools import chain
 from pathlib import Path
 
 import requests
+from sqlalchemy import text
 from sqlmodel import select
 
 from mtgdb.config import PRISMIC_API_URL, SEVENTEENLANDS_DIR
 from mtgdb.models import (
-    MJ17LDataset,
-    MJ17LDraftCard,
-    MJ17LDraftPick,
-    MJ17LGame,
-    MJ17LGameCard,
-    MJ17LReplay,
-    MJ17LReplayTurn,
+    SLDataset,
+    SLDraftCard,
+    SLDraftPick,
+    SLGame,
+    SLGameCard,
+    SLReplay,
+    SLReplayTurn,
 )
 from mtgdb.session import get_session
 from mtgdb.sync.download import download
 
 logger = logging.getLogger(__name__)
+
+# Pause between consecutive S3 downloads; 17Lands rate-limits bulk downloaders.
+DOWNLOAD_DELAY = 3.0
 
 
 def _extract_url(rich_text_field: list[dict]) -> str | None:
@@ -107,7 +113,7 @@ def sync_dataset_metadata(datasets: list[dict] | None = None) -> int:
                 continue
 
             existing = session.exec(
-                select(MJ17LDataset).where((MJ17LDataset.expansion == exp) & (MJ17LDataset.format == fmt))
+                select(SLDataset).where((SLDataset.expansion == exp) & (SLDataset.format == fmt))
             ).first()
 
             if existing:
@@ -118,7 +124,7 @@ def sync_dataset_metadata(datasets: list[dict] | None = None) -> int:
                 existing.synced_at = now
                 session.add(existing)
             else:
-                record = MJ17LDataset(
+                record = SLDataset(
                     expansion=exp,
                     format=fmt,
                     last_updated=ds["last_updated"],
@@ -149,19 +155,22 @@ def download_dataset_files(
     expansion: str | None = None,
     format: str | None = None,
     force: bool = False,
+    data_types: list[str] | None = None,
 ) -> int:
     """Download 17Lands CSV files for matching datasets.
 
     Returns count of files downloaded.
     """
+    if data_types is None:
+        data_types = ["draft", "game", "replay"]
     downloaded = 0
 
     with get_session() as session:
-        query = select(MJ17LDataset)
+        query = select(SLDataset)
         if expansion:
-            query = query.where(MJ17LDataset.expansion == expansion)
+            query = query.where(SLDataset.expansion == expansion)
         if format:
-            query = query.where(MJ17LDataset.format == format)
+            query = query.where(SLDataset.format == format)
 
         datasets = session.exec(query).all()
 
@@ -171,12 +180,21 @@ def download_dataset_files(
                 ("game_data", "game_data_url", "game_data_downloaded"),
                 ("replay_data", "replay_data_url", "replay_data_downloaded"),
             ]:
+                if data_type.removesuffix("_data") not in data_types:
+                    continue
                 url = getattr(ds, url_attr)
                 if not url:
                     continue
 
+                version_attr = f"{data_type}_downloaded_version"
                 already_downloaded = getattr(ds, flag_attr)
                 if already_downloaded and not force:
+                    if ds.last_updated and getattr(ds, version_attr) != ds.last_updated:
+                        logger.warning(
+                            f"{ds.expansion}/{ds.format} {data_type} is stale "
+                            f"(downloaded {getattr(ds, version_attr)}, index has {ds.last_updated}); "
+                            "use --force to re-download"
+                        )
                     continue
 
                 dest = _url_to_local_path(url)
@@ -185,9 +203,12 @@ def download_dataset_files(
                     session.add(ds)
                     continue
 
+                if downloaded:
+                    time.sleep(DOWNLOAD_DELAY)
                 logger.info(f"Downloading {ds.expansion}/{ds.format} {data_type}...")
                 if download(url, dest):
                     setattr(ds, flag_attr, True)
+                    setattr(ds, version_attr, ds.last_updated)
                     session.add(ds)
                     downloaded += 1
 
@@ -246,8 +267,52 @@ def _safe_bool(val: str) -> bool | None:
     return val.lower() in ("true", "1", "yes")
 
 
+def _clear_rows(session, child_sql: str, parent_sql: str, expansion: str, event_type: str) -> None:
+    """Delete previously ingested rows for one dataset so re-ingestion is idempotent."""
+    params = {"expansion": expansion, "event_type": event_type}
+    conn = session.connection()
+    child_deleted = conn.execute(text(child_sql), params).rowcount
+    parent_deleted = conn.execute(text(parent_sql), params).rowcount
+    session.commit()
+    if parent_deleted:
+        logger.info(f"Cleared {parent_deleted:,} existing rows (+{child_deleted:,} card/turn rows) before re-ingest")
+
+
+def _clear_draft_rows(session, expansion: str, event_type: str) -> None:
+    _clear_rows(
+        session,
+        "DELETE FROM sl_draft_card WHERE draft_id IN "
+        "(SELECT draft_id FROM sl_draft_pick WHERE expansion = :expansion AND event_type = :event_type)",
+        "DELETE FROM sl_draft_pick WHERE expansion = :expansion AND event_type = :event_type",
+        expansion,
+        event_type,
+    )
+
+
+def _clear_game_rows(session, expansion: str, event_type: str) -> None:
+    _clear_rows(
+        session,
+        "DELETE FROM sl_game_card WHERE draft_id IN "
+        "(SELECT draft_id FROM sl_game WHERE expansion = :expansion AND event_type = :event_type)",
+        "DELETE FROM sl_game WHERE expansion = :expansion AND event_type = :event_type",
+        expansion,
+        event_type,
+    )
+
+
+def _clear_replay_rows(session, expansion: str, format: str) -> None:
+    _clear_rows(
+        session,
+        "DELETE FROM sl_replay_turn WHERE draft_id IN "
+        "(SELECT draft_id FROM sl_replay WHERE expansion = :expansion AND format = :event_type)",
+        "DELETE FROM sl_replay WHERE expansion = :expansion AND format = :event_type",
+        expansion,
+        format,
+    )
+
+
 def ingest_draft_csv(path: Path) -> int:
-    """Ingest a draft data CSV into mj_17l_draft_pick and mj_17l_draft_card tables."""
+    """Ingest a draft data CSV into sl_draft_pick and sl_draft_card tables."""
     logger.info(f"Ingesting draft data from {path.name}...")
     row_count = 0
 
@@ -262,12 +327,18 @@ def ingest_draft_csv(path: Path) -> int:
     card_batch = []
 
     with get_session() as session:
-        for row in reader:
+        first_row = next(reader, None)
+        if first_row is None:
+            f.close()
+            return 0
+        _clear_draft_rows(session, first_row["expansion"], first_row["event_type"])
+
+        for row in chain([first_row], reader):
             draft_id = row["draft_id"]
             pack_number = _safe_int(row["pack_number"])
             pick_number = _safe_int(row["pick_number"])
 
-            pick = MJ17LDraftPick(
+            pick = SLDraftPick(
                 expansion=row["expansion"],
                 event_type=row["event_type"],
                 draft_id=draft_id,
@@ -289,7 +360,7 @@ def ingest_draft_csv(path: Path) -> int:
                 pool_val = _safe_int(row.get(pool_col))
                 if in_pack_val or pool_val:
                     card_batch.append(
-                        MJ17LDraftCard(
+                        SLDraftCard(
                             draft_id=draft_id,
                             pack_number=pack_number,
                             pick_number=pick_number,
@@ -320,7 +391,7 @@ def ingest_draft_csv(path: Path) -> int:
 
 
 def ingest_game_csv(path: Path) -> int:
-    """Ingest a game data CSV into mj_17l_game and mj_17l_game_card tables."""
+    """Ingest a game data CSV into sl_game and sl_game_card tables."""
     logger.info(f"Ingesting game data from {path.name}...")
     row_count = 0
 
@@ -338,13 +409,19 @@ def ingest_game_csv(path: Path) -> int:
     game_batch = []
 
     with get_session() as session:
-        for row in reader:
+        first_row = next(reader, None)
+        if first_row is None:
+            f.close()
+            return 0
+        _clear_game_rows(session, first_row["expansion"], first_row["event_type"])
+
+        for row in chain([first_row], reader):
             draft_id = row["draft_id"]
             build_index = _safe_int(row.get("build_index"))
             game_number = _safe_int(row.get("game_number"))
 
             game_batch.append(
-                MJ17LGame(
+                SLGame(
                     expansion=row["expansion"],
                     event_type=row["event_type"],
                     draft_id=draft_id,
@@ -370,7 +447,7 @@ def ingest_game_csv(path: Path) -> int:
                 sb = _safe_int(row.get(sb_cols[i]))
                 if oh or dk or dr or sb:
                     card_batch.append(
-                        MJ17LGameCard(
+                        SLGameCard(
                             draft_id=draft_id,
                             build_index=build_index,
                             game_number=game_number,
@@ -448,7 +525,7 @@ _INT_METRICS = {
 
 
 def ingest_replay_csv(path: Path) -> int:
-    """Ingest a replay data CSV into mj_17l_replay and mj_17l_replay_turn tables."""
+    """Ingest a replay data CSV into sl_replay and sl_replay_turn tables."""
     logger.info(f"Ingesting replay data from {path.name}...")
     row_count = 0
 
@@ -459,8 +536,15 @@ def ingest_replay_csv(path: Path) -> int:
     turn_batch = []
 
     with get_session() as session:
-        for row in reader:
-            replay = MJ17LReplay(
+        first_row = next(reader, None)
+        if first_row is None:
+            f.close()
+            return 0
+        if first_row.get("expansion") and first_row.get("format"):
+            _clear_replay_rows(session, first_row["expansion"], first_row["format"])
+
+        for row in chain([first_row], reader):
+            replay = SLReplay(
                 expansion=row.get("expansion"),
                 format=row.get("format"),
                 draft_id=row.get("draft_id"),
@@ -519,7 +603,7 @@ def ingest_replay_csv(path: Path) -> int:
                             turn_data[metric] = _safe_int(val)
                         else:
                             turn_data[metric] = val if val else None
-                    turn_batch.append(MJ17LReplayTurn(**turn_data))
+                    turn_batch.append(SLReplayTurn(**turn_data))
 
             row_count += 1
             if row_count % BATCH_SIZE == 0:
@@ -556,18 +640,18 @@ def ingest_datasets(
     results = {}
 
     with get_session() as session:
-        query = select(MJ17LDataset)
+        query = select(SLDataset)
         if expansion:
-            query = query.where(MJ17LDataset.expansion == expansion)
+            query = query.where(SLDataset.expansion == expansion)
         if format:
-            query = query.where(MJ17LDataset.format == format)
+            query = query.where(SLDataset.format == format)
         datasets = session.exec(query).all()
 
     for ds in datasets:
-        for dtype, url_attr, flag_attr, ingest_fn in [
-            ("draft", "draft_data_url", "draft_data_downloaded", ingest_draft_csv),
-            ("game", "game_data_url", "game_data_downloaded", ingest_game_csv),
-            ("replay", "replay_data_url", "replay_data_downloaded", ingest_replay_csv),
+        for dtype, url_attr, flag_attr, ingested_attr, ingest_fn in [
+            ("draft", "draft_data_url", "draft_data_downloaded", "draft_data_ingested_at", ingest_draft_csv),
+            ("game", "game_data_url", "game_data_downloaded", "game_data_ingested_at", ingest_game_csv),
+            ("replay", "replay_data_url", "replay_data_downloaded", "replay_data_ingested_at", ingest_replay_csv),
         ]:
             if dtype not in data_types:
                 continue
@@ -583,5 +667,11 @@ def ingest_datasets(
             key = f"{ds.expansion}.{ds.format}.{dtype}"
             rows = ingest_fn(path)
             results[key] = rows
+
+            with get_session() as session:
+                record = session.get(SLDataset, ds.id)
+                setattr(record, ingested_attr, datetime.now(UTC).isoformat())
+                session.add(record)
+                session.commit()
 
     return results

@@ -212,14 +212,14 @@ class MJCardTag(SQLModel, table=True):
 
 
 # =============================================================================
-# 17Lands Models (MJ17L prefix) - Read-only, synced from 17Lands
+# 17Lands Models (SL prefix) - Read-only, synced from 17Lands
 # =============================================================================
 
 
-class MJ17LDataset(SQLModel, table=True):
+class SLDataset(SQLModel, table=True):
     """17Lands public dataset metadata."""
 
-    __tablename__ = "mj_17l_dataset"
+    __tablename__ = "sl_dataset"
 
     id: int | None = Field(default=None, primary_key=True)
     expansion: str = Field(index=True)
@@ -234,13 +234,23 @@ class MJ17LDataset(SQLModel, table=True):
     game_data_downloaded: bool = False
     replay_data_downloaded: bool = False
 
+    # last_updated value of the index at the time each file was downloaded;
+    # a newer last_updated means the local file is stale
+    draft_data_downloaded_version: str | None = None
+    game_data_downloaded_version: str | None = None
+    replay_data_downloaded_version: str | None = None
+
+    draft_data_ingested_at: str | None = None
+    game_data_ingested_at: str | None = None
+    replay_data_ingested_at: str | None = None
+
     synced_at: str | None = None
 
 
-class MJ17LDraftPick(SQLModel, table=True):
+class SLDraftPick(SQLModel, table=True):
     """One row per draft pick from 17Lands draft data."""
 
-    __tablename__ = "mj_17l_draft_pick"
+    __tablename__ = "sl_draft_pick"
 
     id: int | None = Field(default=None, primary_key=True)
     expansion: str = Field(index=True)
@@ -258,10 +268,10 @@ class MJ17LDraftPick(SQLModel, table=True):
     pick_sideboard_in_rate: float | None = None
 
 
-class MJ17LDraftCard(SQLModel, table=True):
+class SLDraftCard(SQLModel, table=True):
     """One row per card available in a draft pack."""
 
-    __tablename__ = "mj_17l_draft_card"
+    __tablename__ = "sl_draft_card"
 
     id: int | None = Field(default=None, primary_key=True)
     draft_id: str = Field(index=True)
@@ -272,10 +282,10 @@ class MJ17LDraftCard(SQLModel, table=True):
     pool_count: int = 0
 
 
-class MJ17LGame(SQLModel, table=True):
+class SLGame(SQLModel, table=True):
     """One row per game from 17Lands game data."""
 
-    __tablename__ = "mj_17l_game"
+    __tablename__ = "sl_game"
 
     id: int | None = Field(default=None, primary_key=True)
     expansion: str = Field(index=True)
@@ -295,10 +305,10 @@ class MJ17LGame(SQLModel, table=True):
     won: bool | None = None
 
 
-class MJ17LGameCard(SQLModel, table=True):
+class SLGameCard(SQLModel, table=True):
     """One row per card in a game's deck composition."""
 
-    __tablename__ = "mj_17l_game_card"
+    __tablename__ = "sl_game_card"
 
     id: int | None = Field(default=None, primary_key=True)
     draft_id: str = Field(index=True)
@@ -311,10 +321,52 @@ class MJ17LGameCard(SQLModel, table=True):
     sideboarded: int = 0
 
 
-class MJ17LReplay(SQLModel, table=True):
+class SLCardStat(SQLModel, table=True):
+    """Per-card draft/game statistics computed from ingested 17Lands public data.
+
+    Metric semantics follow https://www.17lands.com/metrics_definitions
+    (ALSA, ATA, GP/OH/GD/GIH/GNS win rates, IWD).
+    """
+
+    __tablename__ = "sl_card_stat"
+
+    id: int | None = Field(default=None, primary_key=True)
+    expansion: str = Field(index=True)
+    format: str = Field(index=True)
+    card_name: str = Field(index=True)
+    # "public_dataset" = computed locally from ingested CSVs; "17lands" = site-calculated ratings
+    source: str = Field(default="public_dataset", index=True)
+    dataset_last_updated: str | None = None
+    computed_at: str | None = None
+
+    mtga_id: int | None = None
+    color: str | None = None
+    rarity: str | None = None
+
+    seen_count: int = 0
+    avg_seen: float | None = None  # ALSA
+    pick_count: int = 0
+    avg_pick: float | None = None  # ATA
+    pool_count: int = 0  # games with the card in the drafted pool (deck or sideboard)
+    play_rate: float | None = None  # game_count / pool_count
+
+    game_count: int = 0  # games with the card in the maindeck
+    win_rate: float | None = None  # GP WR
+    opening_hand_game_count: int = 0
+    opening_hand_win_rate: float | None = None  # OH WR
+    drawn_game_count: int = 0
+    drawn_win_rate: float | None = None  # GD WR
+    ever_drawn_game_count: int = 0
+    ever_drawn_win_rate: float | None = None  # GIH WR
+    never_drawn_game_count: int = 0
+    never_drawn_win_rate: float | None = None  # GNS WR
+    drawn_improvement_win_rate: float | None = None  # IWD = GIH WR - GNS WR
+
+
+class SLReplay(SQLModel, table=True):
     """One row per game replay from 17Lands replay data."""
 
-    __tablename__ = "mj_17l_replay"
+    __tablename__ = "sl_replay"
 
     id: int | None = Field(default=None, primary_key=True)
     expansion: str = Field(index=True)
@@ -353,10 +405,10 @@ class MJ17LReplay(SQLModel, table=True):
     oppo_total_mana_spent: int | None = None
 
 
-class MJ17LReplayTurn(SQLModel, table=True):
+class SLReplayTurn(SQLModel, table=True):
     """One row per turn per player in a game replay."""
 
-    __tablename__ = "mj_17l_replay_turn"
+    __tablename__ = "sl_replay_turn"
 
     id: int | None = Field(default=None, primary_key=True)
     draft_id: str = Field(index=True)

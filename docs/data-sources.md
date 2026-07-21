@@ -17,9 +17,11 @@ Flashcard/SRS state lives in a separate file: `~/.srs/srs.db` (override with `SR
 | MTGJSON Decks | `mtgsim db sync --decks` | Per set release | mj_deck, mj_deck_card |
 | MTGJSON Keywords | `mtgsim db sync --keywords` | Per set release | mj_keyword, mj_keyword_definition |
 | Scryfall Tags | `mtgsim db sync --tags` | Monthly | mj_card_tag |
-| 17Lands Metadata | `mtgsim db sync --17lands --17l-metadata-only` | Weekly | mj_17l_dataset |
+| 17Lands Metadata | `mtgsim db sync --17lands --17l-metadata-only` | Weekly | sl_dataset |
 | 17Lands CSVs | `mtgsim db sync --17lands` | Per set release | (downloads only) |
-| 17Lands Ingest | `mtgsim db sync --17lands --17l-ingest` | After download | mj_17l_draft_pick, mj_17l_draft_card, mj_17l_game, mj_17l_game_card, mj_17l_replay, mj_17l_replay_turn |
+| 17Lands Ingest | `mtgsim db sync --17lands --17l-ingest` | After download | sl_draft_pick, sl_draft_card, sl_game, sl_game_card, sl_replay, sl_replay_turn |
+| 17Lands Card Stats | `mtgsim db sync --17lands --17l-stats --17l-expansion <CODE>` | After ingest | sl_card_stat |
+| 17Lands Card Ratings | `mtgsim db sync --17lands --17l-ratings --17l-expansion <CODE>` | Weekly for in-season sets | sl_card_stat |
 | Full sync (all MTGJSON) | `mtgsim db sync` | Per set release | All mj_* tables except 17lands |
 
 Add `--force` to any command to re-download files that already exist.
@@ -118,6 +120,17 @@ Add `--force` to any command to re-download files that already exist.
 
 **Metadata API:** `https://17lands.cdn.prismic.io/api/v2` (Prismic CMS)
 **Data files:** `https://17lands-public.s3.amazonaws.com/analysis_data/`
+**License:** Creative Commons Attribution 4.0 (CC BY 4.0). Attribution is required: cite as **"17Lands"** (capital L) with a link, visible at the top level of anything built on the data — the API includes an `attribution` field on stats responses for this reason.
+
+### 17Lands data source catalog
+
+17Lands exposes data three ways; we only consume the first:
+
+1. **Public datasets** (this section) — anonymized per-draft/per-game CSVs on S3, indexed via Prismic. CC BY 4.0, explicitly encouraged for third-party analysis. Publication schedule per set: draft data ~2 weeks after Arena release, game data ~3 weeks, replay data ~6 weeks; files are refreshed for a few months, then frozen.
+2. **Curated data (unofficial site API)** — the JSON endpoints behind pages like Card Data (`GET /card_ratings/data?expansion=X&format=Y&start_date&end_date`) and Deck Color Data (`GET /color_ratings/data`). Used **sparingly**: `--17l-ratings` makes exactly one request per set/format (with an identifying User-Agent) to fetch the site-calculated Card Data table into `sl_card_stat` (`source='17lands'`) — the only source of win-rate stats for in-season sets whose public game file isn't out yet. Per the [usage guidelines](https://www.17lands.com/usage_guidelines), bulk scraping is discouraged, endpoints are rate-limited and unversioned, and third-party tools showing curated data face a **12-day embargo** on new expansions (7 days for specialty formats). Note the endpoint only serves a live recent window: for past sets it returns near-empty stats regardless of date range (verified July 2026 — SOS returned data for 42/341 cards vs 321/334 for in-season MSH), so for any set whose limited season is over, the public datasets are the **only** complete source (`--17l-stats`, `source='public_dataset'`).
+3. **Personal data (authenticated)** — a user's own event history via `mtgdb.sync.seventeenlands_client` (`db sync-17l-personal`), throttled to one request per 5s.
+
+**Good-citizen behavior baked into the sync:** downloads skip existing files, sleep 3s between S3 fetches, and record the dataset version at download time (`*_downloaded_version`) so stale files are reported rather than silently kept or hammered for re-download.
 
 ### Metadata Sync (`--17l-metadata-only`)
 
@@ -125,7 +138,7 @@ Add `--force` to any command to re-download files that already exist.
 1. Fetch Prismic master ref
 2. Query `public-data` document type
 3. Parse 120+ dataset entries (expansion, format, URLs)
-4. Upsert into `mj_17l_dataset`
+4. Upsert into `sl_dataset`
 
 ### File Download (default with `--17lands`)
 
@@ -144,15 +157,30 @@ Files are tar-wrapped gzip CSVs. Filter downloads with `--17l-expansion <CODE>`.
 
 | Data Type | Tables | Row Description |
 |-----------|--------|-----------------|
-| draft | `mj_17l_draft_pick`, `mj_17l_draft_card` | One pick row + one card row per card in pack/pool |
-| game | `mj_17l_game`, `mj_17l_game_card` | One game row + one card row per card in deck/hand/drawn/sideboard |
-| replay | `mj_17l_replay`, `mj_17l_replay_turn` | One replay row + one turn row per turn per player (up to 30 turns) |
+| draft | `sl_draft_pick`, `sl_draft_card` | One pick row + one card row per card in pack/pool |
+| game | `sl_game`, `sl_game_card` | One game row + one card row per card in deck/hand/drawn/sideboard |
+| replay | `sl_replay`, `sl_replay_turn` | One replay row + one turn row per turn per player (up to 30 turns) |
 
 **Filter options:**
-- `--17l-expansion <CODE>` — ingest only one expansion
-- `--17l-data-type <draft|game|replay|all>` — ingest only one data type
+- `--17l-expansion <CODE>` — restrict to one expansion
+- `--17l-format <FMT>` — restrict to one format (e.g. `PremierDraft`)
+- `--17l-data-type <draft|game|replay|all>` — restrict downloads/ingest to one data type
 
-**When to update:** 17Lands publishes data after a set's limited season ends (usually 2-3 months after release).
+Re-ingesting a dataset first clears its previously ingested rows, so ingestion is idempotent.
+
+**When to update:** draft data appears ~2 weeks after a set's Arena release, game data ~3 weeks, replay data ~6 weeks; 17Lands refreshes the files for a few months afterward.
+
+### Card Stats (`--17l-stats`)
+
+Computes 17Lands-style per-card metrics **locally** from the ingested tables into `sl_card_stat` — no requests to 17lands.com:
+
+```bash
+mtgsim db sync --17lands --17l-stats --17l-expansion SOS --17l-format PremierDraft
+```
+
+Metrics follow [17Lands' definitions](https://www.17lands.com/metrics_definitions): ALSA (`avg_seen`), ATA (`avg_pick`), GP WR (`win_rate`), OH WR, GD WR, GIH WR (`ever_drawn_win_rate`), GNS WR, IWD (`drawn_improvement_win_rate`), play rate. Rows are enriched with color/rarity from `mj_card` and provenance (`source`, `dataset_last_updated`, `computed_at`). Served by `GET /api/17lands/card_stats?expansion=<CODE>&format=<FMT>`.
+
+Numbers will differ slightly from 17lands.com: the site aggregates a live window with its own filters, while our stats reflect the downloaded file snapshot.
 
 ---
 

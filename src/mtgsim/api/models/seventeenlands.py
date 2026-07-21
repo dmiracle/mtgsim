@@ -38,6 +38,44 @@ class ExpansionSummary(BaseModel):
     has_replay_data: bool = False
 
 
+class CardStatSummary(BaseModel):
+    """Per-card stats computed from 17Lands public data."""
+
+    id: int
+    expansion: str
+    format: str
+    card_name: str
+    source: str = "public_dataset"
+    mtga_id: int | None = None
+    color: str | None = None
+    rarity: str | None = None
+    seen_count: int = 0
+    avg_seen: float | None = None
+    pick_count: int = 0
+    avg_pick: float | None = None
+    pool_count: int = 0
+    play_rate: float | None = None
+    game_count: int = 0
+    win_rate: float | None = None
+    opening_hand_game_count: int = 0
+    opening_hand_win_rate: float | None = None
+    drawn_game_count: int = 0
+    drawn_win_rate: float | None = None
+    ever_drawn_game_count: int = 0
+    ever_drawn_win_rate: float | None = None
+    never_drawn_game_count: int = 0
+    never_drawn_win_rate: float | None = None
+    drawn_improvement_win_rate: float | None = None
+    dataset_last_updated: str | None = None
+    computed_at: str | None = None
+
+
+class CardStatListResponse(BaseModel):
+    attribution: str = "Data from 17Lands (17lands.com) public datasets, CC BY 4.0"
+    data: list[CardStatSummary]
+    pagination: Pagination
+
+
 class DraftPickSummary(BaseModel):
     """Summary of a draft pick."""
 

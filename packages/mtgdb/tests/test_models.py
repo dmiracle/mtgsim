@@ -39,8 +39,7 @@ class TestMJCard:
         """Test default values for optional fields."""
         card = MJCard(uuid="min-uuid", name="Minimal", set_code="MIN")
         assert card.colors == []
-        assert card.has_foil is False
-        assert card.is_reprint is False
+        assert card.rarity is None
 
     def test_persist_card(self, session, sample_card):
         """Test persisting card to database."""

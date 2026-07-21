@@ -5,6 +5,8 @@ import logging
 from mtgsim.api.data.seventeenlands import seventeenlands_data
 from mtgsim.api.models.common import Pagination
 from mtgsim.api.models.seventeenlands import (
+    CardStatListResponse,
+    CardStatSummary,
     DatasetListResponse,
     DatasetSummary,
     DraftPickListResponse,
@@ -48,6 +50,29 @@ class SeventeenLandsService:
     async def list_expansions(self) -> list[ExpansionSummary]:
         expansions = seventeenlands_data.list_expansions()
         return [ExpansionSummary(**e) for e in expansions]
+
+    async def list_card_stats(
+        self,
+        expansion: str,
+        format: str | None = None,
+        card_name: str | None = None,
+        source: str | None = None,
+        page: int = 1,
+        limit: int = 50,
+    ) -> CardStatListResponse:
+        data, total = seventeenlands_data.list_card_stats(
+            expansion=expansion,
+            format=format,
+            card_name=card_name,
+            source=source,
+            page=page,
+            limit=limit,
+        )
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+        return CardStatListResponse(
+            data=[CardStatSummary(**d) for d in data],
+            pagination=Pagination(page=page, limit=limit, total=total, pages=pages),
+        )
 
     async def list_draft_picks(
         self,
