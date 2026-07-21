@@ -14,6 +14,7 @@ Metric semantics follow https://www.17lands.com/metrics_definitions:
 import logging
 from datetime import UTC, datetime
 
+import requests
 from sqlalchemy import text
 from sqlmodel import select
 
@@ -21,6 +22,32 @@ from mtgdb.models import MJ17LCardStat, MJ17LDataset, MJCard
 from mtgdb.session import get_session
 
 logger = logging.getLogger(__name__)
+
+CARD_RATINGS_URL = "https://www.17lands.com/card_ratings/data"
+USER_AGENT = "mtgsim/0.1 (github.com/dmiracle/mtgsim; occasional single-set fetches)"
+
+# card_ratings/data response fields that map 1:1 onto MJ17LCardStat columns
+_RATING_FIELDS = [
+    "mtga_id",
+    "rarity",
+    "seen_count",
+    "avg_seen",
+    "pick_count",
+    "avg_pick",
+    "pool_count",
+    "play_rate",
+    "game_count",
+    "win_rate",
+    "opening_hand_game_count",
+    "opening_hand_win_rate",
+    "drawn_game_count",
+    "drawn_win_rate",
+    "ever_drawn_game_count",
+    "ever_drawn_win_rate",
+    "never_drawn_game_count",
+    "never_drawn_win_rate",
+    "drawn_improvement_win_rate",
+]
 
 _DRAFT_PICK_SQL = """
 SELECT pick AS card_name, COUNT(*) AS pick_count, AVG(pick_number + 1) AS avg_pick
@@ -121,7 +148,10 @@ def compute_card_stats(expansion: str, format: str) -> int:
         computed_at = datetime.now(UTC).isoformat()
 
         conn.execute(
-            text("DELETE FROM mj_17l_card_stat WHERE expansion = :expansion AND format = :format"),
+            text(
+                "DELETE FROM mj_17l_card_stat "
+                "WHERE expansion = :expansion AND format = :format AND source = 'public_dataset'"
+            ),
             params,
         )
 
@@ -148,3 +178,62 @@ def compute_card_stats(expansion: str, format: str) -> int:
 
     logger.info(f"Card stats complete: {len(stats):,} cards for {expansion}/{format}")
     return len(stats)
+
+
+def store_card_ratings(cards: list[dict], expansion: str, format: str, end_date: str) -> int:
+    """Replace mj_17l_card_stat rows (source='17lands') with site-calculated ratings."""
+    computed_at = datetime.now(UTC).isoformat()
+
+    with get_session() as session:
+        session.connection().execute(
+            text("DELETE FROM mj_17l_card_stat WHERE expansion = :expansion AND format = :format AND source = :src"),
+            {"expansion": expansion, "format": format, "src": "17lands"},
+        )
+        for card in cards:
+            values = {k: card.get(k) for k in _RATING_FIELDS}
+            for count_field in (f for f in _RATING_FIELDS if f.endswith("_count")):
+                values[count_field] = values[count_field] or 0
+            session.add(
+                MJ17LCardStat(
+                    expansion=expansion,
+                    format=format,
+                    card_name=card["name"],
+                    source="17lands",
+                    dataset_last_updated=end_date,
+                    computed_at=computed_at,
+                    color=card.get("color"),
+                    **values,
+                )
+            )
+        session.commit()
+
+    return len(cards)
+
+
+def fetch_card_ratings(
+    expansion: str,
+    format: str,
+    start_date: str = "2019-01-01",
+    end_date: str | None = None,
+) -> int:
+    """Fetch 17Lands-calculated card ratings (the Card Data page) for one expansion/format.
+
+    One request per call. This is curated data under the 17Lands usage guidelines
+    (https://www.17lands.com/usage_guidelines): cite as "17Lands", and observe the
+    12-day embargo on new expansions in anything user-facing.
+    """
+    end_date = end_date or datetime.now(UTC).date().isoformat()
+    logger.info(f"Fetching 17Lands card ratings for {expansion}/{format} ({start_date}..{end_date})...")
+
+    resp = requests.get(
+        CARD_RATINGS_URL,
+        params={"expansion": expansion, "format": format, "start_date": start_date, "end_date": end_date},
+        headers={"User-Agent": USER_AGENT},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    cards = resp.json()
+
+    count = store_card_ratings(cards, expansion, format, end_date)
+    logger.info(f"Card ratings stored: {count:,} cards for {expansion}/{format}")
+    return count

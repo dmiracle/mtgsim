@@ -8,7 +8,7 @@ import mtgdb.session
 import pytest
 from mtgdb.models import MJCard
 from mtgdb.sync.seventeenlands import ingest_draft_csv, ingest_game_csv
-from mtgdb.sync.seventeenlands_stats import compute_card_stats
+from mtgdb.sync.seventeenlands_stats import compute_card_stats, store_card_ratings
 from sqlalchemy import text
 from sqlmodel import Session
 
@@ -140,3 +140,86 @@ class TestComputeCardStats:
         compute_card_stats("TST", "PremierDraft")
         compute_card_stats("TST", "PremierDraft")
         assert _counts(engine, "mj_17l_card_stat") == 3
+
+
+RATINGS_PAYLOAD = [
+    {
+        "name": "Ash Zealot",
+        "mtga_id": 12345,
+        "color": "R",
+        "rarity": "rare",
+        "seen_count": 1000,
+        "avg_seen": 4.2,
+        "pick_count": 400,
+        "avg_pick": 3.8,
+        "game_count": 900,
+        "pool_count": 1100,
+        "play_rate": 0.818,
+        "win_rate": 0.57,
+        "opening_hand_game_count": 150,
+        "opening_hand_win_rate": 0.6,
+        "drawn_game_count": 200,
+        "drawn_win_rate": 0.58,
+        "ever_drawn_game_count": 350,
+        "ever_drawn_win_rate": 0.59,
+        "never_drawn_game_count": 550,
+        "never_drawn_win_rate": 0.55,
+        "drawn_improvement_win_rate": 0.04,
+        "url": "https://cards.scryfall.io/large/x.jpg",
+        "types": ["Creature - Human Warrior"],
+    },
+    {
+        "name": "Summon: Bahamut",
+        "mtga_id": 95853,
+        "color": "",
+        "rarity": "mythic",
+        "seen_count": 0,
+        "avg_seen": None,
+        "pick_count": 0,
+        "avg_pick": None,
+        "game_count": 0,
+        "pool_count": 0,
+        "play_rate": None,
+        "win_rate": None,
+        "opening_hand_game_count": 0,
+        "opening_hand_win_rate": None,
+        "drawn_game_count": 0,
+        "drawn_win_rate": None,
+        "ever_drawn_game_count": 0,
+        "ever_drawn_win_rate": None,
+        "never_drawn_game_count": 0,
+        "never_drawn_win_rate": None,
+        "drawn_improvement_win_rate": None,
+    },
+]
+
+
+class TestStoreCardRatings:
+    def test_store_and_restore_idempotent(self, seventeenlands_db):
+        engine, _, _ = seventeenlands_db
+        assert store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21") == 2
+        assert store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21") == 2
+        assert _counts(engine, "mj_17l_card_stat") == 2
+
+    def test_stored_values(self, seventeenlands_db):
+        engine, _, _ = seventeenlands_db
+        store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21")
+        with engine.connect() as conn:
+            rows = conn.execute(text("SELECT * FROM mj_17l_card_stat ORDER BY card_name")).mappings().all()
+        a, b = rows
+        assert (a["card_name"], a["source"], a["mtga_id"]) == ("Ash Zealot", "17lands", 12345)
+        assert (a["avg_seen"], a["ever_drawn_win_rate"], a["dataset_last_updated"]) == (4.2, 0.59, "2026-07-21")
+        assert (b["card_name"], b["game_count"], b["win_rate"]) == ("Summon: Bahamut", 0, None)
+
+    def test_sources_coexist(self, seventeenlands_db):
+        engine, draft_csv, game_csv = seventeenlands_db
+        ingest_draft_csv(draft_csv)
+        ingest_game_csv(game_csv)
+        compute_card_stats("TST", "PremierDraft")
+        store_card_ratings(RATINGS_PAYLOAD, "TST", "PremierDraft", "2026-07-21")
+        compute_card_stats("TST", "PremierDraft")
+        with engine.connect() as conn:
+            by_source = dict(
+                conn.execute(text("SELECT source, COUNT(*) FROM mj_17l_card_stat GROUP BY source")).fetchall()
+            )
+        assert by_source == {"public_dataset": 3, "17lands": 2}

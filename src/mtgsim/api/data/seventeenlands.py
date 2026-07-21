@@ -139,6 +139,7 @@ class SeventeenLandsData:
         expansion: str,
         format: str | None = None,
         card_name: str | None = None,
+        source: str | None = None,
         page: int = 1,
         limit: int = 50,
     ) -> tuple[list[dict], int]:
@@ -148,13 +149,15 @@ class SeventeenLandsData:
                 query = query.where(MJ17LCardStat.format == format)
             if card_name:
                 query = query.where(MJ17LCardStat.card_name == card_name)
+            if source:
+                query = query.where(MJ17LCardStat.source == source)
 
             total = session.exec(select(func.count()).select_from(query.subquery())).one()
             query = query.order_by(MJ17LCardStat.ever_drawn_win_rate.desc().nulls_last())
             query = query.offset((page - 1) * limit).limit(limit)
             results = session.exec(query).all()
 
-            return [r.model_dump(exclude={"source"}) for r in results], total
+            return [r.model_dump() for r in results], total
 
     def list_games(
         self,

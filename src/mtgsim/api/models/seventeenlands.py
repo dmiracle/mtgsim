@@ -45,6 +45,8 @@ class CardStatSummary(BaseModel):
     expansion: str
     format: str
     card_name: str
+    source: str = "public_dataset"
+    mtga_id: int | None = None
     color: str | None = None
     rarity: str | None = None
     seen_count: int = 0

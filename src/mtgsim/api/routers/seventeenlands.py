@@ -52,14 +52,20 @@ async def list_card_stats(
     expansion: str = Query(..., description="Expansion code (e.g. SOS)"),
     format: str | None = Query(None, description="Filter by event format (e.g. PremierDraft)"),
     card_name: str | None = Query(None, description="Filter by card name"),
+    source: str | None = Query(None, description="Stat source: public_dataset (computed) or 17lands (site ratings)"),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
 ) -> CardStatListResponse:
-    """Per-card stats (ALSA, ATA, GP/OH/GD/GIH/GNS win rates, IWD) computed from 17Lands public data."""
+    """Per-card stats (ALSA, ATA, GP/OH/GD/GIH/GNS win rates, IWD).
+
+    source=public_dataset rows are computed locally from 17Lands public data;
+    source=17lands rows are the site-calculated Card Data ratings.
+    """
     return await seventeenlands_service.list_card_stats(
         expansion=expansion,
         format=format,
         card_name=card_name,
+        source=source,
         page=page,
         limit=limit,
     )

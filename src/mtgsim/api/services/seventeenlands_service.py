@@ -56,6 +56,7 @@ class SeventeenLandsService:
         expansion: str,
         format: str | None = None,
         card_name: str | None = None,
+        source: str | None = None,
         page: int = 1,
         limit: int = 50,
     ) -> CardStatListResponse:
@@ -63,6 +64,7 @@ class SeventeenLandsService:
             expansion=expansion,
             format=format,
             card_name=card_name,
+            source=source,
             page=page,
             limit=limit,
         )

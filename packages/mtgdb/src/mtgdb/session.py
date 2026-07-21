@@ -54,6 +54,7 @@ def _ensure_columns(engine: Engine) -> None:
 
     added_columns = {
         "mj_card": {"side": "VARCHAR"},
+        "mj_17l_card_stat": {"mtga_id": "INTEGER"},
         "mj_17l_dataset": {
             "draft_data_downloaded_version": "VARCHAR",
             "game_data_downloaded_version": "VARCHAR",

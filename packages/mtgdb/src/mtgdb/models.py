@@ -334,10 +334,12 @@ class MJ17LCardStat(SQLModel, table=True):
     expansion: str = Field(index=True)
     format: str = Field(index=True)
     card_name: str = Field(index=True)
-    source: str = "public_dataset"
+    # "public_dataset" = computed locally from ingested CSVs; "17lands" = site-calculated ratings
+    source: str = Field(default="public_dataset", index=True)
     dataset_last_updated: str | None = None
     computed_at: str | None = None
 
+    mtga_id: int | None = None
     color: str | None = None
     rarity: str | None = None
 

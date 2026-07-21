@@ -76,6 +76,9 @@ def db_sync(
     seventeenlands_stats: bool = typer.Option(
         False, "--17l-stats", help="Compute per-card stats from ingested 17Lands data"
     ),
+    seventeenlands_ratings: bool = typer.Option(
+        False, "--17l-ratings", help="Fetch 17Lands-calculated card ratings (one request per set/format)"
+    ),
 ):
     """Sync MTGJSON data to unified database.
 
@@ -126,7 +129,12 @@ def db_sync(
             dt = seventeenlands_data_type or "all"
             data_types = ["draft", "game", "replay"] if dt == "all" else [dt]
 
-            if not seventeenlands_metadata_only and not seventeenlands_ingest and not seventeenlands_stats:
+            if (
+                not seventeenlands_metadata_only
+                and not seventeenlands_ingest
+                and not seventeenlands_stats
+                and not seventeenlands_ratings
+            ):
                 downloaded = download_dataset_files(
                     expansion=seventeenlands_expansion,
                     format=seventeenlands_format,
@@ -154,6 +162,16 @@ def db_sync(
                 fmt = seventeenlands_format or "PremierDraft"
                 cards = compute_card_stats(seventeenlands_expansion, fmt)
                 typer.echo(f"17Lands card stats computed: {cards} cards for {seventeenlands_expansion}/{fmt}.")
+
+            if seventeenlands_ratings:
+                if not seventeenlands_expansion:
+                    typer.echo("--17l-ratings requires --17l-expansion", err=True)
+                    raise typer.Exit(1)
+                from mtgdb.sync.seventeenlands_stats import fetch_card_ratings
+
+                fmt = seventeenlands_format or "PremierDraft"
+                cards = fetch_card_ratings(seventeenlands_expansion, fmt)
+                typer.echo(f"17Lands card ratings fetched: {cards} cards for {seventeenlands_expansion}/{fmt}.")
             return
 
         any_specific = (

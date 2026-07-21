@@ -21,6 +21,7 @@ Flashcard/SRS state lives in a separate file: `~/.srs/srs.db` (override with `SR
 | 17Lands CSVs | `mtgsim db sync --17lands` | Per set release | (downloads only) |
 | 17Lands Ingest | `mtgsim db sync --17lands --17l-ingest` | After download | mj_17l_draft_pick, mj_17l_draft_card, mj_17l_game, mj_17l_game_card, mj_17l_replay, mj_17l_replay_turn |
 | 17Lands Card Stats | `mtgsim db sync --17lands --17l-stats --17l-expansion <CODE>` | After ingest | mj_17l_card_stat |
+| 17Lands Card Ratings | `mtgsim db sync --17lands --17l-ratings --17l-expansion <CODE>` | Weekly for in-season sets | mj_17l_card_stat |
 | Full sync (all MTGJSON) | `mtgsim db sync` | Per set release | All mj_* tables except 17lands |
 
 Add `--force` to any command to re-download files that already exist.
@@ -126,7 +127,7 @@ Add `--force` to any command to re-download files that already exist.
 17Lands exposes data three ways; we only consume the first:
 
 1. **Public datasets** (this section) — anonymized per-draft/per-game CSVs on S3, indexed via Prismic. CC BY 4.0, explicitly encouraged for third-party analysis. Publication schedule per set: draft data ~2 weeks after Arena release, game data ~3 weeks, replay data ~6 weeks; files are refreshed for a few months, then frozen.
-2. **Curated data (unofficial site API)** — the JSON endpoints behind pages like Card Data (`GET /card_ratings/data?expansion=X&format=Y&start_date&end_date`) and Deck Color Data (`GET /color_ratings/data`). Deliberately **not used**: per the [usage guidelines](https://www.17lands.com/usage_guidelines), scraping is discouraged without permission, endpoints are rate-limited and unversioned, and third-party tools showing curated data face a **12-day embargo** on new expansions (7 days for specialty formats). We compute the same card metrics locally from the public datasets instead (`mj_17l_card_stat`). If in-season stats (before the public files exist) are ever needed, ask for permission on the 17Lands Discord first.
+2. **Curated data (unofficial site API)** — the JSON endpoints behind pages like Card Data (`GET /card_ratings/data?expansion=X&format=Y&start_date&end_date`) and Deck Color Data (`GET /color_ratings/data`). Used **sparingly**: `--17l-ratings` makes exactly one request per set/format (with an identifying User-Agent) to fetch the site-calculated Card Data table into `mj_17l_card_stat` (`source='17lands'`) — the only source of win-rate stats for in-season sets whose public game file isn't out yet. Per the [usage guidelines](https://www.17lands.com/usage_guidelines), bulk scraping is discouraged, endpoints are rate-limited and unversioned, and third-party tools showing curated data face a **12-day embargo** on new expansions (7 days for specialty formats). For sets whose public files exist, prefer computing metrics locally (`--17l-stats`, `source='public_dataset'`).
 3. **Personal data (authenticated)** — a user's own event history via `mtgdb.sync.seventeenlands_client` (`db sync-17l-personal`), throttled to one request per 5s.
 
 **Good-citizen behavior baked into the sync:** downloads skip existing files, sleep 3s between S3 fetches, and record the dataset version at download time (`*_downloaded_version`) so stale files are reported rather than silently kept or hammered for re-download.
