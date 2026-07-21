@@ -62,8 +62,8 @@ line-ending = "auto"
 
 [tool.uv.sources]
 mtgdb = { workspace = true }
-llmex = { path = "../llmex" }
-srs = { path = "../srs", editable = true }
+llmex = { path = "../../llmex" }
+srs = { path = "../../srs", editable = true }
 
 
 [project.scripts]

@@ -942,7 +942,7 @@ wheels = [
 [[package]]
 name = "llmex"
 version = "0.1.0"
-source = { directory = "../llmex" }
+source = { directory = "../../llmex" }
 dependencies = [
     { name = "httpx" },
     { name = "llm" },
@@ -1176,6 +1176,7 @@ source = { editable = "packages/mtgdb" }
 dependencies = [
     { name = "httpx" },
     { name = "requests" },
+    { name = "rich" },
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
     { name = "sqlmodel" },
@@ -1190,6 +1191,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "requests", specifier = ">=2.31.0" },
+    { name = "rich", specifier = ">=13.0" },
     { name = "sentence-transformers", specifier = ">=3.0" },
     { name = "sqlite-vec", specifier = ">=0.1.6" },
     { name = "sqlmodel", specifier = ">=0.0.27" },
@@ -1232,7 +1234,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "fastmcp", specifier = ">=2.14.1" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "llmex", directory = "../llmex" },
+    { name = "llmex", directory = "../../llmex" },
     { name = "mtgdb", editable = "packages/mtgdb" },
     { name = "openai", specifier = ">=2.12.0" },
     { name = "pillow", specifier = ">=12.1.0" },
@@ -1241,7 +1243,7 @@ requires-dist = [
     { name = "pytesseract", specifier = ">=0.3.13" },
     { name = "python-multipart", specifier = ">=0.0.21" },
     { name = "rapidfuzz", specifier = ">=3.14.3" },
-    { name = "srs", editable = "../srs" },
+    { name = "srs", editable = "../../srs" },
     { name = "typer", specifier = ">=0.20.0" },
     { name = "uvicorn", specifier = ">=0.34.0" },
 ]
@@ -2413,7 +2415,7 @@ wheels = [
 [[package]]
 name = "srs"
 version = "0.2.0"
-source = { editable = "../srs" }
+source = { editable = "../../srs" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },

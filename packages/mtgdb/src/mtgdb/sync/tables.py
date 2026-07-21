@@ -22,6 +22,8 @@ from mtgdb.models import (
 )
 from mtgdb.session import get_engine
 
+from ._progress import console, rows_progress, spinner_progress
+
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 10000
@@ -94,9 +96,9 @@ def _connect(db_path: Path):
 
 def sync_sets(source_db: Path) -> SyncResult:
     """Sync sets table from AllPrintings.sqlite to mj_set."""
-    logger.info("Syncing sets...")
     conn = _connect(source_db)
     engine = get_engine()
+    total = conn.execute("SELECT COUNT(*) FROM sets").fetchone()[0]
 
     with Session(engine) as session:
         before = _count_rows(session, MJSet)
@@ -111,30 +113,33 @@ def sync_sets(source_db: Path) -> SyncResult:
         """)
 
         count = 0
-        for row in cursor:
-            session.add(
-                MJSet(
-                    code=row["code"],
-                    name=row["name"],
-                    type=row["type"],
-                    release_date=row["releaseDate"],
-                    base_set_size=row["baseSetSize"] or 0,
-                    total_set_size=row["totalSetSize"] or 0,
-                    block=row["block"],
-                    parent_code=row["parentCode"],
-                    keyrune_code=row["keyruneCode"],
-                    is_foil_only=bool(row["isFoilOnly"]),
-                    is_online_only=bool(row["isOnlineOnly"]),
-                    is_partial_preview=bool(row["isPartialPreview"]),
+        with rows_progress() as progress:
+            task = progress.add_task("Sets", total=total)
+            for row in cursor:
+                session.add(
+                    MJSet(
+                        code=row["code"],
+                        name=row["name"],
+                        type=row["type"],
+                        release_date=row["releaseDate"],
+                        base_set_size=row["baseSetSize"] or 0,
+                        total_set_size=row["totalSetSize"] or 0,
+                        block=row["block"],
+                        parent_code=row["parentCode"],
+                        keyrune_code=row["keyruneCode"],
+                        is_foil_only=bool(row["isFoilOnly"]),
+                        is_online_only=bool(row["isOnlineOnly"]),
+                        is_partial_preview=bool(row["isPartialPreview"]),
+                    )
                 )
-            )
-            count += 1
+                count += 1
+                progress.advance(task)
 
         session.commit()
 
     conn.close()
     result = SyncResult("Sets", before, count)
-    logger.info(result.summary())
+    console.print(f"  [green]✓[/green] {result.summary()}")
     return result
 
 
@@ -157,8 +162,10 @@ def sync_cards(source_db: Path) -> SyncResult:
 
     from mtgdb.session import rebuild_fts
 
-    fts_count = rebuild_fts(engine)
-    logger.info(f"Rebuilt FTS index ({fts_count} cards)")
+    with spinner_progress() as progress:
+        progress.add_task("Rebuilding FTS index", total=None)
+        fts_count = rebuild_fts(engine)
+    console.print(f"  [green]✓[/green] FTS index rebuilt ({fts_count:,} cards)")
 
     conn.close()
     return SyncResult("Cards", before, result_cards)
@@ -166,7 +173,7 @@ def sync_cards(source_db: Path) -> SyncResult:
 
 def _sync_cards_table(conn, engine) -> int:
     """Sync main cards table. Returns count of cards synced."""
-    logger.info("Syncing cards...")
+    total = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
 
     with Session(engine) as session:
         session.exec(delete(MJCardLegality))
@@ -184,56 +191,58 @@ def _sync_cards_table(conn, engine) -> int:
         """)
 
         count = 0
-        for row in cursor:
-            session.add(
-                MJCard(
-                    uuid=row["uuid"],
-                    name=row["name"],
-                    printed_name=row["printedName"] or None,
-                    set_code=row["setCode"],
-                    mana_cost=row["manaCost"],
-                    mana_value=row["manaValue"],
-                    type_line=row["type"],
-                    oracle_text=row["text"],
-                    power=row["power"],
-                    toughness=row["toughness"],
-                    loyalty=row["loyalty"],
-                    defense=row["defense"],
-                    rarity=row["rarity"],
-                    number=row["number"],
-                    artist=row["artist"],
-                    layout=row["layout"],
-                    side=row["side"],
-                    border_color=row["borderColor"],
-                    frame_version=row["frameVersion"],
-                    flavor_text=row["flavorText"],
-                    colors=_parse_json_array(row["colors"]),
-                    color_identity=_parse_json_array(row["colorIdentity"]),
-                    types=_parse_json_array(row["types"]),
-                    subtypes=_parse_json_array(row["subtypes"]),
-                    supertypes=_parse_json_array(row["supertypes"]),
-                    keywords=_parse_json_array(row["keywords"]),
-                    finishes=_parse_json_array(row["finishes"]),
-                    is_reprint=bool(row["isReprint"]),
-                    is_reserved=bool(row["isReserved"]),
-                    is_promo=bool(row["isPromo"]),
+        with rows_progress() as progress:
+            task = progress.add_task("Cards", total=total)
+            for row in cursor:
+                session.add(
+                    MJCard(
+                        uuid=row["uuid"],
+                        name=row["name"],
+                        printed_name=row["printedName"] or None,
+                        set_code=row["setCode"],
+                        mana_cost=row["manaCost"],
+                        mana_value=row["manaValue"],
+                        type_line=row["type"],
+                        oracle_text=row["text"],
+                        power=row["power"],
+                        toughness=row["toughness"],
+                        loyalty=row["loyalty"],
+                        defense=row["defense"],
+                        rarity=row["rarity"],
+                        number=row["number"],
+                        artist=row["artist"],
+                        layout=row["layout"],
+                        side=row["side"],
+                        border_color=row["borderColor"],
+                        frame_version=row["frameVersion"],
+                        flavor_text=row["flavorText"],
+                        colors=_parse_json_array(row["colors"]),
+                        color_identity=_parse_json_array(row["colorIdentity"]),
+                        types=_parse_json_array(row["types"]),
+                        subtypes=_parse_json_array(row["subtypes"]),
+                        supertypes=_parse_json_array(row["supertypes"]),
+                        keywords=_parse_json_array(row["keywords"]),
+                        finishes=_parse_json_array(row["finishes"]),
+                        is_reprint=bool(row["isReprint"]),
+                        is_reserved=bool(row["isReserved"]),
+                        is_promo=bool(row["isPromo"]),
+                    )
                 )
-            )
-            count += 1
+                count += 1
+                progress.advance(task)
 
-            if count % BATCH_SIZE == 0:
-                session.commit()
-                logger.info(f"  {count} cards...")
+                if count % BATCH_SIZE == 0:
+                    session.commit()
 
-        session.commit()
+            session.commit()
 
-    logger.info(f"Synced {count} cards")
+    console.print(f"  [green]✓[/green] Cards: {count:,} rows")
     return count
 
 
 def _sync_identifiers(conn, engine):
     """Sync card identifiers (Scryfall, TCGPlayer, etc.)."""
-    logger.info("Syncing card identifiers...")
+    total = conn.execute("SELECT COUNT(*) FROM cardIdentifiers").fetchone()[0]
 
     cursor = conn.execute("""
         SELECT uuid, scryfallId, scryfallOracleId, scryfallIllustrationId,
@@ -244,66 +253,69 @@ def _sync_identifiers(conn, engine):
 
     with Session(engine) as session:
         count = 0
-        for row in cursor:
-            session.add(
-                MJCardIdentifier(
-                    card_uuid=row["uuid"],
-                    scryfall_id=row["scryfallId"],
-                    scryfall_oracle_id=row["scryfallOracleId"],
-                    scryfall_illustration_id=row["scryfallIllustrationId"],
-                    tcgplayer_product_id=row["tcgplayerProductId"],
-                    tcgplayer_etched_product_id=row["tcgplayerEtchedProductId"],
-                    cardmarket_id=row["mcmId"],
-                    mtgo_id=row["mtgoId"],
-                    mtgo_foil_id=row["mtgoFoilId"],
-                    mtgjson_v4_id=row["mtgjsonV4Id"],
-                    multiverse_id=row["multiverseId"],
+        with rows_progress() as progress:
+            task = progress.add_task("Identifiers", total=total)
+            for row in cursor:
+                session.add(
+                    MJCardIdentifier(
+                        card_uuid=row["uuid"],
+                        scryfall_id=row["scryfallId"],
+                        scryfall_oracle_id=row["scryfallOracleId"],
+                        scryfall_illustration_id=row["scryfallIllustrationId"],
+                        tcgplayer_product_id=row["tcgplayerProductId"],
+                        tcgplayer_etched_product_id=row["tcgplayerEtchedProductId"],
+                        cardmarket_id=row["mcmId"],
+                        mtgo_id=row["mtgoId"],
+                        mtgo_foil_id=row["mtgoFoilId"],
+                        mtgjson_v4_id=row["mtgjsonV4Id"],
+                        multiverse_id=row["multiverseId"],
+                    )
                 )
-            )
-            count += 1
+                count += 1
+                progress.advance(task)
 
-            if count % BATCH_SIZE == 0:
-                session.commit()
-                logger.info(f"  {count} identifiers...")
+                if count % BATCH_SIZE == 0:
+                    session.commit()
 
-        session.commit()
+            session.commit()
 
-    logger.info(f"Synced {count} identifiers")
+    console.print(f"  [green]✓[/green] Identifiers: {count:,} rows")
 
 
 def _sync_legalities(conn, engine):
     """Sync card format legalities."""
-    logger.info("Syncing card legalities...")
-
     # Get format columns dynamically
     cursor = conn.execute("PRAGMA table_info(cardLegalities)")
     format_columns = [row[1] for row in cursor if row[1] != "uuid"]
 
+    total_rows = conn.execute("SELECT COUNT(*) FROM cardLegalities").fetchone()[0]
     cursor = conn.execute("SELECT * FROM cardLegalities")
 
     with Session(engine) as session:
         count = 0
-        for row in cursor:
-            card_uuid = row["uuid"]
-            for format_name in format_columns:
-                status = row[format_name]
-                if status:
-                    session.add(
-                        MJCardLegality(
-                            card_uuid=card_uuid,
-                            format=format_name,
-                            status=status,
+        with rows_progress() as progress:
+            task = progress.add_task("Legalities", total=total_rows)
+            for row in cursor:
+                card_uuid = row["uuid"]
+                for format_name in format_columns:
+                    status = row[format_name]
+                    if status:
+                        session.add(
+                            MJCardLegality(
+                                card_uuid=card_uuid,
+                                format=format_name,
+                                status=status,
+                            )
                         )
-                    )
-                    count += 1
+                        count += 1
 
-            if count % 50000 == 0:
-                session.commit()
-                logger.info(f"  {count} legalities...")
+                progress.advance(task)
+                if count % 50000 == 0:
+                    session.commit()
 
-        session.commit()
+            session.commit()
 
-    logger.info(f"Synced {count} legalities")
+    console.print(f"  [green]✓[/green] Legalities: {count:,} rows across {len(format_columns)} formats")
 
 
 # =============================================================================
@@ -313,9 +325,9 @@ def _sync_legalities(conn, engine):
 
 def sync_prices(source_db: Path) -> SyncResult:
     """Sync prices from AllPricesToday.sqlite to mj_card_price."""
-    logger.info("Syncing prices...")
     conn = _connect(source_db)
     engine = get_engine()
+    total = conn.execute("SELECT COUNT(*) FROM prices WHERE price IS NOT NULL").fetchone()[0]
 
     with Session(engine) as session:
         before = _count_rows(session, MJCardPrice)
@@ -329,32 +341,37 @@ def sync_prices(source_db: Path) -> SyncResult:
         """)
 
         count = 0
-        for row in cursor:
-            try:
-                session.add(
-                    MJCardPrice(
-                        card_uuid=row["uuid"],
-                        provider=row["provider"],
-                        listing_type=row["priceType"],
-                        finish=row["finish"],
-                        currency=row["currency"] or "USD",
-                        price=float(row["price"]),
-                        updated_at=datetime.fromisoformat(row["date"]) if row["date"] else None,
+        skipped = 0
+        with rows_progress() as progress:
+            task = progress.add_task("Prices", total=total)
+            for row in cursor:
+                progress.advance(task)
+                try:
+                    session.add(
+                        MJCardPrice(
+                            card_uuid=row["uuid"],
+                            provider=row["provider"],
+                            listing_type=row["priceType"],
+                            finish=row["finish"],
+                            currency=row["currency"] or "USD",
+                            price=float(row["price"]),
+                            updated_at=datetime.fromisoformat(row["date"]) if row["date"] else None,
+                        )
                     )
-                )
-                count += 1
-            except (ValueError, TypeError):
-                continue
+                    count += 1
+                except (ValueError, TypeError):
+                    skipped += 1
+                    continue
 
-            if count % 50000 == 0:
-                session.commit()
-                logger.info(f"  {count} prices...")
+                if count % 50000 == 0:
+                    session.commit()
 
-        session.commit()
+            session.commit()
 
     conn.close()
     result = SyncResult("Prices", before, count)
-    logger.info(result.summary())
+    suffix = f" ({skipped:,} skipped)" if skipped else ""
+    console.print(f"  [green]✓[/green] {result.summary()}{suffix}")
     return result
 
 
@@ -365,8 +382,6 @@ def sync_prices(source_db: Path) -> SyncResult:
 
 def sync_decks(deck_dir: Path) -> SyncResult:
     """Sync preconstructed decks from AllDeckFiles directory."""
-    logger.info("Syncing decks...")
-
     if not deck_dir.exists():
         logger.warning(f"Deck directory not found: {deck_dir}")
         return SyncResult("Decks", 0, 0)
@@ -380,17 +395,19 @@ def sync_decks(deck_dir: Path) -> SyncResult:
         session.exec(delete(MJDeck))
         session.commit()
 
-        for i, file_path in enumerate(files):
-            _sync_deck_file(session, file_path)
+        with rows_progress() as progress:
+            task = progress.add_task("Decks", total=len(files))
+            for i, file_path in enumerate(files):
+                _sync_deck_file(session, file_path)
+                progress.advance(task)
 
-            if (i + 1) % 100 == 0:
-                session.commit()
-                logger.info(f"  {i + 1}/{len(files)} decks...")
+                if (i + 1) % 100 == 0:
+                    session.commit()
 
         session.commit()
 
     result = SyncResult("Decks", before, len(files))
-    logger.info(result.summary())
+    console.print(f"  [green]✓[/green] {result.summary()}")
     return result
 
 
@@ -445,8 +462,6 @@ def _sync_deck_file(session: Session, file_path: Path):
 
 def sync_keywords(keywords_file: Path) -> SyncResult:
     """Sync keywords from Keywords.json to mj_keyword."""
-    logger.info("Syncing keywords...")
-
     if not keywords_file.exists():
         logger.warning(f"Keywords file not found: {keywords_file}")
         return SyncResult("Keywords", 0, 0)
@@ -455,6 +470,7 @@ def sync_keywords(keywords_file: Path) -> SyncResult:
         content = json.load(f)
 
     data = content.get("data", {})
+    total = sum(len(kws) for kws in data.values())
     engine = get_engine()
 
     with Session(engine) as session:
@@ -463,15 +479,18 @@ def sync_keywords(keywords_file: Path) -> SyncResult:
         session.commit()
 
         count = 0
-        for keyword_type, keywords in data.items():
-            for keyword in keywords:
-                session.add(MJKeyword(name=keyword, type=keyword_type))
-                count += 1
+        with rows_progress() as progress:
+            task = progress.add_task("Keywords", total=total)
+            for keyword_type, keywords in data.items():
+                for keyword in keywords:
+                    session.add(MJKeyword(name=keyword, type=keyword_type))
+                    count += 1
+                    progress.advance(task)
 
         session.commit()
 
     result = SyncResult("Keywords", before, count)
-    logger.info(result.summary())
+    console.print(f"  [green]✓[/green] {result.summary()}")
     return result
 
 
@@ -546,10 +565,10 @@ def check_missing_keyword_definitions() -> list[dict]:
     missing = [{"name": kw.name, "type": kw.type} for kw in keywords if kw.name not in defined]
 
     if missing:
-        logger.warning(f"{len(missing)} keywords have no definition:")
+        logger.debug(f"{len(missing)} keywords have no definition")
         for m in missing:
-            logger.warning(f"  [{m['type']}] {m['name']}")
+            logger.debug(f"  [{m['type']}] {m['name']}")
     else:
-        logger.info("All keywords have definitions")
+        logger.debug("All keywords have definitions")
 
     return missing

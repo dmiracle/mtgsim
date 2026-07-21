@@ -13,6 +13,8 @@ from mtgdb.models import MJKeywordDefinition
 from mtgdb.session import get_engine
 from mtgdb.sync.tables import SyncResult
 
+from ._progress import console, spinner_progress
+
 logger = logging.getLogger(__name__)
 
 RULES_DIR = REFERENCE_DIR / "rules"
@@ -25,17 +27,19 @@ def download_comprehensive_rules(force: bool = False) -> Path | None:
     RULES_DIR.mkdir(parents=True, exist_ok=True)
 
     if RULES_FILE.exists() and not force:
-        logger.info(f"{RULES_FILE.name} exists, skipping download")
+        console.print(f"  [yellow]•[/yellow] {RULES_FILE.name} exists, skipping (use --force to re-download)")
         return RULES_FILE
 
-    logger.info(f"Downloading Comprehensive Rules from {COMPREHENSIVE_RULES_URL}")
-    resp = httpx.get(COMPREHENSIVE_RULES_URL, follow_redirects=True, timeout=60)
+    with spinner_progress() as progress:
+        progress.add_task(f"Downloading {RULES_FILE.name}", total=None)
+        resp = httpx.get(COMPREHENSIVE_RULES_URL, follow_redirects=True, timeout=60)
     if resp.status_code != 200:
         logger.error(f"Failed to download rules: HTTP {resp.status_code}")
         return None
 
     RULES_FILE.write_bytes(resp.content)
-    logger.info(f"Saved rules to {RULES_FILE} ({len(resp.content)} bytes)")
+    size_kb = len(resp.content) / 1024
+    console.print(f"  [green]✓[/green] saved {RULES_FILE.name} ({size_kb:,.1f} KB)")
     return RULES_FILE
 
 
@@ -85,7 +89,7 @@ def parse_keyword_definitions(rules_path: Path) -> dict[str, str]:
         if keyword not in definitions:
             definitions[keyword] = definition
 
-    logger.info(f"Parsed {len(definitions)} keyword definitions from comprehensive rules")
+    console.print(f"  [green]✓[/green] Parsed {len(definitions):,} keyword definitions from rules")
     return definitions
 
 
@@ -190,5 +194,5 @@ def sync_definitions_from_rules(force: bool = False) -> SyncResult:
         after = session.exec(select(MJKeywordDefinition)).all()
 
     result = SyncResult("Keyword Definitions (Rules)", before, len(after))
-    logger.info(f"{result.summary()} ({updated} updated from comprehensive rules)")
+    console.print(f"  [green]✓[/green] {result.summary()} ({updated:,} updated from rules)")
     return result

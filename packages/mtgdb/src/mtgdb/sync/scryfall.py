@@ -16,6 +16,8 @@ from mtgdb.config import SCRYFALL_DIR
 from mtgdb.models import MJCardTag
 from mtgdb.session import get_engine
 
+from ._progress import console, rows_progress
+
 logger = logging.getLogger(__name__)
 
 SCRYFALL_API_BASE = "https://api.scryfall.com"
@@ -76,24 +78,27 @@ def fetch_all_tags(tags: list[str] | None = None, force: bool = False) -> dict[s
         tags = DEFAULT_TAGS
 
     if TAGS_FILE.exists() and not force:
-        logger.info(f"Tags file exists: {TAGS_FILE}, skipping fetch (use --force to re-download)")
+        console.print(f"  [yellow]•[/yellow] {TAGS_FILE.name} exists, skipping (use --force to re-download)")
         with open(TAGS_FILE) as f:
             return json.load(f)
 
     SCRYFALL_DIR.mkdir(parents=True, exist_ok=True)
 
     result = {}
-    for tag in tags:
-        logger.info(f"Fetching oracle tag: {tag}")
-        names = fetch_tag(tag)
-        result[tag] = names
-        logger.info(f"  {tag}: {len(names)} cards")
-        time.sleep(0.1)
+    with rows_progress() as progress:
+        task = progress.add_task("Scryfall oracle tags", total=len(tags))
+        for tag in tags:
+            names = fetch_tag(tag)
+            result[tag] = names
+            progress.console.print(f"  [dim]{tag}: {len(names):,} cards[/dim]")
+            progress.advance(task)
+            time.sleep(0.1)
 
     with open(TAGS_FILE, "w") as f:
         json.dump(result, f)
 
-    logger.info(f"Saved tags to {TAGS_FILE}")
+    total_pairs = sum(len(v) for v in result.values())
+    console.print(f"  [green]✓[/green] Saved {total_pairs:,} card-tag pairs to {TAGS_FILE.name}")
     return result
 
 
@@ -106,11 +111,10 @@ def sync_tags(tags_file: Path | None = None):
         logger.warning(f"Tags file not found: {tags_file}")
         return
 
-    logger.info("Syncing oracle tags...")
-
     with open(tags_file) as f:
         tag_data = json.load(f)
 
+    total = sum(len(names) for names in tag_data.values())
     engine = get_engine()
 
     with Session(engine) as session:
@@ -118,15 +122,17 @@ def sync_tags(tags_file: Path | None = None):
         session.commit()
 
         count = 0
-        for tag, card_names in tag_data.items():
-            for name in card_names:
-                session.add(MJCardTag(card_name=name, tag=tag))
-                count += 1
+        with rows_progress() as progress:
+            task = progress.add_task("Card tags", total=total)
+            for tag, card_names in tag_data.items():
+                for name in card_names:
+                    session.add(MJCardTag(card_name=name, tag=tag))
+                    count += 1
+                    progress.advance(task)
 
-                if count % BATCH_SIZE == 0:
-                    session.commit()
-                    logger.info(f"  {count} tags...")
+                    if count % BATCH_SIZE == 0:
+                        session.commit()
 
         session.commit()
 
-    logger.info(f"Synced {count} card tags")
+    console.print(f"  [green]✓[/green] Card tags: {count:,} rows")

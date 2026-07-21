@@ -1,9 +1,25 @@
 """Database CLI commands."""
 
+import logging
+
 import typer
 from mtgdb.config import DB_PATH
+from rich.console import Console
+from rich.logging import RichHandler
 
+console = Console()
 db_app = typer.Typer(help="Database operations")
+
+
+def _configure_sync_logging() -> None:
+    """Route warnings/errors from mtgdb.sync.* through a Rich handler."""
+    root = logging.getLogger()
+    if any(isinstance(h, RichHandler) for h in root.handlers):
+        return
+    handler = RichHandler(console=console, show_time=False, show_path=False, markup=True, rich_tracebacks=True)
+    handler.setLevel(logging.WARNING)
+    root.addHandler(handler)
+    root.setLevel(logging.WARNING)
 
 
 @db_app.command("init")
@@ -84,6 +100,8 @@ def db_sync(
     from mtgdb.sync.download import download_and_extract_tar_xz, download_and_extract_xz
     from mtgdb.sync.scryfall import fetch_all_tags, sync_tags
 
+    _configure_sync_logging()
+
     try:
         if seventeenlands:
             from mtgdb.config import ensure_dirs
@@ -133,45 +151,46 @@ def db_sync(
             keywords_file = MTGJSON_DIR / "Keywords.json"
 
             if sets_only:
+                console.rule("[bold cyan]Sets", style="cyan")
                 download_and_extract_xz(ALL_PRINTINGS_URL, printings_db, force)
-                result = sync_sets(printings_db)
-                typer.echo(result.summary())
+                sync_sets(printings_db)
 
             if cards_only:
+                console.rule("[bold cyan]Cards", style="cyan")
                 download_and_extract_xz(ALL_PRINTINGS_URL, printings_db, force)
-                result = sync_cards(printings_db)
-                typer.echo(result.summary())
+                sync_cards(printings_db)
 
             if prices_only:
+                console.rule("[bold cyan]Prices", style="cyan")
                 download_and_extract_xz(ALL_PRICES_URL, prices_db, force)
-                result = sync_prices(prices_db)
-                typer.echo(result.summary())
+                sync_prices(prices_db)
 
             if decks_only:
+                console.rule("[bold cyan]Decks", style="cyan")
                 download_and_extract_tar_xz(ALL_DECK_FILES_URL, ALL_DECK_FILES_DIR, force)
-                result = sync_decks(ALL_DECK_FILES_DIR)
-                typer.echo(result.summary())
+                sync_decks(ALL_DECK_FILES_DIR)
 
             if keywords_only:
+                console.rule("[bold cyan]Keywords", style="cyan")
                 download_and_extract_xz(KEYWORDS_URL, keywords_file, force)
-                result = sync_keywords(keywords_file)
-                typer.echo(result.summary())
+                sync_keywords(keywords_file)
                 _sync_keyword_definitions(force)
 
             if keyword_definitions_only:
+                console.rule("[bold cyan]Keyword definitions", style="cyan")
                 _sync_keyword_definitions(force)
 
             if tags_only:
-                tag_data = fetch_all_tags(force=force)
+                console.rule("[bold cyan]Scryfall oracle tags", style="cyan")
+                fetch_all_tags(force=force)
                 sync_tags()
-                typer.echo(f"Tags sync complete. {sum(len(v) for v in tag_data.values())} card-tag pairs.")
         else:
             sync_all(force=force)
 
-        typer.echo(f"Data stored in {DB_PATH}")
+        console.print(f"[dim]Data stored in {DB_PATH}[/dim]")
 
     except Exception as e:
-        typer.echo(f"Error during sync: {e}")
+        console.print(f"[bold red]Error during sync:[/bold red] {e}")
         raise typer.Exit(1)
 
 
@@ -183,23 +202,21 @@ def _sync_keyword_definitions(force: bool = False):
     from mtgdb.sync.tables import check_missing_keyword_definitions, sync_keyword_definitions
 
     # Primary: Comprehensive Rules
-    rules_result = sync_definitions_from_rules(force)
-    typer.echo(rules_result.summary())
+    sync_definitions_from_rules(force)
 
     # Fallback: JSON file for keywords not in the rules (ability words, etc.)
     defs_file = _Path(__file__).parent.parent / "data" / "keyword-definitions.json"
     if defs_file.exists():
-        defs_result = sync_keyword_definitions(defs_file)
-        typer.echo(defs_result.summary())
+        sync_keyword_definitions(defs_file)
 
     # Report coverage
     missing = check_missing_keyword_definitions()
     if missing:
-        typer.echo(f"Warning: {len(missing)} keywords have no definition:")
+        console.print(f"  [yellow]![/yellow] {len(missing)} keywords have no definition:")
         for m in missing:
-            typer.echo(f"  [{m['type']}] {m['name']}")
+            console.print(f"    [dim][{m['type']}][/dim] {m['name']}")
     else:
-        typer.echo("All keywords have definitions.")
+        console.print("  [green]✓[/green] All keywords have definitions")
 
     # Report source breakdown
     from mtgdb.models import MJKeywordDefinition
@@ -210,7 +227,7 @@ def _sync_keyword_definitions(force: bool = False):
         sources = session.exec(
             select(MJKeywordDefinition.source, func.count()).group_by(MJKeywordDefinition.source)
         ).all()
-        typer.echo("Definition sources: " + ", ".join(f"{s}={c}" for s, c in sources))
+        console.print("  [dim]Definition sources:[/dim] " + ", ".join(f"{s}={c:,}" for s, c in sources))
 
 
 @db_app.command("sync-17l-personal")

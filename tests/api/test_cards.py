@@ -95,14 +95,42 @@ class TestSearchCards:
         assert both_total <= c_total + i_total
 
     def test_search_cards_filter_by_colors_single(self, client):
-        """Filter by single color works."""
-        response = client.get("/api/cards?colors=W")
+        """A single plain color returns only mono-colored cards of that color."""
+        response = client.get("/api/cards?colors=G")
         assert response.status_code == 200
+        for card in response.json()["data"]:
+            assert card["color_identity"] == ["G"]
 
     def test_search_cards_filter_by_colors_multiple(self, client):
-        """Filter by multiple colors works."""
+        """Multiple plain colors return mono-colored cards of any selected color."""
         response = client.get("/api/cards?colors=WU")
         assert response.status_code == 200
+        for card in response.json()["data"]:
+            assert card["color_identity"] in (["W"], ["U"])
+
+    def test_search_cards_filter_gold_with_color(self, client):
+        """Gold plus a color returns multicolor cards that include that color."""
+        response = client.get("/api/cards?colors=GM")
+        assert response.status_code == 200
+        for card in response.json()["data"]:
+            assert len(card["color_identity"]) >= 2
+            assert "G" in card["color_identity"]
+
+    def test_search_cards_filter_gold_with_two_colors(self, client):
+        """Gold plus two colors returns multicolor cards including both colors."""
+        response = client.get("/api/cards?colors=GRM")
+        assert response.status_code == 200
+        for card in response.json()["data"]:
+            assert len(card["color_identity"]) >= 2
+            assert "G" in card["color_identity"]
+            assert "R" in card["color_identity"]
+
+    def test_search_cards_filter_colorless(self, client):
+        """Colorless returns only cards with empty color identity."""
+        response = client.get("/api/cards?colors=C")
+        assert response.status_code == 200
+        for card in response.json()["data"]:
+            assert card["color_identity"] == []
 
     def test_search_cards_filter_by_price_range(self, client):
         """Filter by price range works."""
