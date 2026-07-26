@@ -93,7 +93,6 @@ class CardsData:
         owns_platform: str | None = None,
         wants: bool | None = None,
         unique: bool = False,
-        price_mode: str = "min",
         sort: str = "name",
         order: str = "asc",
         page: int = 1,
@@ -173,25 +172,23 @@ class CardsData:
             }
             sort_field = sort_map.get(sort, MJCard.name)
 
-            # Unique filter: one printing per card name, selected by price_mode
+            # Unique filter: one printing per card name — prefer the generic
+            # (default-booster) printing, break ties by cheapest price
             if unique:
                 from sqlalchemy.orm import aliased
 
                 MJCard2 = aliased(MJCard)
                 MJCardPrice2 = aliased(MJCardPrice)
 
-                # Pick price ordering based on price_mode
-                if price_mode == "max":
-                    price_order = MJCardPrice2.price.desc().nulls_last()
-                else:
-                    price_order = MJCardPrice2.price.asc().nulls_last()
-
-                # Row number: rank printings per card name by price
                 row_num = (
                     func.row_number()
                     .over(
                         partition_by=MJCard2.name,
-                        order_by=[price_order, MJCard2.uuid.asc()],
+                        order_by=[
+                            MJCard2.is_default_printing.desc(),
+                            MJCardPrice2.price.asc().nulls_last(),
+                            MJCard2.uuid.asc(),
+                        ],
                     )
                     .label("rn")
                 )
@@ -349,9 +346,9 @@ class CardsData:
                 query = query.where(price_col <= price_max)
 
             if unique:
-                # Match search_cards: rank printings per name by cheapest tcgplayer
-                # normal-retail price, keep rn=1. Identical semantics so the cards
-                # listing and the stats total agree.
+                # Match search_cards: prefer the generic (default-booster) printing,
+                # break ties by cheapest tcgplayer normal-retail price, keep rn=1.
+                # Identical semantics so the cards listing and the stats total agree.
                 from sqlalchemy.orm import aliased
 
                 MJCard2 = aliased(MJCard)
@@ -360,7 +357,11 @@ class CardsData:
                     func.row_number()
                     .over(
                         partition_by=MJCard2.name,
-                        order_by=[MJCardPrice2.price.asc().nulls_last(), MJCard2.uuid.asc()],
+                        order_by=[
+                            MJCard2.is_default_printing.desc(),
+                            MJCardPrice2.price.asc().nulls_last(),
+                            MJCard2.uuid.asc(),
+                        ],
                     )
                     .label("rn")
                 )

@@ -55,6 +55,26 @@ class TestDefaultPrinting:
         assert all(not p["is_default_printing"] for p in printings if p["language"] != "English")
 
 
+class TestUniqueRepresentative:
+    """unique=true represents each name by its generic (default-booster) printing."""
+
+    def test_unique_picks_default_printing(self, client):
+        results = client.get("/api/cards", params={"q": "Sheoldred, the Apocalypse", "unique": True}).json()["data"]
+        matches = [c for c in results if c["name"] == "Sheoldred, the Apocalypse"]
+        assert len(matches) == 1
+        assert matches[0]["set_code"] == "DMU"
+
+    def test_unique_returns_one_per_name(self, client):
+        data = client.get("/api/cards", params={"q": "Lightning Bolt", "unique": True, "limit": 50}).json()["data"]
+        names = [c["name"] for c in data]
+        assert len(names) == len(set(names))
+
+    def test_price_mode_param_is_ignored(self, client):
+        base = client.get("/api/cards?unique=true&sort=name&order=asc&limit=10").json()
+        with_param = client.get("/api/cards?unique=true&price_mode=max&sort=name&order=asc&limit=10").json()
+        assert base == with_param
+
+
 class TestSetPreferredPrinting:
     """Tests for PUT /api/decks/{deckId}/cards/{cardUuid}/printing."""
 

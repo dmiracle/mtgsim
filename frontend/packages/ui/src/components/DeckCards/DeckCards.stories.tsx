@@ -6,7 +6,7 @@ import { deckDetail } from "@/fixtures";
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, subtype: "", sets: [], formats: [],
 };
 
 const meta: Meta<typeof DeckCards> = {

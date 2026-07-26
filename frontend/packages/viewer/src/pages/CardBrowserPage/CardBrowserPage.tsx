@@ -28,7 +28,6 @@ export type CardSearchParams = {
   unique?: boolean;
   sort?: string;
   order?: string;
-  price_mode?: string;
 };
 
 type CardBrowserPageProps = {
@@ -54,7 +53,7 @@ type CardBrowserPageProps = {
 
 const emptyFilters: CardFilters = {
   text: "", colors: [], rarities: [], types: [], tags: [], manaValue: [],
-  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, priceMode: "min", subtype: "", sets: [], formats: [],
+  ownership: "all", platform: "any", sort: "name", order: "asc", unique: false, subtype: "", sets: [], formats: [],
 };
 
 export function CardBrowserPage({
@@ -108,7 +107,6 @@ export function CardBrowserPage({
     if (filters.unique) params.unique = true;
     if (filters.sort !== "name") params.sort = filters.sort;
     if (filters.order !== "asc") params.order = filters.order;
-    if (filters.priceMode !== "min") params.price_mode = filters.priceMode;
     onSearch(params);
   }, [nameSearch, formatFilter, setFilter, filters, selectedKeywords, onSearch]);
 

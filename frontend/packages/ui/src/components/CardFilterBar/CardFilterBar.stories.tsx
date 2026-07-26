@@ -24,7 +24,7 @@ const emptyFilters: CardFilters = {
   platform: "any",
   sort: "name",
   order: "asc",
-  unique: false, priceMode: "min", subtype: "", sets: [], formats: [], manaValue: [],
+  unique: false, subtype: "", sets: [], formats: [], manaValue: [],
 };
 
 const meta: Meta<typeof CardFilterBar> = {
@@ -64,7 +64,7 @@ export const Interactive: Story = {
       platform: "any",
       sort: "name",
       order: "asc",
-      unique: false, priceMode: "min", subtype: "", sets: [], formats: [], manaValue: [],
+      unique: false, subtype: "", sets: [], formats: [], manaValue: [],
     });
     return (
       <div className="space-y-4">
@@ -95,7 +95,7 @@ export const WithActiveFilters: Story = {
       platform: "any",
       sort: "mana_value",
       order: "asc",
-      unique: true, priceMode: "min", subtype: "", sets: [], formats: [], manaValue: [],
+      unique: true, subtype: "", sets: [], formats: [], manaValue: [],
     },
     availableTags: sampleTags,
     resultCount: 37,
