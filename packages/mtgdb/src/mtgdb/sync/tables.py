@@ -171,9 +171,34 @@ def sync_cards(source_db: Path) -> SyncResult:
     return SyncResult("Cards", before, result_cards)
 
 
+MJ_CARD_COLUMN_MIGRATIONS = {
+    "booster_types": "JSON DEFAULT '[]'",
+    "promo_types": "JSON DEFAULT '[]'",
+    "frame_effects": "JSON DEFAULT '[]'",
+    "is_alternative": "BOOLEAN DEFAULT 0",
+    "is_full_art": "BOOLEAN DEFAULT 0",
+    "language": "VARCHAR",
+    "is_default_printing": "BOOLEAN DEFAULT 0",
+}
+
+
+def _ensure_mj_card_columns(engine) -> None:
+    """Add columns introduced after a DB was created (no migration framework, see #77)."""
+    from sqlalchemy import text
+
+    with engine.connect() as sa_conn:
+        existing = {row[1] for row in sa_conn.execute(text("PRAGMA table_info(mj_card)"))}
+        for column, ddl in MJ_CARD_COLUMN_MIGRATIONS.items():
+            if column not in existing:
+                sa_conn.execute(text(f"ALTER TABLE mj_card ADD COLUMN {column} {ddl}"))
+        sa_conn.commit()
+
+
 def _sync_cards_table(conn, engine) -> int:
     """Sync main cards table. Returns count of cards synced."""
     total = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
+
+    _ensure_mj_card_columns(engine)
 
     with Session(engine) as session:
         session.exec(delete(MJCardLegality))
@@ -186,7 +211,8 @@ def _sync_cards_table(conn, engine) -> int:
                    power, toughness, loyalty, defense, rarity, number, artist,
                    layout, side, borderColor, frameVersion, flavorText,
                    colors, colorIdentity, types, subtypes, supertypes, keywords,
-                   finishes, isReprint, isReserved, isPromo
+                   finishes, isReprint, isReserved, isPromo,
+                   boosterTypes, promoTypes, frameEffects, isAlternative, isFullArt, language
             FROM cards
         """)
 
@@ -226,6 +252,13 @@ def _sync_cards_table(conn, engine) -> int:
                         is_reprint=bool(row["isReprint"]),
                         is_reserved=bool(row["isReserved"]),
                         is_promo=bool(row["isPromo"]),
+                        booster_types=_parse_json_array(row["boosterTypes"]),
+                        promo_types=_parse_json_array(row["promoTypes"]),
+                        frame_effects=_parse_json_array(row["frameEffects"]),
+                        is_alternative=bool(row["isAlternative"]),
+                        is_full_art=bool(row["isFullArt"]),
+                        language=row["language"],
+                        is_default_printing="default" in _parse_json_array(row["boosterTypes"]),
                     )
                 )
                 count += 1
@@ -236,8 +269,43 @@ def _sync_cards_table(conn, engine) -> int:
 
             session.commit()
 
-    console.print(f"  [green]✓[/green] Cards: {count:,} rows")
+    fallback_count = _flag_fallback_default_printings(engine)
+    console.print(f"  [green]✓[/green] Cards: {count:,} rows ({fallback_count:,} fallback default printings)")
     return count
+
+
+def _flag_fallback_default_printings(engine) -> int:
+    """Flag one generic printing per name for cards never printed in a default booster.
+
+    Rows with boosterTypes containing "default" are flagged during ingest; this covers
+    names only released outside boosters (precons, Secret Lair, ...) by picking the most
+    generic row: non-promo, non-alternative, English, nonfoil-available, preferring plain
+    frames and the lowest collector number. Names with no qualifying row stay unflagged.
+    """
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+            WITH ranked AS (
+                SELECT uuid, ROW_NUMBER() OVER (
+                    PARTITION BY name
+                    ORDER BY frame_effects != '[]', is_full_art, CAST(number AS INTEGER), number, uuid
+                ) AS rn
+                FROM mj_card
+                WHERE name IN (
+                    SELECT name FROM mj_card GROUP BY name HAVING MAX(is_default_printing) = 0
+                )
+                AND is_promo = 0 AND is_alternative = 0 AND promo_types = '[]'
+                AND language = 'English' AND finishes LIKE '%nonfoil%'
+            )
+            UPDATE mj_card SET is_default_printing = 1
+            WHERE uuid IN (SELECT uuid FROM ranked WHERE rn = 1)
+        """)
+        )
+        count = conn.execute(text("SELECT changes()")).scalar()
+        conn.commit()
+        return count
 
 
 def _sync_identifiers(conn, engine):

@@ -65,6 +65,17 @@ class MJCard(SQLModel, table=True):
     is_reserved: bool = False
     is_promo: bool = False
 
+    # Printing variant data
+    booster_types: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    promo_types: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    frame_effects: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    is_alternative: bool = False
+    is_full_art: bool = False
+    language: str | None = None
+    # True for plain booster printings (boosterTypes contains "default"), or the single
+    # most generic printing per name when no printing was ever in a default booster.
+    is_default_printing: bool = Field(default=False, index=True)
+
 
 class MJCardIdentifier(SQLModel, table=True):
     """External identifiers for cards (Scryfall, TCGPlayer, etc.)."""

@@ -50,7 +50,9 @@ Add `--force` to any command to re-download files that already exist.
 | Table | Source Table | Key Fields |
 |-------|-------------|------------|
 | `mj_set` | sets | code, name, type, releaseDate, baseSetSize, totalSetSize |
-| `mj_card` | cards | uuid, name, setCode, manaCost, manaValue, type, text, power, toughness, rarity, colors, keywords (JSON) |
+| `mj_card` | cards | uuid, name, setCode, manaCost, manaValue, type, text, power, toughness, rarity, colors, keywords (JSON), variant data (boosterTypes, promoTypes, frameEffects, isAlternative, isFullArt, language) |
+
+`mj_card.is_default_printing` is computed during sync: true for printings whose `boosterTypes` contains `default` (plain booster versions), plus one fallback row per card name never printed in a default booster (non-promo, non-alternative, English, nonfoil-available, preferring plain frames and lowest collector number). Exposed on `GET /api/cards/{uuid}/printings` and `CardDetail.other_printings` so the frontend can prefer the generic printing.
 | `mj_card_identifier` | cardIdentifiers | scryfallId, tcgplayerProductId, mtgoId, multiverseId |
 | `mj_card_legality` | cardLegalities | format, status (Legal, Banned, Restricted, etc.) |
 

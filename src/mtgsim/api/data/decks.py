@@ -1251,7 +1251,14 @@ class DecksData:
                 return None
 
             rows = session.exec(
-                select(MJCard.uuid, MJCard.set_code, MJCard.number, MJCardIdentifier.scryfall_id)
+                select(
+                    MJCard.uuid,
+                    MJCard.set_code,
+                    MJCard.number,
+                    MJCard.language,
+                    MJCard.is_default_printing,
+                    MJCardIdentifier.scryfall_id,
+                )
                 .outerjoin(MJCardIdentifier, MJCard.uuid == MJCardIdentifier.card_uuid)
                 .where(MJCard.name == card_name)
                 .order_by(MJCard.set_code, MJCard.number)
@@ -1271,9 +1278,11 @@ class DecksData:
                     "set_code": set_code,
                     "set_name": set_names.get(set_code, ""),
                     "number": number,
+                    "language": language,
+                    "is_default_printing": bool(is_default_printing),
                     "image_url": build_image_url(scryfall_id),
                 }
-                for uuid, set_code, number, scryfall_id in rows
+                for uuid, set_code, number, language, is_default_printing, scryfall_id in rows
             ]
 
     def get_available_sets(self) -> list[str]:

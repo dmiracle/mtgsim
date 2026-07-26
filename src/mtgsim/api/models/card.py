@@ -80,6 +80,8 @@ class CardPrinting(BaseModel):
     price: float | None = None
     owns: bool = False
     total_owned: int = 0
+    language: str | None = None
+    is_default_printing: bool = False
 
 
 class QuadrantRating(BaseModel):

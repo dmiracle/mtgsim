@@ -486,6 +486,8 @@ class TestGetCard:
             assert "set_code" in printing
             assert "set_name" in printing
             assert "uuid" in printing
+            assert "language" in printing
+            assert "is_default_printing" in printing
 
     def test_get_card_has_tags(self, client, sample_card_uuid):
         """Card detail includes tags field."""

@@ -825,6 +825,8 @@ class CardsData:
                         "price": best_price,
                         "owns": total_owned > 0,
                         "total_owned": total_owned,
+                        "language": mj_card.language,
+                        "is_default_printing": mj_card.is_default_printing,
                     }
                 )
 
