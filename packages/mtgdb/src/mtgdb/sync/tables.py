@@ -281,6 +281,9 @@ def _flag_fallback_default_printings(engine) -> int:
     names only released outside boosters (precons, Secret Lair, ...) by picking the most
     generic row: non-promo, non-alternative, English, nonfoil-available, preferring plain
     frames and the lowest collector number. Names with no qualifying row stay unflagged.
+
+    "universesbeyond" is a set-brand marker carried by plain base-set cards in UB sets
+    (e.g. every LTR base card), not a variant marker, so it doesn't disqualify a row.
     """
     from sqlalchemy import text
 
@@ -296,7 +299,8 @@ def _flag_fallback_default_printings(engine) -> int:
                 WHERE name IN (
                     SELECT name FROM mj_card GROUP BY name HAVING MAX(is_default_printing) = 0
                 )
-                AND is_promo = 0 AND is_alternative = 0 AND promo_types = '[]'
+                AND is_promo = 0 AND is_alternative = 0
+                AND promo_types IN ('[]', '["universesbeyond"]')
                 AND language = 'English' AND finishes LIKE '%nonfoil%'
             )
             UPDATE mj_card SET is_default_printing = 1

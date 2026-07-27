@@ -214,3 +214,65 @@ class TestDownloadFunctions:
 
         src_path.unlink(missing_ok=True)
         dest_path.unlink(missing_ok=True)
+
+
+class TestFlagFallbackDefaultPrintings:
+    """Tests for _flag_fallback_default_printings."""
+
+    def _card(self, uuid, name, number, **kwargs):
+        from mtgdb.models import MJCard
+
+        return MJCard(uuid=uuid, name=name, set_code="TST", number=number, language="English", **kwargs)
+
+    def _run(self, initialized_db, cards):
+        from mtgdb.sync.tables import _flag_fallback_default_printings
+
+        _, engine = initialized_db
+        with Session(engine) as session:
+            for card in cards:
+                session.add(card)
+            session.commit()
+        _flag_fallback_default_printings(engine)
+        with Session(engine) as session:
+            from mtgdb.models import MJCard
+
+            return {c.uuid: c.is_default_printing for c in session.exec(select(MJCard)).all()}
+
+    def test_skips_names_with_default_booster_printing(self, initialized_db):
+        flags = self._run(
+            initialized_db,
+            [
+                self._card("a1", "Bolt", "1", finishes=["nonfoil"], is_default_printing=True),
+                self._card("a2", "Bolt", "2", finishes=["nonfoil"]),
+            ],
+        )
+        assert flags == {"a1": True, "a2": False}
+
+    def test_flags_most_generic_row(self, initialized_db):
+        flags = self._run(
+            initialized_db,
+            [
+                self._card("b1", "Precon Card", "5", finishes=["nonfoil"], frame_effects=["showcase"]),
+                self._card("b2", "Precon Card", "9", finishes=["nonfoil", "foil"]),
+                self._card("b3", "Precon Card", "99", finishes=["foil"]),
+            ],
+        )
+        assert flags == {"b1": False, "b2": True, "b3": False}
+
+    def test_universesbeyond_promo_type_does_not_disqualify(self, initialized_db):
+        flags = self._run(
+            initialized_db,
+            [self._card("c1", "UB Card", "37", finishes=["nonfoil", "foil"], promo_types=["universesbeyond"])],
+        )
+        assert flags == {"c1": True}
+
+    def test_no_qualifying_row_stays_unflagged(self, initialized_db):
+        flags = self._run(
+            initialized_db,
+            [
+                self._card("d1", "Foil Promo", "1", finishes=["foil"]),
+                self._card("d2", "Foil Promo", "2", finishes=["nonfoil"], is_promo=True),
+                self._card("d3", "Foil Promo", "3", finishes=["nonfoil"], promo_types=["prerelease"]),
+            ],
+        )
+        assert flags == {"d1": False, "d2": False, "d3": False}
