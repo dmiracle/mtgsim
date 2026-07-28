@@ -6,6 +6,8 @@ import { SearchInput } from "@/components/SearchInput/SearchInput";
 import { CardFilterBar } from "@/components/CardFilterBar/CardFilterBar";
 import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { CardGrid } from "@/components/CardGrid/CardGrid";
+import { GridSizeToggle } from "@/components/GridSizeToggle/GridSizeToggle";
+import type { GridSize } from "@/components/GridSizeToggle/GridSizeToggle";
 import { CardTable } from "@/components/CardTable/CardTable";
 import { KeywordCloud } from "@/components/KeywordCloud/KeywordCloud";
 import { VBarChart } from "@/components/charts/VBarChart/VBarChart";
@@ -82,6 +84,7 @@ export function CardBrowserPage({
   const [filters, setFilters] = usePersistedState<CardFilters>("cards.filters", emptyFilters);
   const [selectedKeywords, setSelectedKeywords] = usePersistedState<string[]>("cards.keywords", []);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [gridSize, setGridSize] = usePersistedState<GridSize>("cards.gridSize", "small", localStorage);
 
   const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
 
@@ -210,6 +213,11 @@ export function CardBrowserPage({
             >
               Table
             </button>
+            {viewMode === "grid" && (
+              <div className="ml-2">
+                <GridSizeToggle value={gridSize} onChange={setGridSize} />
+              </div>
+            )}
             {onDownload && hasActiveFilter && (
               <button
                 onClick={onDownload}
@@ -232,6 +240,7 @@ export function CardBrowserPage({
           ) : viewMode === "grid" ? (
             <CardGrid
               cards={sortedCards}
+              size={gridSize}
               pagination={pagination}
               pinnedIds={pinnedIds}
               onCardClick={onCardClick}

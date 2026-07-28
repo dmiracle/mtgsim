@@ -21,6 +21,8 @@ export { CardFilterBar } from "./components/CardFilterBar/CardFilterBar";
 export type { CardFilters } from "./components/CardFilterBar/CardFilterBar";
 export { CardGrid } from "./components/CardGrid/CardGrid";
 export { CardGridItem } from "./components/CardGridItem/CardGridItem";
+export { GridSizeToggle } from "./components/GridSizeToggle/GridSizeToggle";
+export type { GridSize } from "./components/GridSizeToggle/GridSizeToggle";
 export { CardHoverLarge } from "./components/CardHoverLarge/CardHoverLarge";
 export { CardIdentity } from "./components/CardIdentity/CardIdentity";
 export { CardKeywords } from "./components/CardKeywords/CardKeywords";

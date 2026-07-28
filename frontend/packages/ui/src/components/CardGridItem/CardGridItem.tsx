@@ -2,10 +2,12 @@ import type { CardSummary } from "@/types/api";
 import { ManaSymbols } from "@/components/ManaSymbols/ManaSymbols";
 import { SetBadge } from "@/components/SetBadge/SetBadge";
 import { CardHoverLarge } from "@/components/CardHoverLarge/CardHoverLarge";
+import type { GridSize } from "@/components/GridSizeToggle/GridSizeToggle";
 import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
 
 type CardGridItemProps = {
   card: CardSummary;
+  size?: GridSize;
   pinned?: boolean;
   quantity?: number;
   onPin?: (uuid: string) => void;
@@ -41,6 +43,7 @@ const colorBadges: Record<string, string> = {
 
 export function CardGridItem({
   card,
+  size = "small",
   pinned = false,
   quantity,
   onPin,
@@ -96,7 +99,7 @@ export function CardGridItem({
       <div className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <h3
-            className="text-sm font-medium text-text-primary leading-tight cursor-pointer hover:text-accent truncate"
+            className={`${size === "large" ? "text-base" : "text-sm"} font-medium text-text-primary leading-tight cursor-pointer hover:text-accent truncate`}
             onClick={() => onClick?.(card.uuid)}
             title={card.name}
           >
@@ -105,10 +108,13 @@ export function CardGridItem({
           <ManaSymbols cost={card.mana_cost} size="sm" />
         </div>
 
-        <p className="text-xs text-text-muted truncate">{card.type}</p>
+        <p className={`${size === "large" ? "text-sm" : "text-xs"} text-text-muted truncate`}>{card.type}</p>
 
         {card.text && (
-          <p className="text-xs text-text-muted line-clamp-2" title={card.text}>
+          <p
+            className={`text-xs text-text-muted ${size === "large" ? "line-clamp-4" : "line-clamp-2"}`}
+            title={card.text}
+          >
             {card.text}
           </p>
         )}
