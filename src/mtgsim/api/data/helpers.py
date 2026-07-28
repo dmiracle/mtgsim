@@ -13,7 +13,7 @@ def build_image_url(scryfall_id: str | None) -> str | None:
     """Build Scryfall image URL from identifier."""
     if not scryfall_id:
         return None
-    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
+    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg?v=1"
 
 
 def parse_json_column(value: str | list | None, default=None) -> list:
