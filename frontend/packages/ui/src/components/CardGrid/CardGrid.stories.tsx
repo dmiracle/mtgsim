@@ -36,6 +36,20 @@ export const Default: Story = {
   },
 };
 
+export const MediumSize: Story = {
+  args: {
+    cards: cardSummaries,
+    size: "medium",
+  },
+};
+
+export const LargeSize: Story = {
+  args: {
+    cards: cardSummaries,
+    size: "large",
+  },
+};
+
 export const WithPinnedCards: Story = {
   args: {
     cards: cardSummaries,

@@ -1,9 +1,17 @@
 import type { CardSummary, Pagination as PaginationType } from "@/types/api";
 import { CardGridItem } from "@/components/CardGridItem/CardGridItem";
+import type { GridSize } from "@/components/GridSizeToggle/GridSizeToggle";
 import { Pagination } from "@/components/Pagination/Pagination";
+
+const gridColumns: Record<GridSize, string> = {
+  small: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+  medium: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+  large: "grid-cols-1 md:grid-cols-2 xl:grid-cols-3",
+};
 
 type CardGridProps = {
   cards: CardSummary[];
+  size?: GridSize;
   pagination?: PaginationType;
   pinnedIds?: Set<string>;
   quantities?: Record<string, number>;
@@ -18,6 +26,7 @@ type CardGridProps = {
 
 export function CardGrid({
   cards,
+  size = "small",
   pagination,
   pinnedIds = new Set(),
   quantities,
@@ -39,11 +48,12 @@ export function CardGrid({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className={`grid ${gridColumns[size]} gap-4`}>
         {cards.map((card) => (
           <CardGridItem
             key={card.uuid}
             card={card}
+            size={size}
             pinned={pinnedIds.has(card.uuid)}
             quantity={quantities?.[card.uuid]}
             onPin={onPin}
