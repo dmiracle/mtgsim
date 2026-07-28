@@ -43,7 +43,6 @@ class CardService:
         owns_platform: str | None = None,
         wants: bool | None = None,
         unique: bool = False,
-        price_mode: str = "min",
     ) -> CardListResponse:
         """Search cards with filters."""
         logger.debug(
@@ -71,7 +70,6 @@ class CardService:
             owns_platform=owns_platform,
             wants=wants,
             unique=unique,
-            price_mode=price_mode,
         )
 
         logger.debug(f"search_cards: got {len(cards)} cards, total={total}")

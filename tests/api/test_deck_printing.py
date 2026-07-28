@@ -21,10 +21,58 @@ class TestCardPrintings:
         assert "set_name" in printing
         assert "number" in printing
         assert "image_url" in printing
+        assert "language" in printing
+        assert "is_default_printing" in printing
 
     def test_nonexistent_returns_404(self, client):
         response = client.get("/api/cards/nonexistent-uuid/printings")
         assert response.status_code == 404
+
+
+class TestDefaultPrinting:
+    """Tests for the is_default_printing flag on printings."""
+
+    def _printings_by_name(self, client, name):
+        results = client.get("/api/cards", params={"q": name, "limit": 20}).json()["data"]
+        matches = [c for c in results if c["name"] == name]
+        assert matches, f"card not found: {name}"
+        return client.get(f"/api/cards/{matches[0]['uuid']}/printings").json()
+
+    def test_variant_heavy_card_has_default_printing(self, client):
+        printings = self._printings_by_name(client, "Sheoldred, the Apocalypse")
+        defaults = [p for p in printings if p["is_default_printing"]]
+        assert defaults
+        assert any(p["set_code"] == "DMU" and p["number"] == "107" for p in defaults)
+        promo = next(p for p in printings if p["set_code"] == "PDMU")
+        assert not promo["is_default_printing"]
+
+    def test_old_set_printing_is_default(self, client):
+        printings = self._printings_by_name(client, "Lightning Bolt")
+        assert any(p["is_default_printing"] and p["set_code"] == "LEA" for p in printings)
+
+    def test_non_english_printing_not_default(self, client):
+        printings = self._printings_by_name(client, "Sheoldred, the Apocalypse")
+        assert all(not p["is_default_printing"] for p in printings if p["language"] != "English")
+
+
+class TestUniqueRepresentative:
+    """unique=true represents each name by its generic (default-booster) printing."""
+
+    def test_unique_picks_default_printing(self, client):
+        results = client.get("/api/cards", params={"q": "Sheoldred, the Apocalypse", "unique": True}).json()["data"]
+        matches = [c for c in results if c["name"] == "Sheoldred, the Apocalypse"]
+        assert len(matches) == 1
+        assert matches[0]["set_code"] == "DMU"
+
+    def test_unique_returns_one_per_name(self, client):
+        data = client.get("/api/cards", params={"q": "Lightning Bolt", "unique": True, "limit": 50}).json()["data"]
+        names = [c["name"] for c in data]
+        assert len(names) == len(set(names))
+
+    def test_price_mode_param_is_ignored(self, client):
+        base = client.get("/api/cards?unique=true&sort=name&order=asc&limit=10").json()
+        with_param = client.get("/api/cards?unique=true&price_mode=max&sort=name&order=asc&limit=10").json()
+        assert base == with_param
 
 
 class TestSetPreferredPrinting:
