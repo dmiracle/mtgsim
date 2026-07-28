@@ -1,7 +1,8 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CardGridItem } from "./CardGridItem";
-import { cardSummaries } from "@/fixtures";
+import { cardPrintings, cardSummaries } from "@/fixtures";
 
 const meta: Meta<typeof CardGridItem> = {
   title: "Cards/CardGridItem",
@@ -51,4 +52,29 @@ export const Rare: Story = {
 
 export const CheapCommon: Story = {
   args: { card: cardSummaries[4] },
+};
+
+export const PrintingCarousel: Story = {
+  render: (args) => {
+    const [index, setIndex] = useState(0);
+    const printing = cardPrintings[index];
+    const card = {
+      ...cardSummaries[0],
+      uuid: printing.uuid,
+      set_code: printing.set_code,
+      image_url: printing.image_url,
+    };
+    return (
+      <CardGridItem
+        {...args}
+        card={card}
+        printingNav={{
+          index,
+          count: cardPrintings.length,
+          onPrev: () => setIndex((i) => (i - 1 + cardPrintings.length) % cardPrintings.length),
+          onNext: () => setIndex((i) => (i + 1) % cardPrintings.length),
+        }}
+      />
+    );
+  },
 };

@@ -159,6 +159,8 @@ export type DeckCardPrinting = {
   set_code: string;
   set_name: string;
   number: string;
+  language: string | null;
+  is_default_printing: boolean;
   image_url: string | null;
 };
 

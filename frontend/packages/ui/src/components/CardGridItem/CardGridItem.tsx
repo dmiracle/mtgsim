@@ -4,10 +4,19 @@ import { SetBadge } from "@/components/SetBadge/SetBadge";
 import { CardHoverLarge } from "@/components/CardHoverLarge/CardHoverLarge";
 import type { GridSize } from "@/components/GridSizeToggle/GridSizeToggle";
 import { PinnedBadge } from "@/components/PinnedBadge/PinnedBadge";
+import { PrintingCarouselControls } from "@/components/PrintingCarouselControls/PrintingCarouselControls";
+
+export type PrintingNav = {
+  index: number;
+  count: number;
+  onPrev: () => void;
+  onNext: () => void;
+};
 
 type CardGridItemProps = {
   card: CardSummary;
   size?: GridSize;
+  printingNav?: PrintingNav;
   pinned?: boolean;
   quantity?: number;
   onPin?: (uuid: string) => void;
@@ -44,6 +53,7 @@ const colorBadges: Record<string, string> = {
 export function CardGridItem({
   card,
   size = "small",
+  printingNav,
   pinned = false,
   quantity,
   onPin,
@@ -93,6 +103,7 @@ export function CardGridItem({
             {quantity}
           </span>
         )}
+        {printingNav && printingNav.count > 1 && <PrintingCarouselControls {...printingNav} />}
       </div>
 
       {/* Card info */}

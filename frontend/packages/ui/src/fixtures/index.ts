@@ -1,4 +1,5 @@
 export { cardSummaries, cardDetail, strategies, similarResults } from "./cards";
+export { cardPrintings } from "./printings";
 export { setSummaries, setDetail } from "./sets";
 export { deckSummaries, deckDetail, userDecks } from "./decks";
 export { homeStats } from "./stats";
