@@ -49,7 +49,7 @@ def _collection_has_flashcards(client: SRSClient, collection_id: int) -> bool:
 def _build_image_url(scryfall_id: str | None) -> str | None:
     if not scryfall_id:
         return None
-    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
+    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg?v=1"
 
 
 def generate_keyword_flashcards(

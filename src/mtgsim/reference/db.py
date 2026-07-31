@@ -31,7 +31,7 @@ def get_scryfall_image_url(identifiers_json: str | None, size: str = "normal") -
     identifiers = parse_json_dict(identifiers_json)
     scryfall_id = identifiers.get("scryfallId")
     if scryfall_id and len(scryfall_id) >= 2:
-        return f"https://cards.scryfall.io/{size}/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
+        return f"https://cards.scryfall.io/{size}/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg?v=1"
     return None
 
 

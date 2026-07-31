@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from "react";
 import type { CardSummary, Pagination as PaginationType } from "@/types/api";
 import { CardGridItem } from "@/components/CardGridItem/CardGridItem";
 import type { GridSize } from "@/components/GridSizeToggle/GridSizeToggle";
@@ -12,6 +13,7 @@ const gridColumns: Record<GridSize, string> = {
 type CardGridProps = {
   cards: CardSummary[];
   size?: GridSize;
+  renderItem?: (card: CardSummary) => ReactNode;
   pagination?: PaginationType;
   pinnedIds?: Set<string>;
   quantities?: Record<string, number>;
@@ -27,6 +29,7 @@ type CardGridProps = {
 export function CardGrid({
   cards,
   size = "small",
+  renderItem,
   pagination,
   pinnedIds = new Set(),
   quantities,
@@ -49,7 +52,10 @@ export function CardGrid({
   return (
     <div className="space-y-4">
       <div className={`grid ${gridColumns[size]} gap-4`}>
-        {cards.map((card) => (
+        {cards.map((card) =>
+          renderItem ? (
+            <Fragment key={card.uuid}>{renderItem(card)}</Fragment>
+          ) : (
           <CardGridItem
             key={card.uuid}
             card={card}
@@ -63,7 +69,8 @@ export function CardGrid({
             onClick={onCardClick}
             onSetClick={onSetClick}
           />
-        ))}
+          ),
+        )}
       </div>
       {pagination && onPageChange && (
         <Pagination

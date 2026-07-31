@@ -70,6 +70,8 @@ export { PackDisplay } from "./components/PackDisplay/PackDisplay";
 export { PackHistory } from "./components/PackHistory/PackHistory";
 export { Pagination } from "./components/Pagination/Pagination";
 export { PinButton } from "./components/PinButton/PinButton";
+export { PrintingCarouselControls } from "./components/PrintingCarouselControls/PrintingCarouselControls";
+export type { PrintingNav } from "./components/CardGridItem/CardGridItem";
 export { PrintingPicker } from "./components/PrintingPicker/PrintingPicker";
 export { PinnedBadge } from "./components/PinnedBadge/PinnedBadge";
 export { PriceExplorer } from "./components/PriceExplorer/PriceExplorer";

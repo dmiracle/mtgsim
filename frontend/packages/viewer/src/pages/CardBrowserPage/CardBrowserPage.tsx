@@ -8,6 +8,7 @@ import type { CardFilters } from "@/components/CardFilterBar/CardFilterBar";
 import { CardGrid } from "@/components/CardGrid/CardGrid";
 import { GridSizeToggle } from "@/components/GridSizeToggle/GridSizeToggle";
 import type { GridSize } from "@/components/GridSizeToggle/GridSizeToggle";
+import { UniquePrintingCardItem } from "./UniquePrintingCardItem";
 import { CardTable } from "@/components/CardTable/CardTable";
 import { KeywordCloud } from "@/components/KeywordCloud/KeywordCloud";
 import { VBarChart } from "@/components/charts/VBarChart/VBarChart";
@@ -85,6 +86,20 @@ export function CardBrowserPage({
   const [selectedKeywords, setSelectedKeywords] = usePersistedState<string[]>("cards.keywords", []);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [gridSize, setGridSize] = usePersistedState<GridSize>("cards.gridSize", "small", localStorage);
+  const [uniquePrintings, setUniquePrintings] = usePersistedState<Record<string, string>>(
+    "cards.uniquePrintings",
+    {},
+    localStorage,
+  );
+
+  function selectPrinting(name: string, uuid: string | null) {
+    setUniquePrintings((prev) => {
+      const next = { ...prev };
+      if (uuid) next[name] = uuid;
+      else delete next[name];
+      return next;
+    });
+  }
 
   const hasActiveFilter = !!(nameSearch || formatFilter || setFilter || filters.text || filters.colors.length || filters.rarities.length || filters.types.length || filters.subtype || filters.sets.length || filters.formats.length || filters.tags.length || filters.manaValue.length || filters.ownership !== "all" || selectedKeywords.length);
 
@@ -241,6 +256,24 @@ export function CardBrowserPage({
             <CardGrid
               cards={sortedCards}
               size={gridSize}
+              renderItem={
+                filters.unique
+                  ? (card) => (
+                      <UniquePrintingCardItem
+                        card={card}
+                        overrideUuid={uniquePrintings[card.name]}
+                        onSelectPrinting={selectPrinting}
+                        size={gridSize}
+                        pinned={pinnedIds.has(card.uuid)}
+                        onPin={onPin}
+                        onAddToDeck={onAddToDeck}
+                        onAddToCollection={onAddToCollection}
+                        onClick={onCardClick}
+                        onSetClick={onSetClick}
+                      />
+                    )
+                  : undefined
+              }
               pagination={pagination}
               pinnedIds={pinnedIds}
               onCardClick={onCardClick}

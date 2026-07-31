@@ -10,7 +10,7 @@ from .models import BoosterCard
 def _build_image_url(scryfall_id: str | None) -> str | None:
     if not scryfall_id:
         return None
-    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
+    return f"https://cards.scryfall.io/large/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg?v=1"
 
 
 class SetPool:
