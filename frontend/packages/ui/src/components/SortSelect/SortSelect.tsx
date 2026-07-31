@@ -6,12 +6,15 @@ type SortOption = {
 type SortSelectProps = {
   options: SortOption[];
   sort: string;
+  /** Secondary sort field, shown as "then <label>" */
+  secondary?: string;
   order: "asc" | "desc";
   onSortChange: (sort: string) => void;
   onOrderChange: (order: "asc" | "desc") => void;
 };
 
-export function SortSelect({ options, sort, order, onSortChange, onOrderChange }: SortSelectProps) {
+export function SortSelect({ options, sort, secondary, order, onSortChange, onOrderChange }: SortSelectProps) {
+  const secondaryLabel = secondary !== sort && options.find((o) => o.value === secondary)?.label;
   return (
     <div className="inline-flex items-center gap-1">
       <select
@@ -25,6 +28,11 @@ export function SortSelect({ options, sort, order, onSortChange, onOrderChange }
           </option>
         ))}
       </select>
+      {secondaryLabel && (
+        <span className="text-[10px] text-text-muted whitespace-nowrap" title="Secondary sort">
+          then {secondaryLabel}
+        </span>
+      )}
       <button
         onClick={() => onOrderChange(order === "asc" ? "desc" : "asc")}
         className="px-2 py-1.5 text-xs rounded border border-border bg-bg-secondary text-text-muted hover:text-text-secondary hover:border-border-hover transition-colors"

@@ -53,3 +53,12 @@ export const Interactive: Story = {
     );
   },
 };
+
+export const WithSecondarySort: Story = {
+  args: {
+    options: [...cardSortOptions, { value: "color", label: "Color" }],
+    sort: "color",
+    secondary: "mana_value",
+    order: "asc",
+  },
+};

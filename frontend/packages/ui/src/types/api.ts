@@ -131,6 +131,8 @@ export type CardSummary = {
   mana_value: number;
   rarity: string;
   set_code: string;
+  /** Card colors (gold/hybrid both list all colors); absent on endpoints that don't serve it */
+  colors?: string[];
   color_identity: string[];
   tags: string[];
   text: string;
