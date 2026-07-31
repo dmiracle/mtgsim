@@ -517,3 +517,43 @@ class TestGetCard:
         assert "error" in data
         assert "code" in data["error"]
         assert "message" in data["error"]
+
+
+class TestColorSort:
+    """sort=color groups color combinations; comma chains add secondary sorts."""
+
+    def _cards(self, client, qs):
+        return client.get(f"/api/cards?{qs}").json()["data"]
+
+    def test_summary_includes_colors(self, client):
+        card = self._cards(client, "q=Lightning Bolt&limit=1")[0]
+        assert "colors" in card
+
+    def test_color_groups_are_contiguous(self, client):
+        cards = self._cards(client, "sets=SHM&sort=color&limit=100")
+        keys = [tuple(sorted(c["colors"])) for c in cards]
+        seen, prev = set(), None
+        for key in keys:
+            if key != prev:
+                assert key not in seen, f"color group {key} split apart"
+                seen.add(key)
+                prev = key
+
+    def test_mono_before_pairs_before_colorless(self, client):
+        cards = self._cards(client, "sets=DMU&rarity=mythic&sort=color&unique=true&limit=100")
+        sizes = [len(c["colors"]) if c["colors"] else 99 for c in cards]
+        assert sizes == sorted(sizes)
+
+    def test_secondary_sort_orders_within_color_group(self, client):
+        cards = self._cards(client, "sets=DMU&rarity=uncommon&sort=color,mana_value&limit=100")
+        prev_key, prev_mv = None, None
+        for c in cards:
+            key = tuple(sorted(c["colors"]))
+            if key == prev_key and c["mana_value"] is not None and prev_mv is not None:
+                assert c["mana_value"] >= prev_mv
+            prev_key, prev_mv = key, c["mana_value"]
+
+    def test_unknown_sort_field_falls_back_to_name(self, client):
+        bogus = self._cards(client, "q=bolt&sort=bogus&limit=20")
+        by_name = self._cards(client, "q=bolt&sort=name&limit=20")
+        assert bogus == by_name

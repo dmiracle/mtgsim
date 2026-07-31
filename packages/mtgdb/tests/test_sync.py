@@ -276,3 +276,29 @@ class TestFlagFallbackDefaultPrintings:
             ],
         )
         assert flags == {"d1": False, "d2": False, "d3": False}
+
+
+class TestColorSortKey:
+    """Tests for color_sort_key."""
+
+    def test_mono_colors_in_wubrg_order(self):
+        from mtgdb.sync.tables import color_sort_key
+
+        keys = [color_sort_key([c]) for c in ["W", "U", "B", "R", "G"]]
+        assert keys == sorted(keys)
+
+    def test_gold_and_hybrid_same_colors_share_key(self):
+        from mtgdb.sync.tables import color_sort_key
+
+        assert color_sort_key(["W", "U"]) == color_sort_key(["U", "W"])
+
+    def test_mono_before_pairs_before_triples(self):
+        from mtgdb.sync.tables import color_sort_key
+
+        assert color_sort_key(["G"]) < color_sort_key(["W", "U"])
+        assert color_sort_key(["R", "G"]) < color_sort_key(["W", "U", "B"])
+
+    def test_colorless_last(self):
+        from mtgdb.sync.tables import color_sort_key
+
+        assert color_sort_key([]) > color_sort_key(["W", "U", "B", "R", "G"])
