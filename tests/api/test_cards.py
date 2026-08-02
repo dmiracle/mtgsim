@@ -557,3 +557,27 @@ class TestColorSort:
         bogus = self._cards(client, "q=bolt&sort=bogus&limit=20")
         by_name = self._cards(client, "q=bolt&sort=name&limit=20")
         assert bogus == by_name
+
+
+class TestRaritySort:
+    """sort=rarity orders common < uncommon < rare < mythic, not alphabetically."""
+
+    RANK = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
+
+    def test_set_filtered_by_color_sorted_by_rarity(self, client):
+        # Pull a set, filter by color, sort by rarity — the reported workflow
+        cards = client.get("/api/cards?sets=DMU&colors=U&sort=rarity&limit=100").json()["data"]
+        assert cards
+        ranks = [self.RANK.get(c["rarity"], 4) for c in cards]
+        assert ranks == sorted(ranks)
+        assert ranks[0] == 0 and ranks[-1] >= 2
+
+    def test_rarity_desc(self, client):
+        cards = client.get("/api/cards?sets=DMU&colors=U&sort=rarity&order=desc&limit=100").json()["data"]
+        ranks = [self.RANK.get(c["rarity"], 4) for c in cards]
+        assert ranks == sorted(ranks, reverse=True)
+
+    def test_rarity_sort_on_set_endpoint(self, client):
+        data = client.get("/api/sets/DMU?sort=rarity&limit=100").json()
+        ranks = [self.RANK.get(c["rarity"], 4) for c in data["cards"]["data"]]
+        assert ranks == sorted(ranks)

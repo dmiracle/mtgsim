@@ -231,9 +231,7 @@ def apply_card_filters(
     if wants is True:
         query = query.where((U.quantity_wanted > 0) | (U.quantity_wanted_foil > 0))
     elif wants is False:
-        query = query.where(
-            (U.id.is_(None)) | ((U.quantity_wanted == 0) & (U.quantity_wanted_foil == 0))
-        )
+        query = query.where((U.id.is_(None)) | ((U.quantity_wanted == 0) & (U.quantity_wanted_foil == 0)))
     return query
 
 
@@ -417,3 +415,14 @@ def deck_card_to_api_dict(
         "owned_count": owned_count,
         "missing_count": missing_count,
     }
+
+
+RARITY_RANK = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
+
+
+def rarity_order():
+    """CASE expression ranking rarity common < uncommon < rare < mythic < other."""
+    from mtgdb.models import MJCard
+    from sqlalchemy import case
+
+    return case(RARITY_RANK, value=MJCard.rarity, else_=len(RARITY_RANK))

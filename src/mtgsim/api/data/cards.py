@@ -24,6 +24,7 @@ from .helpers import (
     build_image_url,
     card_to_api_dict,
     fts_name_search_uuids,
+    rarity_order,
 )
 
 logger = logging.getLogger("mtgsim.api.data.cards")
@@ -167,7 +168,7 @@ class CardsData:
             sort_map = {
                 "name": MJCard.name,
                 "mana_value": MJCard.mana_value,
-                "rarity": MJCard.rarity,
+                "rarity": rarity_order(),
                 "set_code": MJCard.set_code,
                 "color": MJCard.color_sort_key,
                 "price": price_col,

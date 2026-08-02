@@ -6,6 +6,7 @@ export type * from "./types/flashcards";
 export { apiFetch, buildParams } from "./api/client";
 export * from "./api/hooks";
 export { colorSortKey } from "./lib/colorSort";
+export { rarityRank } from "./lib/rarityRank";
 export * from "./api/flashcard-hooks";
 
 // Context

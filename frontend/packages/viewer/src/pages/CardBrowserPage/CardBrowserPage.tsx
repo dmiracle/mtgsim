@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { colorSortKey } from "@/lib/colorSort";
+import { rarityRank } from "@/lib/rarityRank";
 import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse, AggregateVectorResponse } from "@/types/api";
 import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
@@ -146,8 +147,11 @@ export function CardBrowserPage({
     ) as string[];
     if (!fields.length) return cards;
     const dir = filters.order === "desc" ? -1 : 1;
-    const value = (c: CardSummary, field: string) =>
-      field === "color" ? colorSortKey(c.colors ?? []) : c[field as keyof CardSummary];
+    const value = (c: CardSummary, field: string) => {
+      if (field === "color") return colorSortKey(c.colors ?? []);
+      if (field === "rarity") return rarityRank(c.rarity);
+      return c[field as keyof CardSummary];
+    };
     return [...cards].sort((a, b) => {
       for (const field of fields) {
         const av = value(a, field), bv = value(b, field);
