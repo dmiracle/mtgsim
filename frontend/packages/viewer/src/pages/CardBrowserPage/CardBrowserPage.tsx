@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { colorSortKey } from "@/lib/colorSort";
+import { rarityRank } from "@/lib/rarityRank";
 import type { CardSummary, Pagination as PaginationType, TagCount, SetSummary, KeywordFrequencies, CardStatsResponse, AggregateVectorResponse } from "@/types/api";
 import { VectorHeatmap } from "@/components/VectorHeatmap/VectorHeatmap";
 import { SearchInput } from "@/components/SearchInput/SearchInput";
@@ -123,7 +125,10 @@ export function CardBrowserPage({
     if (filters.ownership === "not_owned") params.owns = false;
     if (filters.ownership === "owned" && filters.platform !== "any") params.owns_platform = filters.platform;
     if (filters.unique) params.unique = true;
-    if (filters.sort !== "name") params.sort = filters.sort;
+    const sortChain = [filters.sort, filters.sortPrev].filter(
+      (s, i, arr) => s && s !== "name" && arr.indexOf(s) === i,
+    ) as string[];
+    if (sortChain.length) params.sort = sortChain.join(",");
     if (filters.order !== "asc") params.order = filters.order;
     onSearch(params);
   }, [nameSearch, formatFilter, setFilter, filters, selectedKeywords, onSearch]);
@@ -134,20 +139,30 @@ export function CardBrowserPage({
     );
   }
 
-  // Secondary sort by name — only breaks ties within identical primary sort values
+  // Mirror the server's sort chain (primary + previous-sort secondary, name as
+  // final tiebreak) so client-side reordering matches across the page
   const sortedCards = useMemo(() => {
-    if (filters.sort === "name") return cards;
-    const key = filters.sort as keyof CardSummary;
+    const fields = [filters.sort, filters.sortPrev].filter(
+      (s, i, arr) => s && s !== "name" && arr.indexOf(s) === i,
+    ) as string[];
+    if (!fields.length) return cards;
     const dir = filters.order === "desc" ? -1 : 1;
+    const value = (c: CardSummary, field: string) => {
+      if (field === "color") return colorSortKey(c.colors ?? []);
+      if (field === "rarity") return rarityRank(c.rarity);
+      return c[field as keyof CardSummary];
+    };
     return [...cards].sort((a, b) => {
-      const av = a[key], bv = b[key];
-      if (av !== bv) {
-        if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-        return String(av).localeCompare(String(bv)) * dir;
+      for (const field of fields) {
+        const av = value(a, field), bv = value(b, field);
+        if (av !== bv) {
+          if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+          return String(av).localeCompare(String(bv)) * dir;
+        }
       }
       return a.name.localeCompare(b.name);
     });
-  }, [cards, filters.sort, filters.order]);
+  }, [cards, filters.sort, filters.sortPrev, filters.order]);
 
   return (
     <div className="space-y-4">

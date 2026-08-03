@@ -22,6 +22,9 @@ type CardFilters = {
   ownership: "all" | "owned" | "not_owned";
   platform: "any" | "paper" | "mtga";
   sort: string;
+  /** Previous sort field, applied as the secondary sort (e.g. sort by mana, then
+   * by color -> color groups stay ordered by mana). */
+  sortPrev?: string;
   order: "asc" | "desc";
   unique: boolean;
 };
@@ -41,6 +44,7 @@ const DEFAULT_SORT_OPTIONS = [
   { value: "name", label: "Name" },
   { value: "mana_value", label: "Mana Value" },
   { value: "rarity", label: "Rarity" },
+  { value: "color", label: "Color" },
   { value: "price", label: "Price" },
 ];
 
@@ -131,8 +135,11 @@ export function CardFilterBar({
           <SortSelect
             options={sortOptions}
             sort={filters.sort}
+            secondary={filters.sortPrev}
             order={filters.order}
-            onSortChange={(sort) => update({ sort })}
+            onSortChange={(sort) =>
+              update({ sort, sortPrev: sort === filters.sort ? filters.sortPrev : filters.sort })
+            }
             onOrderChange={(order) => update({ order })}
           />
           {resultCount !== undefined && (
@@ -349,6 +356,7 @@ export function CardFilterBar({
                       ownership: "all",
                       platform: "any",
                       sort: filters.sort,
+                      sortPrev: filters.sortPrev,
                       order: filters.order,
                       unique: filters.unique,
                     })

@@ -24,6 +24,7 @@ from .helpers import (
     build_image_url,
     card_to_api_dict,
     fts_name_search_uuids,
+    rarity_order,
 )
 
 logger = logging.getLogger("mtgsim.api.data.cards")
@@ -162,15 +163,19 @@ class CardsData:
             if price_max is not None:
                 query = query.where(price_col <= price_max)
 
-            # Sorting
+            # Sorting: comma-separated field chain (e.g. "color,mana_value"),
+            # unknown fields ignored, name always breaks remaining ties
             sort_map = {
                 "name": MJCard.name,
                 "mana_value": MJCard.mana_value,
-                "rarity": MJCard.rarity,
+                "rarity": rarity_order(),
                 "set_code": MJCard.set_code,
+                "color": MJCard.color_sort_key,
                 "price": price_col,
             }
-            sort_field = sort_map.get(sort, MJCard.name)
+            sort_fields = [sort_map[s] for s in (part.strip() for part in sort.split(",")) if s in sort_map]
+            if not sort_fields:
+                sort_fields = [MJCard.name]
 
             # Unique filter: one printing per card name — prefer the generic
             # (default-booster) printing, break ties by cheapest price
@@ -255,9 +260,9 @@ class CardsData:
             total = session.exec(count_query).one()
 
             if order == "desc":
-                query = query.order_by(sort_field.desc(), MJCard.name.asc())
+                query = query.order_by(*[f.desc() for f in sort_fields], MJCard.name.asc())
             else:
-                query = query.order_by(sort_field.asc(), MJCard.name.asc())
+                query = query.order_by(*[f.asc() for f in sort_fields], MJCard.name.asc())
 
             # Pagination
             offset = (page - 1) * limit

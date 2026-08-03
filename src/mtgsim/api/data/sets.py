@@ -7,7 +7,7 @@ from mtgdb.session import get_session
 from sqlalchemy import Integer, cast
 from sqlmodel import func, select
 
-from .helpers import add_price_join, apply_card_filters, build_image_url, set_to_api_dict
+from .helpers import add_price_join, apply_card_filters, build_image_url, rarity_order, set_to_api_dict
 
 logger = logging.getLogger("mtgsim.api.data.sets")
 
@@ -286,7 +286,7 @@ class SetsData:
                 "name": MJCard.name,
                 "number": MJCard.number,
                 "mana_value": MJCard.mana_value,
-                "rarity": MJCard.rarity,
+                "rarity": rarity_order(),
                 "price": price_col,
             }
             sort_field = sort_map.get(sort, MJCard.number)

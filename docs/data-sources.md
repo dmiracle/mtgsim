@@ -56,6 +56,8 @@ Add `--force` to any command to re-download files that already exist.
 | `mj_card_identifier` | cardIdentifiers | scryfallId, tcgplayerProductId, mtgoId, multiverseId |
 | `mj_card_legality` | cardLegalities | format, status (Legal, Banned, Restricted, etc.) |
 
+`mj_card.color_sort_key` is also computed during sync: a sortable key grouping cards by color combination (mono W,U,B,R,G, then pairs/triples/4/5-color, colorless last; gold and hybrid cards of the same colors share a key). The cards API `sort` parameter accepts a comma-separated chain (e.g. `sort=color,mana_value`).
+
 **When to update:** After a new MTG set releases (roughly every 3 months).
 
 ### Prices (`--prices`)

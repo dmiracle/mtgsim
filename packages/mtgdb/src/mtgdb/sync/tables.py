@@ -179,7 +179,23 @@ MJ_CARD_COLUMN_MIGRATIONS = {
     "is_full_art": "BOOLEAN DEFAULT 0",
     "language": "VARCHAR",
     "is_default_printing": "BOOLEAN DEFAULT 0",
+    "color_sort_key": "VARCHAR DEFAULT '6'",
 }
+
+WUBRG = {"W": "0", "U": "1", "B": "2", "R": "3", "G": "4"}
+
+
+def color_sort_key(colors: list[str]) -> str:
+    """Sortable key grouping cards by color combination.
+
+    Mono W,U,B,R,G sort first ("10".."14"), then pairs ("201" = WU) through
+    five-color, with colorless last ("6"). Gold and hybrid cards of the same
+    colors produce the same key, so e.g. WU gold sorts next to WU hybrid.
+    """
+    digits = sorted(WUBRG[c] for c in colors if c in WUBRG)
+    if not digits:
+        return "6"
+    return f"{len(digits)}{''.join(digits)}"
 
 
 def _ensure_mj_card_columns(engine) -> None:
@@ -259,6 +275,7 @@ def _sync_cards_table(conn, engine) -> int:
                         is_full_art=bool(row["isFullArt"]),
                         language=row["language"],
                         is_default_printing="default" in _parse_json_array(row["boosterTypes"]),
+                        color_sort_key=color_sort_key(_parse_json_array(row["colors"])),
                     )
                 )
                 count += 1

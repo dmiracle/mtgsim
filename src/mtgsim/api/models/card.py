@@ -15,6 +15,7 @@ class CardSummary(BaseModel):
     mana_value: float | None = None
     rarity: str | None = None
     set_code: str | None = None
+    colors: list[str] = []
     color_identity: list[str] = []
     tags: list[str] = []
     text: str | None = None

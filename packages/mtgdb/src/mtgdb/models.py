@@ -75,6 +75,10 @@ class MJCard(SQLModel, table=True):
     # True for plain booster printings (boosterTypes contains "default"), or the single
     # most generic printing per name when no printing was ever in a default booster.
     is_default_printing: bool = Field(default=False, index=True)
+    # Canonical color-group ordering: mono W,U,B,R,G then pairs/triples/4/5-color
+    # (WUBRG-lexicographic within a size), colorless last. Gold and hybrid cards of
+    # the same colors share a key. See sync.tables.color_sort_key().
+    color_sort_key: str = Field(default="6", index=True)
 
 
 class MJCardIdentifier(SQLModel, table=True):
