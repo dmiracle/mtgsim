@@ -12,6 +12,7 @@ from mtgsim.api.routers.scan_log import router as scan_log_router
 from mtgsim.api.routers.sets import router as sets_router
 from mtgsim.api.routers.seventeenlands import router as seventeenlands_router
 from mtgsim.api.routers.stats import router as stats_router
+from mtgsim.api.routers.tier_lists import router as tier_lists_router
 from mtgsim.api.routers.user_tags import router as user_tags_router
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "cards_router",
     "prices_router",
     "stats_router",
+    "tier_lists_router",
     "keywords_router",
     "seventeenlands_router",
     "flashcards_router",
