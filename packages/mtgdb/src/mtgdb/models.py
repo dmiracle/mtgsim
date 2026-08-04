@@ -11,7 +11,7 @@ Naming conventions:
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, Index
+from sqlalchemy import JSON, Column, Index, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 # =============================================================================
@@ -640,5 +640,93 @@ class UserCardInteraction(SQLModel, table=True):
     strength: int | None = None
     extra: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
+    # Name-keyed identity — canonical query key going forward; uuid columns stay
+    # for FK integrity and display-printing provenance. Backfilled at init_db.
+    source_card_name: str | None = Field(default=None, index=True)
+    target_card_name: str | None = Field(default=None, index=True)
+    # interaction-model-v2 (docs/interaction-model-v2.md §A2)
+    interaction_subtype: str | None = Field(default=None, index=True)
+    detected_by: str = "manual"
+    confidence: float = 1.0
+    win_rate_correlation: float | None = None
+    co_occurrence_count: int | None = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# =============================================================================
+# User card data — keyed by card NAME (oracle identity), not printing uuid.
+# card_name always stores the exact MJCard.name (full "A // B" for multi-face).
+# Display resolves name -> generic printing via mj_card.is_default_printing.
+# =============================================================================
+
+
+class UserCardTag(SQLModel, table=True):
+    """Freeform user tag on a card. Tags are normalized (strip + lowercase)."""
+
+    __tablename__ = "user_card_tag"
+    __table_args__ = (UniqueConstraint("card_name", "tag", name="uq_user_card_tag"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    card_name: str = Field(index=True)
+    tag: str = Field(index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserTagDefinition(SQLModel, table=True):
+    """Lazy definition for a user tag — row exists only once a description is written."""
+
+    __tablename__ = "user_tag_definition"
+
+    id: int | None = Field(default=None, primary_key=True)
+    tag: str = Field(index=True, unique=True)
+    description: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserTierList(SQLModel, table=True):
+    """Named tier list with optional set/format scope."""
+
+    __tablename__ = "user_tier_list"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    description: str | None = None
+    set_code: str | None = Field(default=None, index=True)
+    format: str | None = Field(default=None, index=True)
+    extra: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserTierListEntry(SQLModel, table=True):
+    """Card placement in a tier list; unique per (list, card) so re-adding moves it."""
+
+    __tablename__ = "user_tier_list_entry"
+    __table_args__ = (UniqueConstraint("tier_list_id", "card_name", name="uq_tier_entry_card"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    tier_list_id: int = Field(foreign_key="user_tier_list.id", index=True)
+    card_name: str = Field(index=True)
+    tier: str = Field(index=True)  # S/A/B/C/D/F, validated at the API layer
+    position: int = 0  # ordering within the tier
+    note: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserCardNote(SQLModel, table=True):
+    """Per-card user note. kind + extra make this an extension point for future per-card data."""
+
+    __tablename__ = "user_card_note"
+
+    id: int | None = Field(default=None, primary_key=True)
+    card_name: str = Field(index=True)
+    kind: str = Field(default="note", index=True)
+    title: str | None = None
+    body: str
+    extra: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

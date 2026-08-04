@@ -45,6 +45,8 @@ def init_db(db_path: Path | None = None) -> Engine:
     _rename_17l_tables(engine)
     SQLModel.metadata.create_all(engine)
     _ensure_columns(engine)
+    _ensure_indexes(engine)
+    _backfill_interaction_names(engine)
     _ensure_fts_table(engine)
     return engine
 
@@ -88,6 +90,15 @@ def _ensure_columns(engine: Engine) -> None:
             "game_data_ingested_at": "VARCHAR",
             "replay_data_ingested_at": "VARCHAR",
         },
+        "user_card_interaction": {
+            "source_card_name": "VARCHAR",
+            "target_card_name": "VARCHAR",
+            "interaction_subtype": "VARCHAR",
+            "detected_by": "VARCHAR DEFAULT 'manual'",
+            "confidence": "FLOAT DEFAULT 1.0",
+            "win_rate_correlation": "FLOAT",
+            "co_occurrence_count": "INTEGER",
+        },
     }
     with engine.connect() as conn:
         for table, columns in added_columns.items():
@@ -95,6 +106,43 @@ def _ensure_columns(engine: Engine) -> None:
             for column, col_type in columns.items():
                 if existing and column not in existing:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+        conn.commit()
+
+
+def _ensure_indexes(engine: Engine) -> None:
+    """Create indexes for columns added to existing tables (create_all skips them)."""
+    from sqlalchemy import text
+
+    indexes = {
+        "ix_user_card_interaction_source_card_name": ("user_card_interaction", "source_card_name"),
+        "ix_user_card_interaction_target_card_name": ("user_card_interaction", "target_card_name"),
+        "ix_user_card_interaction_interaction_subtype": ("user_card_interaction", "interaction_subtype"),
+    }
+    with engine.connect() as conn:
+        for name, (table, column) in indexes.items():
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({column})"))
+        conn.commit()
+
+
+def _backfill_interaction_names(engine: Engine) -> None:
+    """Populate name columns on pre-existing interaction rows from their uuid FKs. Idempotent."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+            UPDATE user_card_interaction
+            SET source_card_name = (SELECT name FROM mj_card WHERE mj_card.uuid = source_card_uuid)
+            WHERE source_card_name IS NULL
+        """)
+        )
+        conn.execute(
+            text("""
+            UPDATE user_card_interaction
+            SET target_card_name = (SELECT name FROM mj_card WHERE mj_card.uuid = target_card_uuid)
+            WHERE target_card_name IS NULL
+        """)
+        )
         conn.commit()
 
 
