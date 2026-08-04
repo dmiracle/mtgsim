@@ -33,6 +33,7 @@ from mtgsim.api.routers import (
     sets_router,
     seventeenlands_router,
     stats_router,
+    tier_lists_router,
     user_tags_router,
 )
 from mtgsim.config import get_resources_dir
@@ -234,6 +235,7 @@ app.include_router(seventeenlands_router, prefix="/api")
 app.include_router(flashcards_router, prefix="/api")
 app.include_router(user_tags_router, prefix="/api")
 app.include_router(card_notes_router, prefix="/api")
+app.include_router(tier_lists_router, prefix="/api")
 app.include_router(interactions_router, prefix="/api")
 app.include_router(scan_log_router, prefix="/api")
 
