@@ -15,6 +15,41 @@ def third_card_uuid():
     return "88b6b1d4-8745-5f3e-80e5-d1784ceb3ba8"
 
 
+@pytest.fixture(autouse=True)
+def _clean_test_edges(sample_card_uuid, second_card_uuid):
+    """Purge edges touching the test cards before/after each test.
+
+    Tests share the real DB; without this, residue from earlier runs trips the
+    duplicate-edge 409 introduced with the v2 semantics.
+    """
+
+    def purge():
+        from mtgdb import UserCardInteraction, get_session
+        from sqlalchemy import or_
+        from sqlmodel import select
+
+        test_uuids = [sample_card_uuid, second_card_uuid]
+        test_names = ["Lightning Bolt", "Counterspell", "Malakir Rebirth // Malakir Mire"]
+        with get_session() as session:
+            rows = session.exec(
+                select(UserCardInteraction).where(
+                    or_(
+                        UserCardInteraction.source_card_uuid.in_(test_uuids),
+                        UserCardInteraction.target_card_uuid.in_(test_uuids),
+                        UserCardInteraction.source_card_name.in_(test_names),
+                        UserCardInteraction.target_card_name.in_(test_names),
+                    )
+                )
+            ).all()
+            for row in rows:
+                session.delete(row)
+            session.commit()
+
+    purge()
+    yield
+    purge()
+
+
 @pytest.fixture
 def interaction_payload(sample_card_uuid, second_card_uuid):
     return {
@@ -201,7 +236,7 @@ class TestInteractionGraph:
             json={
                 "source_card_uuid": sample_card_uuid,
                 "target_card_uuid": second_card_uuid,
-                "interaction_type": "counter",
+                "interaction_type": "counters",
                 "is_bidirectional": False,
             },
         )
@@ -211,10 +246,115 @@ class TestInteractionGraph:
         directional_counters = [
             n
             for n in data["nodes"]
-            if any(i["interaction_type"] == "counter" and not i["is_bidirectional"] for i in n["interactions"])
+            if any(i["interaction_type"] == "counters" and not i["is_bidirectional"] for i in n["interactions"])
         ]
         # The directional counter should not appear when traversing from target
         for node in directional_counters:
             for interaction in node["interactions"]:
-                if interaction["interaction_type"] == "counter" and not interaction["is_bidirectional"]:
+                if interaction["interaction_type"] == "counters" and not interaction["is_bidirectional"]:
                     assert interaction["source_card"]["uuid"] == second_card_uuid
+
+
+class TestInteractionV2:
+    """Name-based synergy links, typed vocabulary, and v2 fields."""
+
+    def _create_by_name(self, client, source="Lightning Bolt", target="Counterspell", **overrides):
+        payload = {
+            "source_card_name": source,
+            "target_card_name": target,
+            "interaction_type": "enables",
+        }
+        payload.update(overrides)
+        return client.post("/api/interactions", json=payload)
+
+    def _cleanup(self, client, interaction_id):
+        client.delete(f"/api/interactions/{interaction_id}")
+
+    def test_create_by_name(self, client):
+        resp = self._create_by_name(client)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["source_card_name"] == "Lightning Bolt"
+        assert data["target_card_name"] == "Counterspell"
+        assert data["source_card"]["uuid"]
+        assert data["detected_by"] == "manual"
+        assert data["confidence"] == 1.0
+        self._cleanup(client, data["id"])
+
+    def test_directed_type_forces_directional(self, client):
+        resp = self._create_by_name(client, interaction_type="enables", is_bidirectional=True)
+        assert resp.status_code == 201
+        assert resp.json()["is_bidirectional"] is False
+        self._cleanup(client, resp.json()["id"])
+
+    def test_bidirectional_type_forces_bidirectional(self, client):
+        resp = self._create_by_name(client, interaction_type="synergy", is_bidirectional=False)
+        assert resp.status_code == 201
+        assert resp.json()["is_bidirectional"] is True
+        self._cleanup(client, resp.json()["id"])
+
+    def test_unknown_type_422(self, client):
+        resp = self._create_by_name(client, interaction_type="bogus")
+        assert resp.status_code == 422
+
+    def test_both_addressing_modes_422(self, client, sample_card_uuid, second_card_uuid):
+        resp = self._create_by_name(client, source_card_uuid=sample_card_uuid, target_card_uuid=second_card_uuid)
+        assert resp.status_code == 422
+
+    def test_duplicate_edge_409(self, client):
+        first = self._create_by_name(client, interaction_type="combo")
+        assert first.status_code == 201
+        dup = self._create_by_name(client, interaction_type="combo")
+        assert dup.status_code == 409
+        self._cleanup(client, first.json()["id"])
+
+    def test_unknown_name_404(self, client):
+        resp = self._create_by_name(client, source="Not A Real Card XYZ")
+        assert resp.status_code == 404
+
+    def test_face_name_canonicalizes(self, client):
+        resp = self._create_by_name(client, source="Malakir Rebirth", interaction_type="synergy")
+        assert resp.status_code == 201
+        assert resp.json()["source_card_name"] == "Malakir Rebirth // Malakir Mire"
+        self._cleanup(client, resp.json()["id"])
+
+    def test_list_filter_by_card_name(self, client):
+        created = self._create_by_name(client, interaction_type="counters")
+        listed = client.get("/api/interactions", params={"card_name": "Lightning Bolt"}).json()
+        assert any(i["id"] == created.json()["id"] for i in listed["data"])
+        # directed edge is not listed from the target side
+        listed_target = client.get("/api/interactions", params={"card_name": "Counterspell"}).json()
+        assert all(i["id"] != created.json()["id"] for i in listed_target["data"])
+        self._cleanup(client, created.json()["id"])
+
+    def test_graph_by_name(self, client):
+        created = self._create_by_name(client, interaction_type="combo")
+        graph = client.get("/api/interactions/graph", params={"card_name": "Lightning Bolt", "depth": 1}).json()
+        assert graph["root_card"]["name"] == "Lightning Bolt"
+        assert graph["total_interactions"] >= 1
+        self._cleanup(client, created.json()["id"])
+
+    def test_subtype_and_confidence_roundtrip(self, client):
+        resp = self._create_by_name(client, interaction_type="enables", interaction_subtype="mana_ramp", confidence=0.8)
+        data = resp.json()
+        assert data["interaction_subtype"] == "mana_ramp"
+        assert data["confidence"] == 0.8
+        self._cleanup(client, data["id"])
+
+    def test_legacy_free_string_rows_still_readable(self, client):
+        from mtgdb import MJCard, UserCardInteraction, get_session
+        from sqlmodel import select
+
+        with get_session() as session:
+            uuids = session.exec(select(MJCard.uuid).limit(2)).all()
+            row = UserCardInteraction(
+                source_card_uuid=uuids[0], target_card_uuid=uuids[1], interaction_type="custom_legacy_type"
+            )
+            session.add(row)
+            session.commit()
+            row_id = row.id
+
+        resp = client.get(f"/api/interactions/{row_id}")
+        assert resp.status_code == 200
+        assert resp.json()["interaction_type"] == "custom_legacy_type"
+        client.delete(f"/api/interactions/{row_id}")
