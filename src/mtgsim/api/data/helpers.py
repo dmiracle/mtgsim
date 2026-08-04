@@ -426,3 +426,67 @@ def rarity_order():
     from sqlalchemy import case
 
     return case(RARITY_RANK, value=MJCard.rarity, else_=len(RARITY_RANK))
+
+
+def canonical_card_name(session, name: str) -> str | None:
+    """Resolve user input to the exact MJCard.name, or None if no such card.
+
+    Accepts the full name, a case-insensitive match, or a single face of an
+    "A // B" multi-face card (no face_name column exists; match by pattern).
+    """
+    from mtgdb.models import MJCard
+    from sqlmodel import select
+
+    exact = session.exec(select(MJCard.name).where(MJCard.name == name).limit(1)).first()
+    if exact:
+        return exact
+    from sqlalchemy import func as safunc
+
+    lowered = name.strip().lower()
+    if not lowered:
+        return None
+    fuzzy = session.exec(
+        select(MJCard.name)
+        .where(
+            (safunc.lower(MJCard.name) == lowered)
+            | safunc.lower(MJCard.name).like(f"{lowered} //%")
+            | safunc.lower(MJCard.name).like(f"%// {lowered}")
+        )
+        .limit(1)
+    ).first()
+    return fuzzy
+
+
+def resolve_default_printing(session, card_name: str) -> dict | None:
+    """Card summary for a name, preferring the generic (default-booster) printing."""
+    from mtgdb.models import MJCard, MJCardIdentifier
+    from sqlalchemy import case
+    from sqlmodel import select
+
+    row = session.exec(
+        select(MJCard, MJCardIdentifier)
+        .outerjoin(MJCardIdentifier, MJCardIdentifier.card_uuid == MJCard.uuid)
+        .where(MJCard.name == card_name)
+        .order_by(
+            MJCard.is_default_printing.desc(),
+            case({"English": 0}, value=MJCard.language, else_=1),
+            MJCard.uuid.asc(),
+        )
+        .limit(1)
+    ).first()
+    if not row:
+        return None
+    card, ident = row
+    return {
+        "uuid": card.uuid,
+        "name": card.name,
+        "type_line": card.type_line,
+        "mana_cost": card.mana_cost,
+        "set_code": card.set_code,
+        "image_url": build_image_url(ident.scryfall_id if ident else None),
+    }
+
+
+def normalize_user_tag(tag: str) -> str:
+    """Normalize a user tag: strip, collapse inner whitespace, lowercase."""
+    return " ".join(tag.split()).lower()
