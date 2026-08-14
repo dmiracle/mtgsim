@@ -88,6 +88,9 @@ class CardsData:
         format_legal: str | None = None,
         keywords: list[str] | None = None,
         tags: list[str] | None = None,
+        user_tags: list[str] | None = None,
+        tier_list_id: int | None = None,
+        tiers: list[str] | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
         owns: bool | None = None,
@@ -151,6 +154,9 @@ class CardsData:
                 mana_values=mana_values,
                 keywords=keywords,
                 tags=tags,
+                user_tags=user_tags,
+                tier_list_id=tier_list_id,
+                tiers=tiers,
                 owns=owns,
                 owns_platform=owns_platform,
                 wants=wants,
@@ -173,7 +179,27 @@ class CardsData:
                 "color": MJCard.color_sort_key,
                 "price": price_col,
             }
-            sort_fields = [sort_map[s] for s in (part.strip() for part in sort.split(",")) if s in sort_map]
+            if tier_list_id is not None:
+                from mtgdb.models import UserTierListEntry
+                from sqlalchemy import case
+
+                query = query.outerjoin(
+                    UserTierListEntry,
+                    (UserTierListEntry.card_name == MJCard.name) & (UserTierListEntry.tier_list_id == tier_list_id),
+                )
+                tier_rank = case(
+                    {"S": 0, "A": 1, "B": 2, "C": 3, "D": 4, "F": 5},
+                    value=UserTierListEntry.tier,
+                    else_=6,
+                )
+                sort_map["tier"] = tier_rank
+            sort_fields = []
+            for part in (part.strip() for part in sort.split(",")):
+                if part not in sort_map:
+                    continue
+                sort_fields.append(sort_map[part])
+                if part == "tier":
+                    sort_fields.append(UserTierListEntry.position)
             if not sort_fields:
                 sort_fields = [MJCard.name]
 
@@ -243,6 +269,9 @@ class CardsData:
                     mana_values=mana_values,
                     keywords=keywords,
                     tags=tags,
+                    user_tags=user_tags,
+                    tier_list_id=tier_list_id,
+                    tiers=tiers,
                     owns=owns,
                     wants=wants,
                     owns_platform=owns_platform,
@@ -274,14 +303,20 @@ class CardsData:
             # Convert to API format
             logger.debug(f"search_cards: query returned {len(results)} results, total={total}")
 
-            # Batch-fetch tags for all card names in results
+            # Batch-fetch tags/user-data for all card names in results
             card_names = [r[0].name for r in results]
             tags_map = self._get_tags_for_names(session, card_names)
+            user_tags_map = self._get_user_tags_for_names(session, card_names)
+            note_counts = self._get_note_counts_for_names(session, card_names)
 
             cards = []
             for mj_card, identifier, user_card, best_price in results:
-                card_tags = tags_map.get(mj_card.name, [])
-                cards.append(card_to_api_dict(mj_card, identifier, user_card, price=best_price, tags=card_tags))
+                card_dict = card_to_api_dict(
+                    mj_card, identifier, user_card, price=best_price, tags=tags_map.get(mj_card.name, [])
+                )
+                card_dict["user_tags"] = user_tags_map.get(mj_card.name, [])
+                card_dict["note_count"] = note_counts.get(mj_card.name, 0)
+                cards.append(card_dict)
 
             return cards, total
 
@@ -546,35 +581,43 @@ class CardsData:
         card_type: str | None = None,
         rarity: str | None = None,
     ) -> list[dict]:
-        """Get distinct tags with card counts, optionally filtered."""
+        """Distinct oracle + user tags with card counts, optionally filtered.
+
+        Entries carry source: "scryfall" (mj_card_tag) or "user" (user_card_tag)
+        so filter UIs can offer both vocabularies.
+        """
         with get_session() as session:
-            query = select(MJCardTag.tag, func.count(func.distinct(MJCardTag.card_name))).join(
-                MJCard, MJCardTag.card_name == MJCard.name
-            )
 
-            if set_code:
-                query = query.where(MJCard.set_code == set_code)
-            if format_legal:
-                query = query.join(
-                    MJCardLegality,
-                    (MJCard.uuid == MJCardLegality.card_uuid)
-                    & (MJCardLegality.format == format_legal)
-                    & (MJCardLegality.status == "Legal"),
+            def tag_counts(tag_model) -> list:
+                query = select(tag_model.tag, func.count(func.distinct(tag_model.card_name))).join(
+                    MJCard, tag_model.card_name == MJCard.name
                 )
-            if rarity:
-                query = query.where(MJCard.rarity == rarity)
-            if card_type:
-                query = query.where(MJCard.type_line.contains(card_type))
-            if colors:
-                from sqlalchemy import or_
+                if set_code:
+                    query = query.where(MJCard.set_code == set_code)
+                if format_legal:
+                    query = query.join(
+                        MJCardLegality,
+                        (MJCard.uuid == MJCardLegality.card_uuid)
+                        & (MJCardLegality.format == format_legal)
+                        & (MJCardLegality.status == "Legal"),
+                    )
+                if rarity:
+                    query = query.where(MJCard.rarity == rarity)
+                if card_type:
+                    query = query.where(MJCard.type_line.contains(card_type))
+                if colors:
+                    from sqlalchemy import or_
 
-                query = query.where(
-                    or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
-                )
+                    query = query.where(
+                        or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
+                    )
+                return session.exec(query.group_by(tag_model.tag).order_by(tag_model.tag)).all()
 
-            query = query.group_by(MJCardTag.tag).order_by(MJCardTag.tag)
-            results = session.exec(query).all()
-            return [{"tag": tag, "count": count} for tag, count in results]
+            from mtgdb.models import UserCardTag
+
+            user = [{"tag": tag, "count": count, "source": "user"} for tag, count in tag_counts(UserCardTag)]
+            scryfall = [{"tag": tag, "count": count, "source": "scryfall"} for tag, count in tag_counts(MJCardTag)]
+            return user + scryfall
 
     def get_keyword_frequencies(
         self,
@@ -678,6 +721,14 @@ class CardsData:
             card_dict = card_to_api_dict(mj_card, identifier, user_card, set_name=set_name, price=best, tags=card_tags)
             card_dict["legalities"] = legalities
             card_dict["all_prices"] = all_prices
+            card_dict["user_tags"] = self._get_user_tags_for_names(session, [mj_card.name]).get(mj_card.name, [])
+            from mtgsim.api.data.card_notes import card_notes_data
+            from mtgsim.api.data.tier_lists import tier_lists_data
+
+            notes, _ = card_notes_data.list_notes(card_name=mj_card.name, limit=100)
+            card_dict["notes"] = notes
+            card_dict["note_count"] = len(notes)
+            card_dict["tier_placements"] = tier_lists_data.placements_for_card(mj_card.name)
             if rating:
                 card_dict["quadrant_rating"] = {
                     "developing": rating.developing,
@@ -687,6 +738,33 @@ class CardsData:
                     "notes": rating.notes,
                 }
             return card_dict
+
+    def _get_user_tags_for_names(self, session, card_names: list[str]) -> dict[str, list[str]]:
+        """User tags for a list of card names, as {name: [tag, ...]}."""
+        from mtgdb.models import UserCardTag
+
+        if not card_names:
+            return {}
+        rows = session.exec(
+            select(UserCardTag.card_name, UserCardTag.tag).where(UserCardTag.card_name.in_(card_names))
+        ).all()
+        tags_map: dict[str, list[str]] = {}
+        for name, tag in rows:
+            tags_map.setdefault(name, []).append(tag)
+        return tags_map
+
+    def _get_note_counts_for_names(self, session, card_names: list[str]) -> dict[str, int]:
+        """Note counts for a list of card names, as {name: count}."""
+        from mtgdb.models import UserCardNote
+
+        if not card_names:
+            return {}
+        rows = session.exec(
+            select(UserCardNote.card_name, func.count())
+            .where(UserCardNote.card_name.in_(card_names))
+            .group_by(UserCardNote.card_name)
+        ).all()
+        return dict(rows)
 
     def _get_tags_for_names(self, session, card_names: list[str]) -> dict[str, list[str]]:
         """Get tags for a list of card names, returned as {name: [tag, ...]}."""
