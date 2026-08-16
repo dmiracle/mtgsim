@@ -18,6 +18,8 @@ class CardSummary(BaseModel):
     colors: list[str] = []
     color_identity: list[str] = []
     tags: list[str] = []
+    user_tags: list[str] = []
+    note_count: int = 0
     text: str | None = None
     price: float | None = None
     image_url: str | None = None
@@ -95,6 +97,26 @@ class QuadrantRating(BaseModel):
     notes: str | None = None
 
 
+class CardNoteEntry(BaseModel):
+    """User note embedded in card detail."""
+
+    id: int
+    kind: str = "note"
+    title: str | None = None
+    body: str
+    updated_at: str = ""
+
+
+class TierPlacement(BaseModel):
+    """A card's placement in one of the user's tier lists."""
+
+    tier_list_id: int
+    list_name: str
+    tier: str
+    set_code: str | None = None
+    format: str | None = None
+
+
 class CardDetail(BaseModel):
     """Full card details."""
 
@@ -139,3 +161,7 @@ class CardDetail(BaseModel):
     total_wanted: int = 0
     collection: CollectionDetail | None = None
     quadrant_rating: QuadrantRating | None = None
+    user_tags: list[str] = []
+    note_count: int = 0
+    notes: list[CardNoteEntry] = []
+    tier_placements: list[TierPlacement] = []

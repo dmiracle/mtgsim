@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from mtgsim.api.models.common import Pagination
 from mtgsim.api.models.user_tag import TagCardSummary
 
-Tier = Literal["S", "A", "B", "C", "D", "F"]
+Tier = Literal["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]
 
 
 class TierListCreateRequest(BaseModel):

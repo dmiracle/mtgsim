@@ -122,6 +122,9 @@ def apply_card_filters(
     mana_values: list[int] | None = None,
     keywords: list[str] | None = None,
     tags: list[str] | None = None,
+    user_tags: list[str] | None = None,
+    tier_list_id: int | None = None,
+    tiers: list[str] | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
     owns_platform: str | None = None,
@@ -207,6 +210,25 @@ def apply_card_filters(
         query = query.where(
             exists(sa_select(MJCardTag.id).where((MJCardTag.card_name == M.name) & (MJCardTag.tag.in_(tags))))
         )
+    if user_tags:
+        from mtgdb.models import UserCardTag
+
+        normalized = [normalize_user_tag(t) for t in user_tags]
+        query = query.where(
+            exists(
+                sa_select(UserCardTag.id).where((UserCardTag.card_name == M.name) & (UserCardTag.tag.in_(normalized)))
+            )
+        )
+    if tier_list_id is not None:
+        from mtgdb.models import UserTierListEntry
+
+        conditions = [UserTierListEntry.card_name == M.name, UserTierListEntry.tier_list_id == tier_list_id]
+        if tiers:
+            conditions.append(UserTierListEntry.tier.in_(tiers))
+        # correlate only the card table: the outer query may join the entries
+        # table itself for tier sorting, which would otherwise auto-correlate
+        # this subquery into having no FROM clause
+        query = query.where(exists(sa_select(UserTierListEntry.id).where(*conditions).correlate(M)))
     if owns is True:
         query = query.where(
             (U.quantity_owned > 0)
@@ -426,6 +448,18 @@ def rarity_order():
     from sqlalchemy import case
 
     return case(RARITY_RANK, value=MJCard.rarity, else_=len(RARITY_RANK))
+
+
+TIERS = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F")
+TIER_RANK = {tier: rank for rank, tier in enumerate(TIERS)}
+
+
+def tier_order():
+    """CASE expression ranking 17Lands-style grades A+ (best) through F; unknown tiers sort last."""
+    from mtgdb.models import UserTierListEntry
+    from sqlalchemy import case
+
+    return case(TIER_RANK, value=UserTierListEntry.tier, else_=len(TIER_RANK))
 
 
 def canonical_card_name(session, name: str) -> str | None:
