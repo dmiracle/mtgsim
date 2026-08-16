@@ -9,12 +9,20 @@ export type TierListBoardProps = {
   onCardClick?: (uuid: string) => void;
 };
 
+// 17Lands-style grades, A+ (best) through F
 const TIERS: { tier: Tier; label: string; bar: string }[] = [
-  { tier: "S", label: "S", bar: "bg-red-500" },
+  { tier: "A+", label: "A+", bar: "bg-red-500" },
   { tier: "A", label: "A", bar: "bg-orange-500" },
-  { tier: "B", label: "B", bar: "bg-amber-400" },
-  { tier: "C", label: "C", bar: "bg-green-500" },
-  { tier: "D", label: "D", bar: "bg-sky-500" },
+  { tier: "A-", label: "A-", bar: "bg-amber-400" },
+  { tier: "B+", label: "B+", bar: "bg-yellow-400" },
+  { tier: "B", label: "B", bar: "bg-lime-400" },
+  { tier: "B-", label: "B-", bar: "bg-green-500" },
+  { tier: "C+", label: "C+", bar: "bg-emerald-500" },
+  { tier: "C", label: "C", bar: "bg-teal-400" },
+  { tier: "C-", label: "C-", bar: "bg-cyan-400" },
+  { tier: "D+", label: "D+", bar: "bg-sky-500" },
+  { tier: "D", label: "D", bar: "bg-blue-500" },
+  { tier: "D-", label: "D-", bar: "bg-indigo-400" },
   { tier: "F", label: "F", bar: "bg-zinc-500" },
 ];
 

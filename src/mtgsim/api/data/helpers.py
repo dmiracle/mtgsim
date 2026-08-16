@@ -450,6 +450,18 @@ def rarity_order():
     return case(RARITY_RANK, value=MJCard.rarity, else_=len(RARITY_RANK))
 
 
+TIERS = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F")
+TIER_RANK = {tier: rank for rank, tier in enumerate(TIERS)}
+
+
+def tier_order():
+    """CASE expression ranking 17Lands-style grades A+ (best) through F; unknown tiers sort last."""
+    from mtgdb.models import UserTierListEntry
+    from sqlalchemy import case
+
+    return case(TIER_RANK, value=UserTierListEntry.tier, else_=len(TIER_RANK))
+
+
 def canonical_card_name(session, name: str) -> str | None:
     """Resolve user input to the exact MJCard.name, or None if no such card.
 

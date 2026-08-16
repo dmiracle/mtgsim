@@ -14,8 +14,8 @@ def tagged_bolt(client):
 def tiered_list(client):
     resp = client.post("/api/tier-lists", json={"name": "Search Test", "set_code": "DMU"})
     list_id = resp.json()["id"]
-    client.put(f"/api/tier-lists/{list_id}/entries", json={"card_name": "Cut Down", "tier": "A"})
-    client.put(f"/api/tier-lists/{list_id}/entries", json={"card_name": "Phyrexian Missionary", "tier": "S"})
+    client.put(f"/api/tier-lists/{list_id}/entries", json={"card_name": "Cut Down", "tier": "A-"})
+    client.put(f"/api/tier-lists/{list_id}/entries", json={"card_name": "Phyrexian Missionary", "tier": "A+"})
     client.put(f"/api/tier-lists/{list_id}/entries", json={"card_name": "Shivan Devastator", "tier": "B"})
     yield list_id
     client.delete(f"/api/tier-lists/{list_id}")
@@ -51,7 +51,7 @@ class TestTierFilter:
         assert names == {"Cut Down", "Phyrexian Missionary", "Shivan Devastator"}
 
     def test_filter_to_specific_tiers(self, client, tiered_list):
-        data = client.get("/api/cards", params={"tier_list_id": tiered_list, "tiers": "S,A", "unique": True}).json()
+        data = client.get("/api/cards", params={"tier_list_id": tiered_list, "tiers": "A+,A-", "unique": True}).json()
         names = {c["name"] for c in data["data"]}
         assert names == {"Cut Down", "Phyrexian Missionary"}
 
@@ -73,7 +73,7 @@ class TestCardDetailUserData:
         detail = client.get(f"/api/cards/{uuid}").json()
         assert any(n["body"] == "detail test" for n in detail["notes"])
         assert detail["note_count"] >= 1
-        assert any(p["tier_list_id"] == tiered_list and p["tier"] == "A" for p in detail["tier_placements"])
+        assert any(p["tier_list_id"] == tiered_list and p["tier"] == "A-" for p in detail["tier_placements"])
         client.delete(f"/api/card-notes/{note['id']}")
 
 

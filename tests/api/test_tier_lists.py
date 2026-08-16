@@ -33,7 +33,7 @@ class TestTierListCrud:
 
     def test_delete_cascades_entries(self, client):
         created = client.post("/api/tier-lists", json={"name": "Cascade"}).json()
-        client.put(f"/api/tier-lists/{created['id']}/entries", json={"card_name": "Lightning Bolt", "tier": "S"})
+        client.put(f"/api/tier-lists/{created['id']}/entries", json={"card_name": "Lightning Bolt", "tier": "A+"})
         assert client.delete(f"/api/tier-lists/{created['id']}").status_code == 204
         assert client.get(f"/api/tier-lists/{created['id']}").status_code == 404
 
@@ -43,16 +43,16 @@ class TestTierEntries:
         return client.put(f"/api/tier-lists/{list_id}/entries", json=payload)
 
     def test_add_entry_201_with_card_summary(self, client, tier_list):
-        resp = self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="S")
+        resp = self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="A+")
         assert resp.status_code == 201
         entry = resp.json()
-        assert entry["tier"] == "S"
+        assert entry["tier"] == "A+"
         assert entry["position"] == 0
         assert entry["card"]["name"] == "Lightning Bolt"
         assert entry["card"]["uuid"]
 
     def test_readd_moves_between_tiers_200(self, client, tier_list):
-        self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="S")
+        self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="A+")
         resp = self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="B")
         assert resp.status_code == 200
         detail = client.get(f"/api/tier-lists/{tier_list['id']}").json()
@@ -77,8 +77,12 @@ class TestTierEntries:
         resp = self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="X")
         assert resp.status_code == 422
 
+    def test_legacy_s_tier_422(self, client, tier_list):
+        resp = self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="S")
+        assert resp.status_code == 422
+
     def test_unknown_card_404(self, client, tier_list):
-        resp = self._put(client, tier_list["id"], card_name="Not A Real Card XYZ", tier="S")
+        resp = self._put(client, tier_list["id"], card_name="Not A Real Card XYZ", tier="A+")
         assert resp.status_code == 404
 
     def test_face_name_canonicalizes(self, client, tier_list):
@@ -86,7 +90,7 @@ class TestTierEntries:
         assert resp.json()["card_name"] == "Malakir Rebirth // Malakir Mire"
 
     def test_remove_entry(self, client, tier_list):
-        self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="S")
+        self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="A+")
         resp = client.delete(f"/api/tier-lists/{tier_list['id']}/entries", params={"card_name": "Lightning Bolt"})
         assert resp.status_code == 204
         assert client.get(f"/api/tier-lists/{tier_list['id']}").json()["entries"] == []
@@ -104,7 +108,8 @@ class TestTierEntries:
         assert [e["card_name"] for e in detail["entries"]] == ["Dark Ritual", "Lightning Bolt", "Counterspell"]
 
     def test_entries_ordered_by_tier_then_position(self, client, tier_list):
-        self._put(client, tier_list["id"], card_name="Counterspell", tier="B")
+        self._put(client, tier_list["id"], card_name="Counterspell", tier="B+")
         self._put(client, tier_list["id"], card_name="Lightning Bolt", tier="A")
+        self._put(client, tier_list["id"], card_name="Dark Ritual", tier="A+")
         detail = client.get(f"/api/tier-lists/{tier_list['id']}").json()
-        assert [e["tier"] for e in detail["entries"]] == ["A", "B"]
+        assert [e["tier"] for e in detail["entries"]] == ["A+", "A", "B+"]

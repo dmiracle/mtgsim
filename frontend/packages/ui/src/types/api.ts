@@ -551,7 +551,20 @@ export type CardNote = {
   updated_at: string;
 };
 
-export type Tier = "S" | "A" | "B" | "C" | "D" | "F";
+export type Tier =
+  | "A+"
+  | "A"
+  | "A-"
+  | "B+"
+  | "B"
+  | "B-"
+  | "C+"
+  | "C"
+  | "C-"
+  | "D+"
+  | "D"
+  | "D-"
+  | "F";
 
 export type TierListSummary = {
   id: number;

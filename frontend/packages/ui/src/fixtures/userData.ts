@@ -135,11 +135,11 @@ export const tierListSummaries: TierListSummary[] = [
 export const tierListDetail: TierListDetail = {
   ...tierListSummaries[0],
   entries: [
-    { id: 11, card_name: "Lightning Bolt", tier: "S", position: 0, note: "Best common ever printed.", card: bolt },
-    { id: 12, card_name: "Tarmogoyf", tier: "S", position: 1, note: null, card: tarmogoyf },
-    { id: 13, card_name: "Counterspell", tier: "A", position: 0, note: null, card: counterspell },
-    { id: 14, card_name: "Goblin Guide", tier: "A", position: 1, note: "Only in dedicated aggro.", card: goblinGuide },
-    { id: 15, card_name: "Eidolon of the Great Revel", tier: "B", position: 0, note: null, card: eidolon },
+    { id: 11, card_name: "Lightning Bolt", tier: "A+", position: 0, note: "Best common ever printed.", card: bolt },
+    { id: 12, card_name: "Tarmogoyf", tier: "A+", position: 1, note: null, card: tarmogoyf },
+    { id: 13, card_name: "Counterspell", tier: "A-", position: 0, note: null, card: counterspell },
+    { id: 14, card_name: "Goblin Guide", tier: "B+", position: 0, note: "Only in dedicated aggro.", card: goblinGuide },
+    { id: 15, card_name: "Eidolon of the Great Revel", tier: "B-", position: 0, note: null, card: eidolon },
     { id: 16, card_name: "Cut Down", tier: "C", position: 0, note: null, card: cutDown },
   ],
 };
