@@ -38,6 +38,27 @@ created from the current filters (one printing per card name, up to 600 cards).
   current order any time, flagging cards in a conflict and ties not yet decided.
 - Logic lives in `src/ranking.ts` with tests in `src/ranking.test.ts` (`npm test`).
 
+## Running as a service (launchd)
+
+The API and a production build of this app run as macOS LaunchAgents
+(`deploy/launchd/com.mtgsim.api.plist`, `com.mtgsim.mobile.plist`): started at login,
+restarted if they crash, logs in `~/Library/Logs/mtgsim/`. From the repo root:
+
+```bash
+just services-install     # build mobile/, install + start both agents
+just mobile-deploy        # after frontend changes: rebuild + restart the app
+just services-restart     # after backend changes: restart both
+just services-status      # running? pid?
+just services-logs        # tail both logs
+just services-uninstall   # stop + remove
+```
+
+The app agent runs `vite preview` on :5175 (same `/api` proxy and allowed hosts as dev)
+with nvm's node referenced by absolute path; update the plist if the Node version changes.
+`tailscale serve --https=443 http://localhost:5175` publishes it at
+https://dylans-macbook-pro-2.tail4ca9d8.ts.net/ (tailnet only). Services run whatever is
+checked out in this working tree.
+
 ## Install on a phone
 
 Open the dev server over Tailscale (e.g. `http://<mac>.tail4ca9d8.ts.net:5175`),

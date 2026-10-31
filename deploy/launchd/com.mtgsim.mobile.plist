@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.mtgsim.mobile</string>
+	<!-- Serves the production build (mobile/dist) with vite preview; /api is proxied to :8001.
+	     launchd doesn't load the shell profile, so node is referenced by its nvm path. -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/dylan/.nvm/versions/node/v25.0.0/bin/node</string>
+		<string>node_modules/vite/bin/vite.js</string>
+		<string>preview</string>
+		<string>--port</string>
+		<string>5175</string>
+		<string>--strictPort</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/dylan/a/mtgsim/mtgsim/mobile</string>
+	<key>KeepAlive</key>
+	<true/>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/dylan/Library/Logs/mtgsim/mobile.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/dylan/Library/Logs/mtgsim/mobile.log</string>
+</dict>
+</plist>
