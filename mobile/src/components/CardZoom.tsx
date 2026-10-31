@@ -12,8 +12,6 @@ interface CardZoomProps {
 const SWIPE_PX = 50;
 
 // Full-screen card carousel: swipe left/right through the cards, tap to close.
-// Gestures only count when they start on the overlay, so the release of the
-// long-press that opened it doesn't close it.
 export function CardZoom({ cards, startIndex, rankOf, onClose }: CardZoomProps) {
   const [index, setIndex] = useState(startIndex);
   const [dragX, setDragX] = useState(0);
