@@ -16,10 +16,26 @@ npm run dev              # http://localhost:5175 (proxies /api to :8001)
 npm run build            # typecheck + production build with service worker
 npm run preview          # serve the build
 npm run storybook        # component stories on :6007
+npm test                 # ranking logic tests (node --test)
 ```
 
 Start the backend first: `uv run mtgsim-api` from the repo root. Point the dev proxy
 elsewhere with `API_URL=http://host:port npm run dev`.
+
+## Ranking mode
+
+Separate from review: tap **Rank** on the filter screen, name a ranking, and it is
+created from the current filters (one printing per card name, up to 600 cards).
+
+- Each round shows up to 4 cards; tap them best to worst and save. A round is stored as
+  every pair it implies (4 cards → 6 "A beats B" comparisons, `POST /api/rankings/{id}/rounds`).
+- Next round, in priority order: a **conflict** (the shortest cycle such as A>B>C>A — re-rank
+  it to resolve, since the latest result for a pair wins), then **unranked cards** drawn at
+  random, then cards whose **relative order is still undetermined** (adjacent cards in the
+  current order with no chain of comparisons between them).
+- When every adjacent pair is decided the ranking is complete. **Results** shows the
+  current order any time, flagging cards in a conflict and ties not yet decided.
+- Logic lives in `src/ranking.ts` with tests in `src/ranking.test.ts` (`npm test`).
 
 ## Install on a phone
 

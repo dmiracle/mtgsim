@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Filters } from "./filters";
-import type { Card, CardSet, Page, TierList, TierListDetail, UserTag } from "./types";
+import type { Card, CardSet, Page, Ranking, RankingDetail, TierList, TierListDetail, UserTag } from "./types";
 
 export const PAGE_SIZE = 100;
 
@@ -82,6 +82,66 @@ export function useSetGrade(listId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tier-list", listId] });
       queryClient.invalidateQueries({ queryKey: ["tier-lists"] });
+    },
+  });
+}
+
+// Rankings cover every card a filter matches, so the pool is capped to stay rankable.
+export const RANKING_POOL_MAX = 600;
+
+export function rankingPoolFilters(filters: Filters): Filters {
+  const { grade_list: _g, not_in_tier_list: _n, i: _i, ...rest } = filters;
+  return { ...rest, unique: "true", sort: "name", order: "asc" };
+}
+
+export function useRankingPool(filters: Filters | undefined) {
+  return useQuery({
+    queryKey: ["ranking-pool", filters],
+    enabled: !!filters,
+    queryFn: async () => {
+      const cards: Card[] = [];
+      for (let page = 1; ; page++) {
+        const result = await get<Page<Card>>("/cards", { ...rankingPoolFilters(filters!), page, limit: PAGE_SIZE });
+        if (result.pagination.total > RANKING_POOL_MAX) return { cards: [], total: result.pagination.total };
+        cards.push(...result.data);
+        if (page >= result.pagination.pages) return { cards, total: result.pagination.total };
+      }
+    },
+  });
+}
+
+export function useRankings() {
+  return useQuery({ queryKey: ["rankings"], queryFn: () => get<Ranking[]>("/rankings") });
+}
+
+export function useRanking(id: string | undefined) {
+  return useQuery({ queryKey: ["ranking", id], queryFn: () => get<RankingDetail>(`/rankings/${id}`) });
+}
+
+export function useCreateRanking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; filters: Filters }) => send("POST", "/rankings", body) as Promise<Ranking>,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rankings"] }),
+  });
+}
+
+export function useDeleteRanking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => send("DELETE", `/rankings/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rankings"] }),
+  });
+}
+
+export function useSubmitRound(id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedNames: string[]) =>
+      send("POST", `/rankings/${id}/rounds`, { ordered_card_names: orderedNames }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ranking", id] });
+      queryClient.invalidateQueries({ queryKey: ["rankings"] });
     },
   });
 }

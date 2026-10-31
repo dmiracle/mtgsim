@@ -48,3 +48,12 @@ export function loadFilters(): Filters {
 export function saveFilters(filters: Filters) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
 }
+
+export function summarizeFilters(filters: Filters): string {
+  const { sort = "name", order = "asc", grade_list: _, not_in_tier_list: ungraded, unique, ...rest } = filters;
+  const sortLabel = sort
+    .split(",")
+    .map((s) => SORTS.find((o) => o.value === s)?.label ?? s)
+    .join(", ");
+  return [...Object.values(rest), ...(ungraded ? ["ungraded"] : []), ...(unique ? ["1 per name"] : []), `${sortLabel} ${order === "desc" ? "↓" : "↑"}`].join(" · ");
+}

@@ -3,18 +3,9 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PAGE_SIZE, cardPageQuery, useCardPage, useSetGrade, useTierList } from "../api";
 import { ReviewScreen } from "../components/ReviewScreen";
-import { LAST_REVIEW_KEY, SORTS, type Filters } from "../filters";
+import { LAST_REVIEW_KEY, summarizeFilters, type Filters } from "../filters";
 
 const IMAGE_LOOKAHEAD = 3;
-
-function summarize(filters: Filters): string {
-  const { sort = "name", order = "asc", grade_list: _, not_in_tier_list: ungraded, ...rest } = filters;
-  const sortLabel = sort
-    .split(",")
-    .map((s) => SORTS.find((o) => o.value === s)?.label ?? s)
-    .join(", ");
-  return [...Object.values(rest), ...(ungraded ? ["ungraded"] : []), `${sortLabel} ${order === "desc" ? "↓" : "↑"}`].join(" · ");
-}
 
 export function ReviewPage() {
   const navigate = useNavigate();
@@ -82,7 +73,7 @@ export function ReviewPage() {
       card={card}
       index={index}
       total={total}
-      summary={summarize(filters)}
+      summary={summarizeFilters(filters)}
       onSeek={seek}
       onExit={() => navigate("/")}
       grading={

@@ -54,3 +54,15 @@ export interface Page<T> {
   data: T[];
   pagination: Pagination;
 }
+
+export interface Ranking {
+  id: number;
+  name: string;
+  filters: Record<string, string>;
+  comparison_count: number;
+  updated_at: string;
+}
+
+export interface RankingDetail extends Ranking {
+  comparisons: { winner_name: string; loser_name: string }[];
+}

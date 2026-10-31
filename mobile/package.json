@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "storybook": "storybook dev -p 6007",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test": "node --test src/*.test.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.105.0",

@@ -51,6 +51,7 @@ export function FilterPage() {
         onStart={() => navigate(`/review?${new URLSearchParams({ ...filters, i: "0" })}`)}
         onReset={() => setFilters(DEFAULT_FILTERS)}
         onCreateGradeList={createGradeList}
+        onRank={() => navigate("/rank")}
       />
     </>
   );

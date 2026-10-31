@@ -27,6 +27,7 @@ interface FilterFormProps {
   onStart: () => void;
   onReset: () => void;
   onCreateGradeList: (name: string) => void;
+  onRank: () => void;
 }
 
 const opts = (values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -269,6 +270,9 @@ export function FilterForm(props: FilterFormProps) {
       <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <button onClick={props.onReset} className="min-h-12 rounded-xl border border-line px-4">
           Reset
+        </button>
+        <button onClick={props.onRank} className="min-h-12 rounded-xl border border-accent px-4 text-accent">
+          Rank
         </button>
         <button
           onClick={props.onStart}

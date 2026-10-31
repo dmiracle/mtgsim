@@ -222,6 +222,21 @@ sequenceDiagram
 - `GET /api/cards` - Search cards with filters
 - `GET /api/cards/{uuid}` - Get card details
 
+`GET /api/cards` also accepts `sort=number` (collector number, numeric) and
+`not_in_tier_list=<id>` (exclude cards already in a tier list — "ungraded only").
+
+### Rankings API
+
+Pairwise card rankings over a saved card-search filter (`user_ranking`,
+`user_ranking_comparison`, keyed by card name). Ordering, cycle detection and next-round
+selection are computed client-side (`mobile/src/ranking.ts`).
+
+- `POST /api/rankings` - Create a ranking `{name, filters}` (filters = `/api/cards` params)
+- `GET /api/rankings` - List rankings with comparison counts
+- `GET /api/rankings/{id}` - Ranking with its comparison history (oldest first; latest per pair wins)
+- `POST /api/rankings/{id}/rounds` - Record a best-first ordering as all implied pairs
+- `DELETE /api/rankings/{id}` - Delete a ranking and its comparisons
+
 ### Prices API
 
 **Endpoints:**
