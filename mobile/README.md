@@ -42,4 +42,6 @@ Service workers need a secure context, so offline caching only kicks in on
   advances to the next card, ✕ clears it. Grades are stored as tier-list entries
   (`PUT/DELETE /api/tier-lists/{id}/entries`, keyed by card name), so they show up
   everywhere tier lists do and can be used as a filter/sort ("Tier list" section).
+  "Ungraded only" (`not_in_tier_list=<id>`) hides cards already in the grade list, so
+  each grade drops the card and the next ungraded one takes its place.
 - Card images from Scryfall are cached by the service worker (cache-first, 30 days).

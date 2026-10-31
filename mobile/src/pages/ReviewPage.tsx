@@ -8,12 +8,12 @@ import { LAST_REVIEW_KEY, SORTS, type Filters } from "../filters";
 const IMAGE_LOOKAHEAD = 3;
 
 function summarize(filters: Filters): string {
-  const { sort = "name", order = "asc", grade_list: _, ...rest } = filters;
+  const { sort = "name", order = "asc", grade_list: _, not_in_tier_list: ungraded, ...rest } = filters;
   const sortLabel = sort
     .split(",")
     .map((s) => SORTS.find((o) => o.value === s)?.label ?? s)
     .join(", ");
-  return [...Object.values(rest), `${sortLabel} ${order === "desc" ? "↓" : "↑"}`].join(" · ");
+  return [...Object.values(rest), ...(ungraded ? ["ungraded"] : []), `${sortLabel} ${order === "desc" ? "↓" : "↑"}`].join(" · ");
 }
 
 export function ReviewPage() {
@@ -34,8 +34,17 @@ export function ReviewPage() {
 
   const seek = (i: number) => setParams({ ...filters, i: String(i) }, { replace: true });
 
-  // Grading a card advances to the next one; clearing a grade stays put.
+  // Grading a card advances to the next one; clearing a grade stays put. With
+  // "ungraded only" the graded card drops out of the results, so the next card
+  // slides into the current position instead.
   const grade = (tier: string | null) => {
+    if (filters.not_in_tier_list) {
+      setGrade.mutate(
+        { cardName: card!.name, tier },
+        { onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cards"] }) },
+      );
+      return;
+    }
     setGrade.mutate({ cardName: card!.name, tier });
     if (tier && index < total - 1) seek(index + 1);
   };
@@ -62,6 +71,11 @@ export function ReviewPage() {
   });
 
   useEffect(() => window.scrollTo(0, 0), [index]);
+
+  // Results can shrink under us (ungraded-only grading), so clamp the position.
+  useEffect(() => {
+    if (total > 0 && index >= total) seek(total - 1);
+  }, [index, total]);
 
   return (
     <ReviewScreen

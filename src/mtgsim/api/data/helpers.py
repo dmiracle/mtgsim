@@ -125,6 +125,7 @@ def apply_card_filters(
     user_tags: list[str] | None = None,
     tier_list_id: int | None = None,
     tiers: list[str] | None = None,
+    not_in_tier_list: int | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
     owns_platform: str | None = None,
@@ -229,6 +230,13 @@ def apply_card_filters(
         # table itself for tier sorting, which would otherwise auto-correlate
         # this subquery into having no FROM clause
         query = query.where(exists(sa_select(UserTierListEntry.id).where(*conditions).correlate(M)))
+    if not_in_tier_list is not None:
+        from mtgdb.models import UserTierListEntry
+
+        in_list = sa_select(UserTierListEntry.id).where(
+            UserTierListEntry.card_name == M.name, UserTierListEntry.tier_list_id == not_in_tier_list
+        )
+        query = query.where(~exists(in_list.correlate(M)))
     if owns is True:
         query = query.where(
             (U.quantity_owned > 0)

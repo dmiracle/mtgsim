@@ -60,6 +60,14 @@ class TestTierFilter:
         names = [c["name"] for c in data["data"]]
         assert names == ["Phyrexian Missionary", "Cut Down", "Shivan Devastator"]
 
+    def test_not_in_tier_list_excludes_graded_cards(self, client, tiered_list):
+        params = {"sets": "DMU", "unique": True, "limit": 100}
+        everything = client.get("/api/cards", params=params).json()["pagination"]["total"]
+        data = client.get("/api/cards", params={**params, "not_in_tier_list": tiered_list}).json()
+        assert data["pagination"]["total"] == everything - 3
+        names = {c["name"] for c in data["data"]}
+        assert not names & {"Cut Down", "Phyrexian Missionary", "Shivan Devastator"}
+
     def test_tier_sort_without_list_falls_back(self, client):
         resp = client.get("/api/cards", params={"q": "bolt", "sort": "tier", "limit": 5})
         assert resp.status_code == 200

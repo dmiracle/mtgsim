@@ -20,7 +20,10 @@ export function FilterPage() {
       name,
       set_code: selectedSets.length === 1 ? selectedSets[0] : undefined,
     });
-    setFilters((f) => setParam(f, "grade_list", String(list.id)));
+    setFilters((f) => {
+      const next = setParam(f, "grade_list", String(list.id));
+      return f.not_in_tier_list ? setParam(next, "not_in_tier_list", String(list.id)) : next;
+    });
   };
   const lastReview = localStorage.getItem(LAST_REVIEW_KEY);
 

@@ -64,6 +64,12 @@ export function FilterForm(props: FilterFormProps) {
     onChange(next);
   };
 
+  // "Ungraded only" excludes cards already in the grade list, so it follows the list choice.
+  const selectGradeList = (id: string) => {
+    const next = setParam(filters, "grade_list", id);
+    onChange(filters.not_in_tier_list ? setParam(next, "not_in_tier_list", id) : next);
+  };
+
   return (
     <div className="space-y-6 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-36">
       <h1 className="text-2xl font-bold">Card Review</h1>
@@ -153,7 +159,7 @@ export function FilterForm(props: FilterFormProps) {
         <select
           className={inputClass}
           value={filters.grade_list ?? ""}
-          onChange={(e) => set("grade_list", e.target.value)}
+          onChange={(e) => selectGradeList(e.target.value)}
         >
           <option value="">Don't grade</option>
           {props.tierLists.map((t) => (
@@ -162,6 +168,17 @@ export function FilterForm(props: FilterFormProps) {
             </option>
           ))}
         </select>
+        {filters.grade_list && (
+          <label className="flex min-h-10 items-center gap-3">
+            <input
+              type="checkbox"
+              className="size-5 accent-accent"
+              checked={!!filters.not_in_tier_list}
+              onChange={(e) => set("not_in_tier_list", e.target.checked ? filters.grade_list : "")}
+            />
+            Ungraded only
+          </label>
+        )}
         <div className="flex gap-3">
           <input
             className={inputClass}
