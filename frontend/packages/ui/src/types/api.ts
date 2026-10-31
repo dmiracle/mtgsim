@@ -522,3 +522,71 @@ export type InteractionGraphResponse = {
   nodes: InteractionGraphNode[];
   total_interactions: number;
 };
+
+// --- User data (tags, notes, tier lists) ---
+
+export type UserTagSummary = {
+  tag: string;
+  description: string | null;
+  card_count: number;
+};
+
+export type TagCard = {
+  uuid: string | null;
+  name: string;
+  type_line: string | null;
+  mana_cost: string | null;
+  set_code: string | null;
+  image_url: string | null;
+};
+
+export type CardNote = {
+  id: number;
+  card_name: string;
+  kind: string;
+  title: string | null;
+  body: string;
+  extra: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Tier =
+  | "A+"
+  | "A"
+  | "A-"
+  | "B+"
+  | "B"
+  | "B-"
+  | "C+"
+  | "C"
+  | "C-"
+  | "D+"
+  | "D"
+  | "D-"
+  | "F";
+
+export type TierListSummary = {
+  id: number;
+  name: string;
+  description: string | null;
+  set_code: string | null;
+  format: string | null;
+  extra: Record<string, unknown>;
+  entry_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TierEntry = {
+  id: number;
+  card_name: string;
+  tier: string;
+  position: number;
+  note: string | null;
+  card: TagCard | null;
+};
+
+export type TierListDetail = TierListSummary & {
+  entries: TierEntry[];
+};

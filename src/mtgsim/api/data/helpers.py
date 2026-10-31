@@ -125,6 +125,7 @@ def apply_card_filters(
     user_tags: list[str] | None = None,
     tier_list_id: int | None = None,
     tiers: list[str] | None = None,
+    not_in_tier_list: int | None = None,
     owns: bool | None = None,
     wants: bool | None = None,
     owns_platform: str | None = None,
@@ -229,6 +230,13 @@ def apply_card_filters(
         # table itself for tier sorting, which would otherwise auto-correlate
         # this subquery into having no FROM clause
         query = query.where(exists(sa_select(UserTierListEntry.id).where(*conditions).correlate(M)))
+    if not_in_tier_list is not None:
+        from mtgdb.models import UserTierListEntry
+
+        in_list = sa_select(UserTierListEntry.id).where(
+            UserTierListEntry.card_name == M.name, UserTierListEntry.tier_list_id == not_in_tier_list
+        )
+        query = query.where(~exists(in_list.correlate(M)))
     if owns is True:
         query = query.where(
             (U.quantity_owned > 0)
@@ -448,6 +456,18 @@ def rarity_order():
     from sqlalchemy import case
 
     return case(RARITY_RANK, value=MJCard.rarity, else_=len(RARITY_RANK))
+
+
+TIERS = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F")
+TIER_RANK = {tier: rank for rank, tier in enumerate(TIERS)}
+
+
+def tier_order():
+    """CASE expression ranking 17Lands-style grades A+ (best) through F; unknown tiers sort last."""
+    from mtgdb.models import UserTierListEntry
+    from sqlalchemy import case
+
+    return case(TIER_RANK, value=UserTierListEntry.tier, else_=len(TIER_RANK))
 
 
 def canonical_card_name(session, name: str) -> str | None:

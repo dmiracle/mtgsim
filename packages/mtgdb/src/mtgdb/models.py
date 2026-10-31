@@ -717,6 +717,30 @@ class UserTierListEntry(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class UserRanking(SQLModel, table=True):
+    """Named pairwise ranking of the cards matched by a saved card-search filter."""
+
+    __tablename__ = "user_ranking"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    filters: dict = Field(default_factory=dict, sa_column=Column(JSON))  # GET /api/cards query params
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserRankingComparison(SQLModel, table=True):
+    """One pairwise result (winner ranked above loser). History is kept; the latest per pair wins."""
+
+    __tablename__ = "user_ranking_comparison"
+
+    id: int | None = Field(default=None, primary_key=True)
+    ranking_id: int = Field(foreign_key="user_ranking.id", index=True)
+    winner_name: str
+    loser_name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserCardNote(SQLModel, table=True):
     """Per-card user note. kind + extra make this an extension point for future per-card data."""
 

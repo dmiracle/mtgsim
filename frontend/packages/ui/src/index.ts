@@ -57,6 +57,13 @@ export { FormatLegalityBadges } from "./components/FormatLegalityBadges/FormatLe
 export { GenerateDialog } from "./components/GenerateDialog/GenerateDialog";
 export { InteractionBuilder } from "./components/InteractionBuilder/InteractionBuilder";
 export { InteractionList } from "./components/InteractionList/InteractionList";
+
+// User data components
+export { UserTagChips } from "./components/UserTagChips/UserTagChips";
+export { UserTagEditor } from "./components/UserTagEditor/UserTagEditor";
+export { CardNotesPanel } from "./components/CardNotesPanel/CardNotesPanel";
+export { TierListPicker } from "./components/TierListPicker/TierListPicker";
+export { TierListBoard } from "./components/TierListBoard/TierListBoard";
 export { InteractionListItem } from "./components/InteractionListItem/InteractionListItem";
 export { InteractionTypeBadge } from "./components/InteractionTypeBadge/InteractionTypeBadge";
 export { GlossaryBrowser } from "./components/GlossaryBrowser/GlossaryBrowser";

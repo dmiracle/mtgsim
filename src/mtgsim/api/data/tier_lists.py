@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from mtgdb import UserTierList, UserTierListEntry, get_session
 from sqlmodel import func, select
 
-from .helpers import canonical_card_name, resolve_default_printing
+from .helpers import canonical_card_name, resolve_default_printing, tier_order
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class TierListsData:
             entries = session.exec(
                 select(UserTierListEntry)
                 .where(UserTierListEntry.tier_list_id == list_id)
-                .order_by(UserTierListEntry.tier, UserTierListEntry.position)
+                .order_by(tier_order(), UserTierListEntry.position)
             ).all()
             result = _list_to_dict(tier_list, len(entries))
             result["entries"] = [_entry_to_dict(e, resolve_default_printing(session, e.card_name)) for e in entries]

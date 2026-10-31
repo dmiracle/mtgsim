@@ -16,6 +16,7 @@ from mtgdb.models import (
     UserCardRating,
 )
 from mtgdb.session import get_session
+from sqlalchemy import Integer
 from sqlmodel import func, select
 
 from .helpers import (
@@ -25,6 +26,7 @@ from .helpers import (
     card_to_api_dict,
     fts_name_search_uuids,
     rarity_order,
+    tier_order,
 )
 
 logger = logging.getLogger("mtgsim.api.data.cards")
@@ -91,6 +93,7 @@ class CardsData:
         user_tags: list[str] | None = None,
         tier_list_id: int | None = None,
         tiers: list[str] | None = None,
+        not_in_tier_list: int | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
         owns: bool | None = None,
@@ -157,6 +160,7 @@ class CardsData:
                 user_tags=user_tags,
                 tier_list_id=tier_list_id,
                 tiers=tiers,
+                not_in_tier_list=not_in_tier_list,
                 owns=owns,
                 owns_platform=owns_platform,
                 wants=wants,
@@ -176,23 +180,18 @@ class CardsData:
                 "mana_value": MJCard.mana_value,
                 "rarity": rarity_order(),
                 "set_code": MJCard.set_code,
+                "number": func.cast(MJCard.number, Integer),
                 "color": MJCard.color_sort_key,
                 "price": price_col,
             }
             if tier_list_id is not None:
                 from mtgdb.models import UserTierListEntry
-                from sqlalchemy import case
 
                 query = query.outerjoin(
                     UserTierListEntry,
                     (UserTierListEntry.card_name == MJCard.name) & (UserTierListEntry.tier_list_id == tier_list_id),
                 )
-                tier_rank = case(
-                    {"S": 0, "A": 1, "B": 2, "C": 3, "D": 4, "F": 5},
-                    value=UserTierListEntry.tier,
-                    else_=6,
-                )
-                sort_map["tier"] = tier_rank
+                sort_map["tier"] = tier_order()
             sort_fields = []
             for part in (part.strip() for part in sort.split(",")):
                 if part not in sort_map:
@@ -272,6 +271,7 @@ class CardsData:
                     user_tags=user_tags,
                     tier_list_id=tier_list_id,
                     tiers=tiers,
+                    not_in_tier_list=not_in_tier_list,
                     owns=owns,
                     wants=wants,
                     owns_platform=owns_platform,
