@@ -4,10 +4,11 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -242,11 +243,17 @@ app.include_router(interactions_router, prefix="/api")
 app.include_router(scan_log_router, prefix="/api")
 
 
-@app.get("/")
+# The mobile PWA build (mobile/dist) is served at the site root when it has been built.
+mobile_dist = Path(__file__).resolve().parents[3] / "mobile" / "dist"
+
+
+@app.get("/", include_in_schema=False)
 async def root():
-    """Redirect root to the API docs."""
+    """Serve the mobile app if built, otherwise redirect to the API docs."""
     from fastapi.responses import RedirectResponse
 
+    if mobile_dist.exists():
+        return FileResponse(mobile_dist / "index.html")
     return RedirectResponse(url="/docs")
 
 
@@ -316,3 +323,16 @@ resources_dir = get_resources_dir()
 
 if resources_dir.exists():
     app.mount("/resources", StaticFiles(directory=str(resources_dir)), name="resources")
+
+# Mobile app files and client-side routes. Registered last so every API route wins;
+# unknown paths fall back to index.html.
+if mobile_dist.exists():
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def mobile_app(path: str) -> FileResponse:
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail=f"Not found: /{path}")
+        file = (mobile_dist / path).resolve()
+        if path and file.is_file() and file.is_relative_to(mobile_dist):
+            return FileResponse(file)
+        return FileResponse(mobile_dist / "index.html")

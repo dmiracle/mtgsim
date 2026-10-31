@@ -4,8 +4,11 @@
 class TestRootEndpoint:
     """Tests for GET / endpoint."""
 
-    def test_root_redirects_to_docs(self, client):
-        """Root endpoint redirects to /docs."""
+    def test_root_redirects_to_docs(self, client, monkeypatch, tmp_path):
+        """Without a mobile app build, the root endpoint redirects to /docs."""
+        from mtgsim.api import main
+
+        monkeypatch.setattr(main, "mobile_dist", tmp_path / "missing")
         response = client.get("/", follow_redirects=False)
         assert response.status_code == 307
         assert response.headers["location"] == "/docs"

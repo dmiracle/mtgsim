@@ -94,43 +94,38 @@ install-frontend:
 help:
     uv run mtgsim --help
 
-# --- launchd services (API on :8001, mobile PWA build on :5175) ---
+# --- launchd service: the API on :8001, which also serves the mobile PWA build ---
 
 launch_agents := env_var('HOME') / "Library/LaunchAgents"
-services := "com.mtgsim.api com.mtgsim.mobile"
+service := "com.mtgsim.api"
 
-# Build the mobile app and install + start both launchd services
+# Build the mobile app and install + start the launchd service
 services-install: mobile-build
     mkdir -p {{launch_agents}} ~/Library/Logs/mtgsim
-    for s in {{services}}; do \
-        launchctl bootout gui/$(id -u)/$s 2>/dev/null || true; \
-        cp deploy/launchd/$s.plist {{launch_agents}}/; \
-        launchctl bootstrap gui/$(id -u) {{launch_agents}}/$s.plist; \
-    done
+    launchctl bootout gui/$(id -u)/{{service}} 2>/dev/null || true
+    cp deploy/launchd/{{service}}.plist {{launch_agents}}/
+    launchctl bootstrap gui/$(id -u) {{launch_agents}}/{{service}}.plist
 
-# Stop and remove both launchd services
+# Stop and remove the launchd service
 services-uninstall:
-    for s in {{services}}; do \
-        launchctl bootout gui/$(id -u)/$s 2>/dev/null || true; \
-        rm -f {{launch_agents}}/$s.plist; \
-    done
+    launchctl bootout gui/$(id -u)/{{service}} 2>/dev/null || true
+    rm -f {{launch_agents}}/{{service}}.plist
 
-# Restart both services (e.g. after backend changes)
+# Restart the API (after backend changes)
 services-restart:
-    for s in {{services}}; do launchctl kickstart -k gui/$(id -u)/$s; done
+    launchctl kickstart -k gui/$(id -u)/{{service}}
 
-# Show whether each service is running
+# Show whether the service is running
 services-status:
-    for s in {{services}}; do launchctl print gui/$(id -u)/$s | grep -E "^\S|state =|pid =" | head -3; done
+    launchctl print gui/$(id -u)/{{service}} | grep -E "^\S|state =|pid =" | head -3
 
-# Follow both service logs
+# Follow the service log
 services-logs:
-    tail -f ~/Library/Logs/mtgsim/api.log ~/Library/Logs/mtgsim/mobile.log
+    tail -f ~/Library/Logs/mtgsim/api.log
 
-# Build the mobile PWA for production
+# Build the mobile PWA; the API serves mobile/dist, so a build is live immediately
 mobile-build:
     cd mobile && npm ci && npm run build
 
-# Rebuild the mobile app and restart its service (after frontend changes)
+# Rebuild the mobile app (alias kept for muscle memory)
 mobile-deploy: mobile-build
-    launchctl kickstart -k gui/$(id -u)/com.mtgsim.mobile

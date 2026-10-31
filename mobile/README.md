@@ -40,24 +40,24 @@ created from the current filters (one printing per card name, up to 600 cards).
 
 ## Running as a service (launchd)
 
-The API and a production build of this app run as macOS LaunchAgents
-(`deploy/launchd/com.mtgsim.api.plist`, `com.mtgsim.mobile.plist`): started at login,
-restarted if they crash, logs in `~/Library/Logs/mtgsim/`. From the repo root:
+In production the FastAPI backend serves this app's build (`mobile/dist`) at the site
+root, with client-side routes falling back to `index.html`; `/api/*` and `/docs` keep
+their usual handlers. One LaunchAgent (`deploy/launchd/com.mtgsim.api.plist`) runs it:
+started at login, restarted if it crashes, log in `~/Library/Logs/mtgsim/api.log`.
 
 ```bash
-just services-install     # build mobile/, install + start both agents
-just mobile-deploy        # after frontend changes: rebuild + restart the app
-just services-restart     # after backend changes: restart both
+just services-install     # build mobile/, install + start the agent
+just mobile-deploy        # after frontend changes: rebuild (served immediately)
+just services-restart     # after backend changes
 just services-status      # running? pid?
-just services-logs        # tail both logs
+just services-logs        # tail the log
 just services-uninstall   # stop + remove
 ```
 
-The app agent runs `vite preview` on :5175 (same `/api` proxy and allowed hosts as dev)
-with nvm's node referenced by absolute path; update the plist if the Node version changes.
-`tailscale serve --https=443 http://localhost:5175` publishes it at
-https://dylans-macbook-pro-2.tail4ca9d8.ts.net/ (tailnet only). Services run whatever is
-checked out in this working tree.
+`tailscale serve --https=443 http://localhost:8001` publishes it at
+https://dylans-macbook-pro-2.tail4ca9d8.ts.net/ (tailnet only). The service runs whatever
+is checked out in this working tree. (`vite preview` was tried first but crashed on
+dropped client connections.)
 
 ## Install on a phone
 
