@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Round } from "../ranking";
 import type { Card } from "../types";
 import { CardZoom } from "./CardZoom";
@@ -10,8 +10,10 @@ interface RankRoundProps {
   onSubmit: (orderedNames: string[]) => void;
 }
 
+const LONG_PRESS_MS = 400;
+
 const PROMPT: Record<string, string> = {
-  new: "Tap cards from best to worst.",
+  new: "Tap cards from best to worst. Hold a card to see it large.",
   refine: "Tap cards from best to worst — these are still too close to call.",
   cycle: "These conflict with each other (A over B over C over A). Re-rank them to resolve it.",
 };
@@ -19,6 +21,22 @@ const PROMPT: Record<string, string> = {
 export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps) {
   const [order, setOrder] = useState<string[]>([]);
   const [zoomed, setZoomed] = useState<Card | null>(null);
+  const [peeked, setPeeked] = useState<Card | null>(null);
+  const pressTimer = useRef(0);
+  const longPressed = useRef(false);
+
+  // Hold a card to peek at it full-size; releasing closes it and doesn't count as a tap.
+  const startPress = (card: Card) => {
+    longPressed.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true;
+      setPeeked(card);
+    }, LONG_PRESS_MS);
+  };
+  const endPress = () => {
+    clearTimeout(pressTimer.current);
+    setPeeked(null);
+  };
   const toggle = (name: string) =>
     setOrder((o) => (o.includes(name) ? o.filter((n) => n !== name) : [...o, name]));
   // The last card's place is implied once the others are picked.
@@ -35,12 +53,21 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
           const rank = order.indexOf(card.name) + 1;
           return (
             <div key={card.uuid} className="relative">
-              <button onClick={() => toggle(card.name)} className="block w-full" aria-label={`Rank ${card.name}`}>
+              <button
+                onClick={() => !longPressed.current && toggle(card.name)}
+                onPointerDown={() => startPress(card)}
+                onPointerUp={endPress}
+                onPointerCancel={endPress}
+                onPointerLeave={endPress}
+                onContextMenu={(e) => e.preventDefault()}
+                className="block w-full select-none [-webkit-touch-callout:none]"
+                aria-label={`Rank ${card.name}`}
+              >
                 <img
                   src={card.image_url ?? ""}
                   alt={card.name}
                   draggable={false}
-                  className={`aspect-[488/680] w-full rounded-[4.5%] bg-surface object-cover ${
+                  className={`pointer-events-none aspect-[488/680] w-full rounded-[4.5%] bg-surface object-cover ${
                     rank ? "ring-4 ring-accent" : ""
                   }`}
                 />
@@ -78,6 +105,7 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
         </button>
       </div>
       {zoomed && <CardZoom card={zoomed} onClose={() => setZoomed(null)} />}
+      {peeked && <CardZoom card={peeked} />}
     </div>
   );
 }

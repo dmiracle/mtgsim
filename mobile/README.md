@@ -27,7 +27,8 @@ elsewhere with `API_URL=http://host:port npm run dev`.
 Separate from review: tap **Rank** on the filter screen, name a ranking, and it is
 created from the current filters (one printing per card name, up to 600 cards).
 
-- Each round shows up to 4 cards; tap them best to worst and save. A round is stored as
+- Each round shows up to 4 cards; tap them best to worst and save. Press and hold a card
+  to peek at it full-size (release to close; a hold never counts as a tap). A round is stored as
   every pair it implies (4 cards → 6 "A beats B" comparisons, `POST /api/rankings/{id}/rounds`).
 - Next round, in priority order: a **conflict** (the shortest cycle such as A>B>C>A — re-rank
   it to resolve, since the latest result for a pair wins), then **unranked cards** drawn at
