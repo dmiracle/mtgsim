@@ -16,6 +16,7 @@ from mtgdb.models import (
     UserCardRating,
 )
 from mtgdb.session import get_session
+from sqlalchemy import Integer
 from sqlmodel import func, select
 
 from .helpers import (
@@ -177,6 +178,7 @@ class CardsData:
                 "mana_value": MJCard.mana_value,
                 "rarity": rarity_order(),
                 "set_code": MJCard.set_code,
+                "number": func.cast(MJCard.number, Integer),
                 "color": MJCard.color_sort_key,
                 "price": price_col,
             }

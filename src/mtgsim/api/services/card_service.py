@@ -90,6 +90,7 @@ class CardService:
                     mana_value=c.get("mana_value"),
                     rarity=c.get("rarity", ""),
                     set_code=c.get("set_code", ""),
+                    number=c.get("number"),
                     colors=c.get("colors", []),
                     color_identity=c.get("color_identity", []),
                     tags=c.get("tags", []),

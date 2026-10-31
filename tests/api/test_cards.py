@@ -581,3 +581,13 @@ class TestRaritySort:
         data = client.get("/api/sets/DMU?sort=rarity&limit=100").json()
         ranks = [self.RANK.get(c["rarity"], 4) for c in data["cards"]["data"]]
         assert ranks == sorted(ranks)
+
+
+class TestNumberSort:
+    """sort=number orders printings by collector number numerically."""
+
+    def test_number_sort_is_numeric(self, client):
+        cards = client.get("/api/cards?sets=DMU&sort=number&limit=100").json()["data"]
+        numbers = [int(c["number"]) for c in cards if c["number"].isdigit()]
+        assert numbers == sorted(numbers)
+        assert numbers[:3] == [1, 2, 3]
