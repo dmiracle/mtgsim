@@ -129,7 +129,7 @@ services-logs:
 
 # Build the mobile PWA for production
 mobile-build:
-    cd mobile && npm install && npm run build
+    cd mobile && npm ci && npm run build
 
 # Rebuild the mobile app and restart its service (after frontend changes)
 mobile-deploy: mobile-build
