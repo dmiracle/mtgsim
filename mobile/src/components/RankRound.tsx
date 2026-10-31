@@ -13,30 +13,26 @@ interface RankRoundProps {
 const LONG_PRESS_MS = 400;
 
 const PROMPT: Record<string, string> = {
-  new: "Tap cards from best to worst. Hold a card to see it large.",
+  new: "Tap cards from best to worst. Hold a card to see it large, then swipe through the others.",
   refine: "Tap cards from best to worst — these are still too close to call.",
   cycle: "These conflict with each other (A over B over C over A). Re-rank them to resolve it.",
 };
 
 export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps) {
   const [order, setOrder] = useState<string[]>([]);
-  const [zoomed, setZoomed] = useState<Card | null>(null);
-  const [peeked, setPeeked] = useState<Card | null>(null);
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
   const pressTimer = useRef(0);
   const longPressed = useRef(false);
 
-  // Hold a card to peek at it full-size; releasing closes it and doesn't count as a tap.
-  const startPress = (card: Card) => {
+  // Hold a card to open the full-size carousel; the hold doesn't count as a tap.
+  const startPress = (index: number) => {
     longPressed.current = false;
     pressTimer.current = window.setTimeout(() => {
       longPressed.current = true;
-      setPeeked(card);
+      setZoomIndex(index);
     }, LONG_PRESS_MS);
   };
-  const endPress = () => {
-    clearTimeout(pressTimer.current);
-    setPeeked(null);
-  };
+  const endPress = () => clearTimeout(pressTimer.current);
   const toggle = (name: string) =>
     setOrder((o) => (o.includes(name) ? o.filter((n) => n !== name) : [...o, name]));
   // The last card's place is implied once the others are picked.
@@ -49,13 +45,13 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
         {PROMPT[kind]}
       </p>
       <div className="grid grid-cols-2 gap-3">
-        {cards.map((card) => {
+        {cards.map((card, cardIndex) => {
           const rank = order.indexOf(card.name) + 1;
           return (
             <div key={card.uuid} className="relative">
               <button
                 onClick={() => !longPressed.current && toggle(card.name)}
-                onPointerDown={() => startPress(card)}
+                onPointerDown={() => startPress(cardIndex)}
                 onPointerUp={endPress}
                 onPointerCancel={endPress}
                 onPointerLeave={endPress}
@@ -78,7 +74,7 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
                 </span>
               )}
               <button
-                onClick={() => setZoomed(card)}
+                onClick={() => setZoomIndex(cardIndex)}
                 aria-label={`Zoom ${card.name}`}
                 className="absolute bottom-1 left-1 flex size-7 items-center justify-center rounded-full bg-bg/80 text-sm"
               >
@@ -104,8 +100,14 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
           Save ranking
         </button>
       </div>
-      {zoomed && <CardZoom card={zoomed} onClose={() => setZoomed(null)} />}
-      {peeked && <CardZoom card={peeked} />}
+      {zoomIndex !== null && (
+        <CardZoom
+          cards={cards}
+          startIndex={zoomIndex}
+          rankOf={(name) => order.indexOf(name) + 1}
+          onClose={() => setZoomIndex(null)}
+        />
+      )}
     </div>
   );
 }
