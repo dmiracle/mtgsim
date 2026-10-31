@@ -4,6 +4,7 @@
 - `src/mtgsim/` holds the Python package: Typer CLI in `cli/`, domain + SQLModel models in `db/`, MTGJSON sync in `sync/mtgjson.py`, ASCII rendering in `render/`, extraction pipelines in `extract/`, and the FastAPI backend in `api/` (routers/services/data/models mirror `docs/architecture.md`).
 - `resources/` contains MTGJSON SQLite/JSON snapshots; runtime copies live at `~/.mtgsim/reference/mtgjson/`.
 - `frontend/` is the standalone frontend application (separate from the Python backend).
+- `mobile/` is a separate mobile card-review PWA (own `package.json`, no shared code with `frontend/`); see `mobile/README.md`.
 - `tests/` covers CLI and API behavior (API cases in `tests/api/`); keep new tests close to their code.
 - `docs/architecture.md` documents backend layers—refresh it when endpoints or data flows change.
 
