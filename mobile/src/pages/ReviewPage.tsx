@@ -1,14 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PAGE_SIZE, cardPageQuery, useCardPage } from "../api";
+import { PAGE_SIZE, cardPageQuery, useCardPage, useSetGrade, useTierList } from "../api";
 import { ReviewScreen } from "../components/ReviewScreen";
 import { LAST_REVIEW_KEY, SORTS, type Filters } from "../filters";
 
 const IMAGE_LOOKAHEAD = 3;
 
 function summarize(filters: Filters): string {
-  const { sort = "name", order = "asc", ...rest } = filters;
+  const { sort = "name", order = "asc", grade_list: _, ...rest } = filters;
   const sortLabel = sort
     .split(",")
     .map((s) => SORTS.find((o) => o.value === s)?.label ?? s)
@@ -27,8 +27,18 @@ export function ReviewPage() {
   const total = data?.pagination.total ?? 0;
   const cards = data?.pagination.page === page ? data.data : [];
   const offset = index % PAGE_SIZE;
+  const card = cards[offset];
+  const gradeList = useTierList(filters.grade_list);
+  const setGrade = useSetGrade(filters.grade_list);
+  const grades = new Map(gradeList.data?.entries.map((e) => [e.card_name, e.tier]));
 
   const seek = (i: number) => setParams({ ...filters, i: String(i) }, { replace: true });
+
+  // Grading a card advances to the next one; clearing a grade stays put.
+  const grade = (tier: string | null) => {
+    setGrade.mutate({ cardName: card!.name, tier });
+    if (tier && index < total - 1) seek(index + 1);
+  };
 
   useEffect(() => localStorage.setItem(LAST_REVIEW_KEY, params.toString()), [params]);
 
@@ -55,12 +65,17 @@ export function ReviewPage() {
 
   return (
     <ReviewScreen
-      card={cards[offset]}
+      card={card}
       index={index}
       total={total}
       summary={summarize(filters)}
       onSeek={seek}
       onExit={() => navigate("/")}
+      grading={
+        gradeList.data
+          ? { listName: gradeList.data.name, grade: grades.get(card?.name ?? ""), onGrade: grade }
+          : undefined
+      }
     />
   );
 }

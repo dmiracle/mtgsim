@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCardCount, useSets, useTierLists, useUserTags } from "../api";
+import { useCardCount, useCreateTierList, useSets, useTierLists, useUserTags } from "../api";
 import { FilterForm } from "../components/FilterForm";
-import { DEFAULT_FILTERS, LAST_REVIEW_KEY, loadFilters, saveFilters } from "../filters";
+import { DEFAULT_FILTERS, LAST_REVIEW_KEY, listParam, loadFilters, saveFilters, setParam } from "../filters";
 
 export function FilterPage() {
   const navigate = useNavigate();
@@ -12,6 +12,16 @@ export function FilterPage() {
   const userTags = useUserTags();
   const tierLists = useTierLists();
   const count = useCardCount(filters);
+  const createTierList = useCreateTierList();
+  const selectedSets = listParam(filters, "sets");
+
+  const createGradeList = async (name: string) => {
+    const list = await createTierList.mutateAsync({
+      name,
+      set_code: selectedSets.length === 1 ? selectedSets[0] : undefined,
+    });
+    setFilters((f) => setParam(f, "grade_list", String(list.id)));
+  };
   const lastReview = localStorage.getItem(LAST_REVIEW_KEY);
 
   useEffect(() => saveFilters(filters), [filters]);
@@ -37,6 +47,7 @@ export function FilterPage() {
         count={count.data}
         onStart={() => navigate(`/review?${new URLSearchParams({ ...filters, i: "0" })}`)}
         onReset={() => setFilters(DEFAULT_FILTERS)}
+        onCreateGradeList={createGradeList}
       />
     </>
   );

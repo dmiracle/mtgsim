@@ -1,6 +1,6 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Filters } from "./filters";
-import type { Card, CardSet, Page, TierList, UserTag } from "./types";
+import type { Card, CardSet, Page, TierList, TierListDetail, UserTag } from "./types";
 
 export const PAGE_SIZE = 100;
 
@@ -8,6 +8,15 @@ async function get<T>(path: string, params: Record<string, string | number> = {}
   const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
   const res = await fetch(`/api${path}?${query}`);
   return res.json();
+}
+
+async function send(method: string, path: string, body?: unknown) {
+  const res = await fetch(`/api${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return res.status === 204 ? null : res.json();
 }
 
 export function useSets(q: string) {
@@ -44,4 +53,35 @@ export function cardPageQuery(filters: Filters, page: number) {
 
 export function useCardPage(filters: Filters, page: number) {
   return useQuery({ ...cardPageQuery(filters, page), placeholderData: keepPreviousData });
+}
+
+export function useTierList(id: string | undefined) {
+  return useQuery({
+    queryKey: ["tier-list", id],
+    queryFn: () => get<TierListDetail>(`/tier-lists/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useCreateTierList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; set_code?: string }) => send("POST", "/tier-lists", body) as Promise<TierList>,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tier-lists"] }),
+  });
+}
+
+// tier = null removes the card's grade from the list.
+export function useSetGrade(listId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardName, tier }: { cardName: string; tier: string | null }) =>
+      tier
+        ? send("PUT", `/tier-lists/${listId}/entries`, { card_name: cardName, tier })
+        : send("DELETE", `/tier-lists/${listId}/entries?${new URLSearchParams({ card_name: cardName })}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tier-list", listId] });
+      queryClient.invalidateQueries({ queryKey: ["tier-lists"] });
+    },
+  });
 }

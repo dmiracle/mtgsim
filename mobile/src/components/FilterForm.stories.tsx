@@ -23,6 +23,7 @@ function Interactive({ initial }: { initial: Record<string, string> }) {
         count={23}
         onStart={() => {}}
         onReset={() => setFilters(DEFAULT_FILTERS)}
+        onCreateGradeList={() => setFilters((f) => ({ ...f, grade_list: "1" }))}
       />
       <pre className="px-4 pb-40 text-xs text-muted">{JSON.stringify(filters, null, 2)}</pre>
     </div>

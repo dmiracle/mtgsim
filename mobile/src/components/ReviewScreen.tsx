@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { Card } from "../types";
 import { CardView } from "./CardView";
+import { GradeBar } from "./GradeBar";
 
 interface ReviewScreenProps {
   card: Card | undefined;
@@ -9,11 +10,12 @@ interface ReviewScreenProps {
   summary: string;
   onSeek: (index: number) => void;
   onExit: () => void;
+  grading?: { listName: string; grade: string | undefined; onGrade: (tier: string | null) => void };
 }
 
 const SWIPE_PX = 50;
 
-export function ReviewScreen({ card, index, total, summary, onSeek, onExit }: ReviewScreenProps) {
+export function ReviewScreen({ card, index, total, summary, onSeek, onExit, grading }: ReviewScreenProps) {
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const prev = () => index > 0 && onSeek(index - 1);
   const next = () => index < total - 1 && onSeek(index + 1);
@@ -52,7 +54,7 @@ export function ReviewScreen({ card, index, total, summary, onSeek, onExit }: Re
       </header>
 
       <main
-        className="flex-1 px-4 pt-4 pb-28"
+        className={`flex-1 px-4 pt-4 ${grading ? "pb-60" : "pb-28"}`}
         onTouchStart={(e) => (touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
         onTouchEnd={onTouchEnd}
       >
@@ -63,21 +65,29 @@ export function ReviewScreen({ card, index, total, summary, onSeek, onExit }: Re
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <button
-          onClick={prev}
-          disabled={index <= 0}
-          className="min-h-12 flex-1 rounded-xl border border-line text-lg disabled:opacity-30"
-        >
-          ‹ Prev
-        </button>
-        <button
-          onClick={next}
-          disabled={index >= total - 1}
-          className="min-h-12 flex-1 rounded-xl bg-accent text-lg font-semibold text-bg disabled:opacity-30"
-        >
-          Next ›
-        </button>
+      <nav className="fixed inset-x-0 bottom-0 space-y-2 border-t border-line bg-bg/95 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+        {grading && card && (
+          <>
+            <p className="truncate text-xs text-muted">Grading into {grading.listName}</p>
+            <GradeBar grade={grading.grade} onGrade={grading.onGrade} />
+          </>
+        )}
+        <div className="flex gap-3">
+          <button
+            onClick={prev}
+            disabled={index <= 0}
+            className="min-h-12 flex-1 rounded-xl border border-line text-lg disabled:opacity-30"
+          >
+            ‹ Prev
+          </button>
+          <button
+            onClick={next}
+            disabled={index >= total - 1}
+            className="min-h-12 flex-1 rounded-xl bg-accent text-lg font-semibold text-bg disabled:opacity-30"
+          >
+            Next ›
+          </button>
+        </div>
       </nav>
     </div>
   );

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   COLORS,
   FORMATS,
@@ -26,6 +26,7 @@ interface FilterFormProps {
   count: number | undefined;
   onStart: () => void;
   onReset: () => void;
+  onCreateGradeList: (name: string) => void;
 }
 
 const opts = (values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -43,6 +44,7 @@ const inputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2.5 
 
 export function FilterForm(props: FilterFormProps) {
   const { filters, onChange } = props;
+  const [newListName, setNewListName] = useState("");
   const set = (key: string, value: string) => onChange(setParam(filters, key, value));
   const toggle = (key: string) => (value: string) => onChange(toggleInList(filters, key, value));
   const single = (key: string) => (value: string) => set(key, filters[key] === value ? "" : value);
@@ -146,6 +148,39 @@ export function FilterForm(props: FilterFormProps) {
           )}
         </Section>
       )}
+
+      <Section title="Grade into">
+        <select
+          className={inputClass}
+          value={filters.grade_list ?? ""}
+          onChange={(e) => set("grade_list", e.target.value)}
+        >
+          <option value="">Don't grade</option>
+          {props.tierLists.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.entry_count} graded)
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-3">
+          <input
+            className={inputClass}
+            placeholder="New grade list name"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+          />
+          <button
+            onClick={() => {
+              props.onCreateGradeList(newListName.trim());
+              setNewListName("");
+            }}
+            disabled={!newListName.trim()}
+            className="min-h-11 shrink-0 rounded-lg border border-line px-4 disabled:opacity-40"
+          >
+            Create
+          </button>
+        </div>
+      </Section>
 
       <Section title="Price">
         <div className="flex gap-3">

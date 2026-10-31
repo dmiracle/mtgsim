@@ -29,3 +29,29 @@ export const Loading: StoryObj = {
 export const NoMatches: StoryObj = {
   render: () => <ReviewScreen card={undefined} index={0} total={0} summary="TRK · mythic · price ≥ $500" onSeek={() => {}} onExit={() => {}} />,
 };
+
+export const Grading: StoryObj = {
+  render: () => {
+    const [index, setIndex] = useState(0);
+    const [grades, setGrades] = useState<Record<string, string>>({ [cards[1].name]: "B+" });
+    const card = cards[index];
+    return (
+      <ReviewScreen
+        card={card}
+        index={index}
+        total={cards.length}
+        summary="TRK · common · W · Collector # ↑"
+        onSeek={setIndex}
+        onExit={() => {}}
+        grading={{
+          listName: "TRK draft",
+          grade: grades[card.name],
+          onGrade: (tier) => {
+            setGrades((g) => ({ ...g, [card.name]: tier ?? "" }));
+            if (tier && index < cards.length - 1) setIndex(index + 1);
+          },
+        }}
+      />
+    );
+  },
+};

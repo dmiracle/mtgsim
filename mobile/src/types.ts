@@ -39,6 +39,10 @@ export interface TierList {
   entry_count: number;
 }
 
+export interface TierListDetail extends TierList {
+  entries: { card_name: string; tier: string }[];
+}
+
 export interface Pagination {
   page: number;
   limit: number;

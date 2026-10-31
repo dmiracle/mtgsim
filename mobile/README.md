@@ -37,4 +37,9 @@ Service workers need a secure context, so offline caching only kicks in on
 - The review screen loads 100-card pages on demand, prefetches the next page near
   the end of the current one, and preloads the next 3 card images.
 - Swipe left/right, use Prev/Next, arrow keys, or drag the position slider.
+- **Grading:** pick (or create) a list under "Grade into" on the filter screen. The
+  review screen then shows 17Lands-style grades (A+ … F); tapping one saves it and
+  advances to the next card, ✕ clears it. Grades are stored as tier-list entries
+  (`PUT/DELETE /api/tier-lists/{id}/entries`, keyed by card name), so they show up
+  everywhere tier lists do and can be used as a filter/sort ("Tier list" section).
 - Card images from Scryfall are cached by the service worker (cache-first, 30 days).

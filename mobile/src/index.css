@@ -14,6 +14,11 @@
   --color-mana-r: #e46a4f;
   --color-mana-g: #5fae6e;
   --color-mana-c: #c8c4bd;
+  --color-grade-a: #5fbf77;
+  --color-grade-b: #a6c95a;
+  --color-grade-c: #e8c64a;
+  --color-grade-d: #e8914a;
+  --color-grade-f: #e05a5a;
 }
 
 html,
