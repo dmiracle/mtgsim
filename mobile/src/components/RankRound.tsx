@@ -73,14 +73,14 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
                 />
               </button>
               {rank > 0 && (
-                <span className="pointer-events-none absolute top-1/3 left-1/2 flex size-14 -translate-x-1/2 items-center justify-center rounded-full bg-accent text-3xl font-bold text-bg shadow-lg">
+                <span className="pointer-events-none absolute top-1 left-1 flex size-8 items-center justify-center rounded-full bg-accent text-lg font-bold text-bg shadow-lg">
                   {rank}
                 </span>
               )}
               <button
                 onClick={() => setZoomed(card)}
                 aria-label={`Zoom ${card.name}`}
-                className="absolute right-1 bottom-1 flex size-9 items-center justify-center rounded-full bg-bg/80 text-lg"
+                className="absolute bottom-1 left-1 flex size-7 items-center justify-center rounded-full bg-bg/80 text-sm"
               >
                 ⤢
               </button>
