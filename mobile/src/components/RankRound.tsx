@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Round } from "../ranking";
 import type { Card } from "../types";
 import { CardZoom } from "./CardZoom";
@@ -8,19 +8,48 @@ interface RankRoundProps {
   kind: Round["kind"];
   submitting: boolean;
   onSubmit: (orderedNames: string[]) => void;
+  onExclude: (name: string) => void;
 }
 
+const LONG_PRESS_MS = 600;
+// Lifting the finger after a hold can fire a click onto the sheet that just
+// opened; taps this soon after it opens are ignored.
+const SHEET_GUARD_MS = 400;
+
 const PROMPT: Record<string, string> = {
-  new: "Tap cards from best to worst. Tap ⤢ to see them large.",
+  new: "Tap cards from best to worst. Tap ⤢ to see them large. Long-press a card to exclude it.",
   refine: "Tap cards from best to worst — these are still too close to call.",
   cycle: "These conflict with each other (A over B over C over A). Re-rank them to resolve it.",
 };
 
-export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps) {
+export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: RankRoundProps) {
   const [order, setOrder] = useState<string[]>([]);
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+  const [confirmExclude, setConfirmExclude] = useState<{ name: string; at: number } | null>(null);
+  const pressTimer = useRef<number | undefined>(undefined);
+  const longPressed = useRef(false);
   const toggle = (name: string) =>
     setOrder((o) => (o.includes(name) ? o.filter((n) => n !== name) : [...o, name]));
+
+  // Holding a card asks to exclude it; the click that ends the hold must not also rank it.
+  // Scrolling cancels the pointer, so a scroll never counts as a hold.
+  const startPress = (name: string) => {
+    longPressed.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true;
+      setConfirmExclude({ name, at: Date.now() });
+    }, LONG_PRESS_MS);
+  };
+  const endPress = () => window.clearTimeout(pressTimer.current);
+  const closeSheet = (exclude: string | null) => {
+    if (Date.now() - confirmExclude!.at < SHEET_GUARD_MS) return;
+    if (exclude) onExclude(exclude);
+    setConfirmExclude(null);
+  };
+  const onCardClick = (name: string) => {
+    if (longPressed.current) longPressed.current = false;
+    else toggle(name);
+  };
   // The last card's place is implied once the others are picked.
   const complete = order.length >= cards.length - 1;
   const finalOrder = [...order, ...cards.map((c) => c.name).filter((n) => !order.includes(n))];
@@ -36,7 +65,12 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
           return (
             <div key={card.uuid} className="relative">
               <button
-                onClick={() => toggle(card.name)}
+                onClick={() => onCardClick(card.name)}
+                onPointerDown={() => startPress(card.name)}
+                onPointerUp={endPress}
+                onPointerLeave={endPress}
+                onPointerCancel={endPress}
+                onContextMenu={(e) => e.preventDefault()}
                 className="block w-full select-none [-webkit-touch-callout:none]"
                 aria-label={`Rank ${card.name}`}
               >
@@ -65,7 +99,7 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
           );
         })}
       </div>
-      <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           onClick={() => setOrder([])}
           disabled={!order.length}
@@ -81,6 +115,30 @@ export function RankRound({ cards, kind, submitting, onSubmit }: RankRoundProps)
           Save ranking
         </button>
       </div>
+      {confirmExclude && (
+        <div className="fixed inset-0 z-30 flex items-end bg-bg/70" onClick={() => closeSheet(null)}>
+          <div
+            className="w-full space-y-3 rounded-t-2xl border-t border-line bg-surface px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold">Exclude {confirmExclude.name}?</p>
+            <p className="text-sm text-muted">
+              It won't appear in rounds or results. You can restore it from Results.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => closeSheet(null)} className="min-h-12 flex-1 rounded-xl border border-line">
+                Cancel
+              </button>
+              <button
+                onClick={() => closeSheet(confirmExclude.name)}
+                className="min-h-12 flex-1 rounded-xl bg-grade-f font-semibold text-bg"
+              >
+                Exclude
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {zoomIndex !== null && (
         <CardZoom
           cards={cards}

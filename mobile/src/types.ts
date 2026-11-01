@@ -65,6 +65,7 @@ export interface Ranking {
 
 export interface RankingDetail extends Ranking {
   comparisons: { winner_name: string; loser_name: string }[];
+  excluded_names: string[];
 }
 
 export const SITUATIONS = [

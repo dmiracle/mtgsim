@@ -27,6 +27,10 @@ elsewhere with `API_URL=http://host:port npm run dev`.
 Separate from review: tap **Rank** on the filter screen, name a ranking, and it is
 created from the current filters (one printing per card name, up to 600 cards).
 
+- Basic lands are left out of every ranking.
+- **Long-press** a card in a round, then confirm, to exclude it (for cards too weak to keep
+  ranking). Excluded cards drop out of rounds and results; **Results** lists them with a
+  **Restore** button (`POST`/`DELETE /api/rankings/{id}/exclusions`).
 - Each round shows up to 4 cards; tap them best to worst and save. Tap ⤢ on a card
   to open it full-size, swipe left/right through the round's other cards, tap to close. A round is stored as
   every pair it implies (4 cards → 6 "A beats B" comparisons, `POST /api/rankings/{id}/rounds`).

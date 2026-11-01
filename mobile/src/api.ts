@@ -111,6 +111,9 @@ export function rankingPoolFilters(filters: Filters): Filters {
   return { ...rest, unique: "true", sort: "name", order: "asc" };
 }
 
+// Basic lands are never worth ranking against real cards.
+const isBasicLand = (card: Card) => /\bBasic\b/.test(card.type ?? "");
+
 export function useRankingPool(filters: Filters | undefined) {
   return useQuery({
     queryKey: ["ranking-pool", filters],
@@ -120,7 +123,7 @@ export function useRankingPool(filters: Filters | undefined) {
       for (let page = 1; ; page++) {
         const result = await get<Page<Card>>("/cards", { ...rankingPoolFilters(filters!), page, limit: PAGE_SIZE });
         if (result.pagination.total > RANKING_POOL_MAX) return { cards: [], total: result.pagination.total };
-        cards.push(...result.data);
+        cards.push(...result.data.filter((c) => !isBasicLand(c)));
         if (page >= result.pagination.pages) return { cards, total: result.pagination.total };
       }
     },
@@ -203,5 +206,17 @@ export function useSetEvaluation(setId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: key });
       queryClient.invalidateQueries({ queryKey: ["evaluation-sets"] });
     },
+  });
+}
+
+// Excluded cards drop out of a ranking's rounds and results; restoring brings them back.
+export function useExcludeCard(id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardName, exclude }: { cardName: string; exclude: boolean }) =>
+      exclude
+        ? send("POST", `/rankings/${id}/exclusions`, { card_name: cardName })
+        : send("DELETE", `/rankings/${id}/exclusions?${new URLSearchParams({ card_name: cardName })}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ranking", id] }),
   });
 }

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { RANKING_POOL_MAX, useRanking, useRankingPool, useSubmitRound } from "../api";
+import { RANKING_POOL_MAX, useExcludeCard, useRanking, useRankingPool, useSubmitRound } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { RankRound } from "../components/RankRound";
 import { buildGraph, nextRound, rankOrder, undeterminedPairs } from "../ranking";
@@ -11,8 +11,12 @@ export function RankPage() {
   const ranking = useRanking(id);
   const pool = useRankingPool(ranking.data?.filters);
   const submitRound = useSubmitRound(id);
+  const excludeCard = useExcludeCard(id);
 
-  const cards = pool.data?.cards ?? [];
+  const cards = useMemo(() => {
+    const excluded = new Set(ranking.data?.excluded_names);
+    return (pool.data?.cards ?? []).filter((c) => !excluded.has(c.name));
+  }, [pool.data, ranking.data?.excluded_names]);
   const graph = useMemo(
     () => buildGraph(cards.map((c) => c.name), ranking.data?.comparisons ?? []),
     [cards, ranking.data?.comparisons],
@@ -77,6 +81,7 @@ export function RankPage() {
             kind={round.kind}
             submitting={submitRound.isPending}
             onSubmit={(names) => submitRound.mutate(names)}
+            onExclude={(name) => excludeCard.mutate({ cardName: name, exclude: true })}
           />
         )}
       </div>

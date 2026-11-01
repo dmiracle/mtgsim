@@ -741,6 +741,18 @@ class UserRankingComparison(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class UserRankingExclusion(SQLModel, table=True):
+    """Card left out of a ranking's pool (e.g. clearly unplayable), so it stops appearing in rounds."""
+
+    __tablename__ = "user_ranking_exclusion"
+    __table_args__ = (UniqueConstraint("ranking_id", "card_name", name="uq_ranking_exclusion_card"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    ranking_id: int = Field(foreign_key="user_ranking.id", index=True)
+    card_name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserEvaluationSet(SQLModel, table=True):
     """Named set of situational card evaluations with optional set scope."""
 

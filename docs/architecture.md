@@ -237,7 +237,9 @@ selection are computed client-side (`mobile/src/ranking.ts`).
 - `GET /api/rankings` - List rankings with comparison counts
 - `GET /api/rankings/{id}` - Ranking with its comparison history (oldest first; latest per pair wins)
 - `POST /api/rankings/{id}/rounds` - Record a best-first ordering as all implied pairs
-- `DELETE /api/rankings/{id}` - Delete a ranking and its comparisons
+- `POST /api/rankings/{id}/exclusions` - Exclude a card `{card_name}` from the ranking (listed as `excluded_names`)
+- `DELETE /api/rankings/{id}/exclusions?card_name=` - Restore an excluded card
+- `DELETE /api/rankings/{id}` - Delete a ranking with its comparisons and exclusions
 
 ### Evaluations API
 

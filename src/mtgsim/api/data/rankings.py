@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from itertools import combinations
 
-from mtgdb import UserRanking, UserRankingComparison, get_session
+from mtgdb import UserRanking, UserRankingComparison, UserRankingExclusion, get_session
 from sqlmodel import func, select
 
 
@@ -49,6 +49,11 @@ class RankingsData:
             ).all()
             result = _ranking_to_dict(ranking, len(comparisons))
             result["comparisons"] = [{"winner_name": c.winner_name, "loser_name": c.loser_name} for c in comparisons]
+            result["excluded_names"] = session.exec(
+                select(UserRankingExclusion.card_name)
+                .where(UserRankingExclusion.ranking_id == ranking_id)
+                .order_by(UserRankingExclusion.card_name)
+            ).all()
             return result
 
     def add_round(self, ranking_id: int, ordered_card_names: list[str]) -> int | None:
@@ -64,6 +69,36 @@ class RankingsData:
             session.commit()
             return len(pairs)
 
+    def exclude_card(self, ranking_id: int, card_name: str) -> bool | None:
+        """Leave a card out of the ranking; None if the ranking is unknown. Excluding twice is a no-op."""
+        with get_session() as session:
+            ranking = session.get(UserRanking, ranking_id)
+            if not ranking:
+                return None
+            existing = session.exec(
+                select(UserRankingExclusion).where(
+                    UserRankingExclusion.ranking_id == ranking_id, UserRankingExclusion.card_name == card_name
+                )
+            ).first()
+            if not existing:
+                session.add(UserRankingExclusion(ranking_id=ranking_id, card_name=card_name))
+                ranking.updated_at = datetime.now(UTC)
+                session.commit()
+            return True
+
+    def restore_card(self, ranking_id: int, card_name: str) -> bool:
+        with get_session() as session:
+            exclusion = session.exec(
+                select(UserRankingExclusion).where(
+                    UserRankingExclusion.ranking_id == ranking_id, UserRankingExclusion.card_name == card_name
+                )
+            ).first()
+            if not exclusion:
+                return False
+            session.delete(exclusion)
+            session.commit()
+            return True
+
     def delete_ranking(self, ranking_id: int) -> bool:
         with get_session() as session:
             ranking = session.get(UserRanking, ranking_id)
@@ -72,8 +107,11 @@ class RankingsData:
             comparisons = session.exec(
                 select(UserRankingComparison).where(UserRankingComparison.ranking_id == ranking_id)
             ).all()
-            for comparison in comparisons:
-                session.delete(comparison)
+            exclusions = session.exec(
+                select(UserRankingExclusion).where(UserRankingExclusion.ranking_id == ranking_id)
+            ).all()
+            for row in [*comparisons, *exclusions]:
+                session.delete(row)
             session.delete(ranking)
             session.commit()
             return True

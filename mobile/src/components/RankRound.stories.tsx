@@ -6,7 +6,11 @@ const meta: Meta<typeof RankRound> = {
   title: "Mobile/RankRound",
   component: RankRound,
   decorators: [(Story) => <div className="p-4"><Story /></div>],
-  args: { submitting: false, onSubmit: (names: string[]) => alert(names.join(" > ")) },
+  args: {
+    submitting: false,
+    onSubmit: (names: string[]) => alert(names.join(" > ")),
+    onExclude: (name: string) => alert(`Excluded ${name}`),
+  },
 };
 export default meta;
 type Story = StoryObj<typeof RankRound>;
