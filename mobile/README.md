@@ -38,6 +38,12 @@ created from the current filters (one printing per card name, up to 600 cards).
   current order any time, flagging cards in a conflict and ties not yet decided.
 - Logic lives in `src/ranking.ts` with tests in `src/ranking.test.ts` (`npm test`).
 
+## Stats
+
+Tap **Stats** on the filter screen for charts of the cards the current filters match: mana value,
+card type, power, and toughness (values of 7 and up share a bar; `*` values are shown separately).
+Uses `GET /api/cards/stats`, which takes the same filters as `/api/cards`.
+
 ## Evaluating
 
 Pick or create a set under **Evaluate into** on the filter screen. The review screen then shows

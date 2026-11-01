@@ -30,6 +30,7 @@ interface FilterFormProps {
   onCreateGradeList: (name: string) => void;
   onCreateEvaluationSet: (name: string) => void;
   onRank: () => void;
+  onStats: () => void;
 }
 
 const opts = (values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -299,19 +300,22 @@ export function FilterForm(props: FilterFormProps) {
         />
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <button onClick={props.onReset} className="min-h-12 rounded-xl border border-line px-4">
+      <div className="fixed inset-x-0 bottom-0 flex gap-2 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <button onClick={props.onReset} className="min-h-12 rounded-xl border border-line px-3">
           Reset
         </button>
-        <button onClick={props.onRank} className="min-h-12 rounded-xl border border-accent px-4 text-accent">
+        <button onClick={props.onRank} className="min-h-12 rounded-xl border border-accent px-3 text-accent">
           Rank
+        </button>
+        <button onClick={props.onStats} className="min-h-12 rounded-xl border border-accent px-3 text-accent">
+          Stats
         </button>
         <button
           onClick={props.onStart}
           disabled={!props.count}
-          className="min-h-12 flex-1 rounded-xl bg-accent font-semibold text-bg disabled:opacity-40"
+          className="min-h-12 flex-1 whitespace-nowrap rounded-xl bg-accent font-semibold text-bg disabled:opacity-40"
         >
-          {props.count === undefined ? "Counting…" : `Review ${props.count.toLocaleString()} cards`}
+          {props.count === undefined ? "Counting…" : `Review ${props.count.toLocaleString()}`}
         </button>
       </div>
     </div>

@@ -3,6 +3,7 @@ import type { Filters } from "./filters";
 import type {
   Card,
   CardSet,
+  CardStats,
   EvaluationSet,
   EvaluationSetDetail,
   Page,
@@ -54,6 +55,10 @@ export function useCardCount(filters: Filters) {
     select: (page) => page.pagination.total,
     placeholderData: keepPreviousData,
   });
+}
+
+export function useCardStats(filters: Filters) {
+  return useQuery({ queryKey: ["card-stats", filters], queryFn: () => get<CardStats>("/cards/stats", filters) });
 }
 
 export function cardPageQuery(filters: Filters, page: number) {

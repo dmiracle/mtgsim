@@ -338,6 +338,11 @@ class CardsData:
         owns: bool | None = None,
         wants: bool | None = None,
         unique: bool = False,
+        user_tags: list[str] | None = None,
+        tier_list_id: int | None = None,
+        tiers: list[str] | None = None,
+        not_in_tier_list: int | None = None,
+        owns_platform: str | None = None,
     ) -> dict:
         """Get aggregated stats for filtered cards."""
         with get_session() as session:
@@ -375,8 +380,13 @@ class CardsData:
                 mana_values=mana_values,
                 keywords=keywords,
                 tags=tags,
+                user_tags=user_tags,
+                tier_list_id=tier_list_id,
+                tiers=tiers,
+                not_in_tier_list=not_in_tier_list,
                 owns=owns,
                 wants=wants,
+                owns_platform=owns_platform,
                 session=session,
             )
 
@@ -447,8 +457,13 @@ class CardsData:
                     mana_values=mana_values,
                     keywords=keywords,
                     tags=tags,
+                    user_tags=user_tags,
+                    tier_list_id=tier_list_id,
+                    tiers=tiers,
+                    not_in_tier_list=not_in_tier_list,
                     owns=owns,
                     wants=wants,
+                    owns_platform=owns_platform,
                     session=session,
                     mjcard=MJCard2,
                     user_card=UserCard2,
@@ -469,14 +484,16 @@ class CardsData:
                     "type_distribution": {},
                     "rarity_distribution": {},
                     "color_distribution": {},
+                    "power_distribution": {},
+                    "toughness_distribution": {},
                     "price_stats": {"total": 0, "average": 0, "median": 0, "count_with_price": 0},
                 }
 
             # Single query: fetch mana_value, type_line, rarity, colors for all matches
             card_rows = session.exec(
-                select(MJCard.mana_value, MJCard.type_line, MJCard.rarity, MJCard.colors).where(
-                    MJCard.uuid.in_(matching_uuids)
-                )
+                select(
+                    MJCard.mana_value, MJCard.type_line, MJCard.rarity, MJCard.colors, MJCard.power, MJCard.toughness
+                ).where(MJCard.uuid.in_(matching_uuids))
             ).all()
 
             # Aggregate in Python (single pass)
@@ -484,8 +501,16 @@ class CardsData:
             type_dist: dict[str, int] = {}
             rarity_dist: dict[str, int] = {}
             color_dist: dict[str, int] = {}
+            power_dist: dict[str, int] = {}
+            toughness_dist: dict[str, int] = {}
 
-            for mv, type_line, rarity, colors_json in card_rows:
+            for mv, type_line, rarity, colors_json, power, toughness in card_rows:
+                # Power / toughness (creatures and vehicles; "*" values kept as-is)
+                if power is not None:
+                    power_dist[power] = power_dist.get(power, 0) + 1
+                if toughness is not None:
+                    toughness_dist[toughness] = toughness_dist.get(toughness, 0) + 1
+
                 # Mana curve
                 if mv is not None:
                     key = str(int(mv))
@@ -565,6 +590,8 @@ class CardsData:
                 "type_distribution": type_dist,
                 "rarity_distribution": rarity_dist,
                 "color_distribution": color_dist,
+                "power_distribution": power_dist,
+                "toughness_distribution": toughness_dist,
                 "price_stats": {
                     "total": price_total,
                     "average": price_avg,

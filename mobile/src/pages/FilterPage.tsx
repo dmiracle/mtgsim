@@ -71,6 +71,7 @@ export function FilterPage() {
         onCreateGradeList={createGradeList}
         onCreateEvaluationSet={createEvalSet}
         onRank={() => navigate("/rank")}
+        onStats={() => navigate(`/stats?${new URLSearchParams(filters)}`)}
       />
     </>
   );

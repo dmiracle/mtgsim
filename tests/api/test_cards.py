@@ -264,6 +264,22 @@ class TestCardStats:
         assert "average" in ps
         assert "median" in ps
 
+    def test_stats_power_toughness_cover_creatures(self, client):
+        data = client.get("/api/cards/stats?sets=DMU&type=Creature&unique=true").json()
+        assert data["total"] > 0
+        assert sum(data["power_distribution"].values()) == data["total"]
+        assert sum(data["toughness_distribution"].values()) == data["total"]
+
+    def test_stats_respects_tier_list_filter(self, client):
+        tier_list = client.post("/api/tier-lists", json={"name": "Stats filter test"}).json()
+        try:
+            client.put(f"/api/tier-lists/{tier_list['id']}/entries", json={"card_name": "Cut Down", "tier": "A"})
+            data = client.get(f"/api/cards/stats?tier_list_id={tier_list['id']}&unique=true").json()
+            assert data["total"] == 1
+            assert data["power_distribution"] == {}
+        finally:
+            client.delete(f"/api/tier-lists/{tier_list['id']}")
+
     def test_stats_with_type_filter(self, client, sample_set_code):
         data = client.get(f"/api/cards/stats?set={sample_set_code}&type=Creature").json()
         assert data["total"] > 0

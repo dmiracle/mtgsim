@@ -93,3 +93,11 @@ export interface EvaluationSet {
 export interface EvaluationSetDetail extends EvaluationSet {
   entries: CardEvaluation[];
 }
+
+export interface CardStats {
+  total: number;
+  mana_curve: Record<string, number>;
+  type_distribution: Record<string, number>;
+  power_distribution: Record<string, number>;
+  toughness_distribution: Record<string, number>;
+}

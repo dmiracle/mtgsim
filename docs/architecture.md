@@ -220,6 +220,8 @@ sequenceDiagram
 
 **Endpoints:**
 - `GET /api/cards` - Search cards with filters
+- `GET /api/cards/stats` - Mana curve and type/rarity/color/power/toughness distributions for the same filters
+  (including user tags and tier lists)
 - `GET /api/cards/{uuid}` - Get card details
 
 `GET /api/cards` also accepts `sort=number` (collector number, numeric) and

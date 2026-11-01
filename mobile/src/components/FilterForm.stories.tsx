@@ -21,10 +21,11 @@ function Interactive({ initial }: { initial: Record<string, string> }) {
         userTags={userTags}
         tierLists={tierLists}
         evaluationSets={evaluationSets}
-        count={23}
+        count={1234}
         onStart={() => {}}
         onReset={() => setFilters(DEFAULT_FILTERS)}
         onRank={() => {}}
+        onStats={() => {}}
         onCreateGradeList={() => setFilters((f) => ({ ...f, grade_list: "1" }))}
         onCreateEvaluationSet={() => setFilters((f) => ({ ...f, eval_set: "1" }))}
       />
