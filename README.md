@@ -236,7 +236,7 @@ It runs as a macOS LaunchAgent (`deploy/launchd/com.mtgsim.api.plist`): the API 
 crash. A second agent (`com.mtgsim.tailscale`) runs a separate userspace `tailscaled`
 (`brew install tailscale`) that joins the tailnet as its own device, `mtgsim`, and publishes
 the API over HTTPS on the tailnet only, at https://mtgsim.tail4ca9d8.ts.net/. Port 8001 stays
-free for development. Logs go to `~/Library/Logs/mtgsim/`.
+free for development. The agent registers `mtgsim` with portaware on start. Logs go to `~/Library/Logs/mtgsim/`.
 
 ```bash
 just services-install         # build mobile/, install + start both agents, log in the mtgsim node, enable HTTPS

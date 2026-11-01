@@ -56,7 +56,7 @@ just services-uninstall   # stop + remove both agents (node stays in the admin c
 ```
 
 The API listens on `127.0.0.1:18001` only (not reachable from the LAN, and `:8001` stays
-free for development). A second agent (`deploy/launchd/com.mtgsim.tailscale.plist`) runs a
+free for development), and registers `mtgsim` with portaware on start. A second agent (`deploy/launchd/com.mtgsim.tailscale.plist`) runs a
 separate userspace `tailscaled` (`brew install tailscale`; state in `~/.mtgsim/tailscale/`)
 that joins the tailnet as its own device, `mtgsim`, so the Mac app's Tailscale is untouched.
 `services-install` logs that node in (first run prints an auth URL and waits) and runs
