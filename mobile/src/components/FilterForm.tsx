@@ -11,7 +11,7 @@ import {
   toggleInList,
   type Filters,
 } from "../filters";
-import type { CardSet, TierList, UserTag } from "../types";
+import type { CardSet, EvaluationSet, TierList, UserTag } from "../types";
 import { ChipRow } from "./ChipRow";
 import { SetPicker } from "./SetPicker";
 
@@ -23,10 +23,12 @@ interface FilterFormProps {
   onSetQueryChange: (q: string) => void;
   userTags: UserTag[];
   tierLists: TierList[];
+  evaluationSets: EvaluationSet[];
   count: number | undefined;
   onStart: () => void;
   onReset: () => void;
   onCreateGradeList: (name: string) => void;
+  onCreateEvaluationSet: (name: string) => void;
   onRank: () => void;
 }
 
@@ -46,6 +48,7 @@ const inputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2.5 
 export function FilterForm(props: FilterFormProps) {
   const { filters, onChange } = props;
   const [newListName, setNewListName] = useState("");
+  const [newEvalSetName, setNewEvalSetName] = useState("");
   const set = (key: string, value: string) => onChange(setParam(filters, key, value));
   const toggle = (key: string) => (value: string) => onChange(toggleInList(filters, key, value));
   const single = (key: string) => (value: string) => set(key, filters[key] === value ? "" : value);
@@ -193,6 +196,35 @@ export function FilterForm(props: FilterFormProps) {
               setNewListName("");
             }}
             disabled={!newListName.trim()}
+            className="min-h-11 shrink-0 rounded-lg border border-line px-4 disabled:opacity-40"
+          >
+            Create
+          </button>
+        </div>
+      </Section>
+
+      <Section title="Evaluate into">
+        <select className={inputClass} value={filters.eval_set ?? ""} onChange={(e) => set("eval_set", e.target.value)}>
+          <option value="">Don't evaluate</option>
+          {props.evaluationSets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.entry_count} evaluated)
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-3">
+          <input
+            className={inputClass}
+            placeholder="New evaluation set name"
+            value={newEvalSetName}
+            onChange={(e) => setNewEvalSetName(e.target.value)}
+          />
+          <button
+            onClick={() => {
+              props.onCreateEvaluationSet(newEvalSetName.trim());
+              setNewEvalSetName("");
+            }}
+            disabled={!newEvalSetName.trim()}
             className="min-h-11 shrink-0 rounded-lg border border-line px-4 disabled:opacity-40"
           >
             Create

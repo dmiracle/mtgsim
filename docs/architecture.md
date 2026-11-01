@@ -237,6 +237,18 @@ selection are computed client-side (`mobile/src/ranking.ts`).
 - `POST /api/rankings/{id}/rounds` - Record a best-first ordering as all implied pairs
 - `DELETE /api/rankings/{id}` - Delete a ranking and its comparisons
 
+### Evaluations API
+
+Situational card evaluations in named sets (`user_evaluation_set`, `user_card_evaluation`, keyed by
+card name): 1-5 stars for how valuable a card is when developing, at parity, behind, and ahead.
+
+- `POST /api/evaluation-sets` - Create a set `{name, set_code?}`
+- `GET /api/evaluation-sets` - List sets with evaluated-card counts
+- `GET /api/evaluation-sets/{id}` - Set with every card's scores
+- `PUT /api/evaluation-sets/{id}/entries` - Replace a card's scores `{card_name, developing, parity, behind, ahead}`
+  (null = unrated; all null removes the card)
+- `DELETE /api/evaluation-sets/{id}` - Delete a set and its evaluations
+
 ### Prices API
 
 **Endpoints:**

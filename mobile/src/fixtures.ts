@@ -1,4 +1,4 @@
-import type { Card, CardSet, TierList, UserTag } from "./types";
+import type { Card, CardSet, EvaluationSet, TierList, UserTag } from "./types";
 
 export const cards: Card[] = [
   {
@@ -118,4 +118,9 @@ export const userTags: UserTag[] = [
 export const tierLists: TierList[] = [
   { id: 1, name: "TRK draft", set_code: "TRK", entry_count: 120 },
   { id: 2, name: "Cube staples", set_code: null, entry_count: 64 },
+];
+
+export const evaluationSets: EvaluationSet[] = [
+  { id: 1, name: "TRK draft", set_code: "TRK", entry_count: 38 },
+  { id: 2, name: "Cube", set_code: null, entry_count: 9 },
 ];

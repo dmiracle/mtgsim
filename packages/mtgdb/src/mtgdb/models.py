@@ -741,6 +741,34 @@ class UserRankingComparison(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class UserEvaluationSet(SQLModel, table=True):
+    """Named set of situational card evaluations with optional set scope."""
+
+    __tablename__ = "user_evaluation_set"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    set_code: str | None = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserCardEvaluation(SQLModel, table=True):
+    """1-5 star value of a card by game state: developing, at parity, behind, ahead. None = not rated."""
+
+    __tablename__ = "user_card_evaluation"
+    __table_args__ = (UniqueConstraint("evaluation_set_id", "card_name", name="uq_evaluation_card"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    evaluation_set_id: int = Field(foreign_key="user_evaluation_set.id", index=True)
+    card_name: str = Field(index=True)
+    developing: int | None = None
+    parity: int | None = None
+    behind: int | None = None
+    ahead: int | None = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserCardNote(SQLModel, table=True):
     """Per-card user note. kind + extra make this an extension point for future per-card data."""
 

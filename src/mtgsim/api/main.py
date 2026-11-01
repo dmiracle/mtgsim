@@ -26,6 +26,7 @@ from mtgsim.api.routers import (
     card_notes_router,
     cards_router,
     decks_router,
+    evaluations_router,
     flashcards_router,
     interactions_router,
     keywords_router,
@@ -239,6 +240,7 @@ app.include_router(user_tags_router, prefix="/api")
 app.include_router(card_notes_router, prefix="/api")
 app.include_router(tier_lists_router, prefix="/api")
 app.include_router(rankings_router, prefix="/api")
+app.include_router(evaluations_router, prefix="/api")
 app.include_router(interactions_router, prefix="/api")
 app.include_router(scan_log_router, prefix="/api")
 

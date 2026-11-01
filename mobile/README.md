@@ -38,6 +38,14 @@ created from the current filters (one printing per card name, up to 600 cards).
   current order any time, flagging cards in a conflict and ties not yet decided.
 - Logic lives in `src/ranking.ts` with tests in `src/ranking.test.ts` (`npm test`).
 
+## Evaluating
+
+Pick or create a set under **Evaluate into** on the filter screen. The review screen then shows
+four rows of 1-5 stars under the card: how valuable it is while **Developing** (early turns),
+at **Parity**, when **Behind**, and when **Ahead**. Tap a star to rate, tap the same star again
+to clear. Ratings save immediately and don't advance the card, and work alongside grading.
+Stored per card name in the set (`/api/evaluation-sets`).
+
 ## Running as a service (launchd)
 
 In production the FastAPI backend serves this app's build (`mobile/dist`) at the site
