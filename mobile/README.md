@@ -42,27 +42,32 @@ created from the current filters (one printing per card name, up to 600 cards).
 
 In production the FastAPI backend serves this app's build (`mobile/dist`) at the site
 root, with client-side routes falling back to `index.html`; `/api/*` and `/docs` keep
-their usual handlers. One LaunchAgent (`deploy/launchd/com.mtgsim.api.plist`) runs it:
-started at login, restarted if it crashes, log in `~/Library/Logs/mtgsim/api.log`.
+their usual handlers. A LaunchAgent (`deploy/launchd/com.mtgsim.api.plist`) runs it:
+started at login, restarted if it crashes, logs in `~/Library/Logs/mtgsim/`.
 
 ```bash
-just services-install     # build mobile/, install + start the agent
+just services-install     # build mobile/, install + start both agents, log in the node
 just mobile-deploy        # after frontend changes: rebuild (served immediately)
 just services-restart     # after backend changes
 just services-status      # running? pid?
-just services-logs        # tail the log
-just services-uninstall   # stop + remove
+just services-tailscale   # mtgsim node status and serve config
+just services-logs        # tail the logs
+just services-uninstall   # stop + remove both agents (node stays in the admin console)
 ```
 
-`tailscale serve --https=443 http://localhost:8001` publishes it at
-https://dylans-macbook-pro-2.tail4ca9d8.ts.net/ (tailnet only). The service runs whatever
+The API listens on `127.0.0.1:18001` only (not reachable from the LAN, and `:8001` stays
+free for development), and registers `mtgsim` with portaware on start. A second agent (`deploy/launchd/com.mtgsim.tailscale.plist`) runs a
+separate userspace `tailscaled` (`brew install tailscale`; state in `~/.mtgsim/tailscale/`)
+that joins the tailnet as its own device, `mtgsim`, so the Mac app's Tailscale is untouched.
+`services-install` logs that node in (first run prints an auth URL and waits) and runs
+`tailscale serve --bg --https=443 http://127.0.0.1:18001` on it, publishing
+https://mtgsim.tail4ca9d8.ts.net/ (tailnet only). The service runs whatever
 is checked out in this working tree. (`vite preview` was tried first but crashed on
 dropped client connections.)
 
 ## Install on a phone
 
-Open the dev server over Tailscale (e.g. `http://<mac>.tail4ca9d8.ts.net:5175`),
-then Share → **Add to Home Screen** (iOS) or **Install app** (Android).
+Open https://mtgsim.tail4ca9d8.ts.net/, then Share → **Add to Home Screen** (iOS) or **Install app** (Android).
 Service workers need a secure context, so offline caching only kicks in on
 `localhost` or HTTPS (e.g. `tailscale serve`); the app works without it.
 

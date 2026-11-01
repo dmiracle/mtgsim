@@ -6,7 +6,9 @@
 	<string>com.mtgsim.api</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/dylan/a/mtgsim/mtgsim/.venv/bin/mtgsim-api</string>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>/usr/bin/curl -s -m 2 -X POST http://127.0.0.1:24320/register -H 'Content-Type: application/json' -d '{"name": "mtgsim", "port": 18001}'; exec /Users/dylan/a/mtgsim/mtgsim/.venv/bin/mtgsim-api --host 127.0.0.1 --port 18001</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>/Users/dylan/a/mtgsim/mtgsim</string>
