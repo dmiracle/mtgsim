@@ -47,32 +47,23 @@ export function FilterPage() {
   useEffect(() => saveFilters(filters), [filters]);
 
   return (
-    <>
-      {lastReview && (
-        <button
-          onClick={() => navigate(`/review?${lastReview}`)}
-          className="mx-4 mt-[max(1rem,env(safe-area-inset-top))] block w-[calc(100%-2rem)] rounded-xl border border-accent px-4 py-3 text-left text-accent"
-        >
-          Resume last review ›
-        </button>
-      )}
-      <FilterForm
-        filters={filters}
-        onChange={setFilters}
-        sets={sets.data?.data ?? []}
-        setQuery={setQuery}
-        onSetQueryChange={setSetQuery}
-        userTags={userTags.data?.data ?? []}
-        tierLists={tierLists.data?.data ?? []}
-        evaluationSets={evaluationSets.data ?? []}
-        count={count.data}
-        onStart={() => navigate(`/review?${new URLSearchParams({ ...filters, i: "0" })}`)}
-        onReset={() => setFilters(DEFAULT_FILTERS)}
-        onCreateGradeList={createGradeList}
-        onCreateEvaluationSet={createEvalSet}
-        onRank={() => navigate("/rank")}
-        onStats={() => navigate(`/stats?${new URLSearchParams(filters)}`)}
-      />
-    </>
+    <FilterForm
+      filters={filters}
+      onChange={setFilters}
+      sets={sets.data?.data ?? []}
+      setQuery={setQuery}
+      onSetQueryChange={setSetQuery}
+      userTags={userTags.data?.data ?? []}
+      tierLists={tierLists.data?.data ?? []}
+      evaluationSets={evaluationSets.data ?? []}
+      count={count.data}
+      onStart={() => navigate(`/review?${new URLSearchParams({ ...filters, i: "0" })}`)}
+      onReset={() => setFilters(DEFAULT_FILTERS)}
+      onCreateGradeList={createGradeList}
+      onCreateEvaluationSet={createEvalSet}
+      onRank={() => navigate("/rank")}
+      onResume={lastReview ? () => navigate(`/review?${lastReview}`) : undefined}
+      onStats={() => navigate(`/stats?${new URLSearchParams(filters)}`)}
+    />
   );
 }

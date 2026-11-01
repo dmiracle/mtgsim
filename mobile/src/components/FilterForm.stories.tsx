@@ -26,6 +26,7 @@ function Interactive({ initial }: { initial: Record<string, string> }) {
         onReset={() => setFilters(DEFAULT_FILTERS)}
         onRank={() => {}}
         onStats={() => {}}
+        onResume={() => {}}
         onCreateGradeList={() => setFilters((f) => ({ ...f, grade_list: "1" }))}
         onCreateEvaluationSet={() => setFilters((f) => ({ ...f, eval_set: "1" }))}
       />

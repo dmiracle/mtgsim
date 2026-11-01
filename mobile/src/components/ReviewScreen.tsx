@@ -34,7 +34,7 @@ export function ReviewScreen({ card, index, total, summary, onSeek, onExit, grad
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 space-y-2 border-b border-line bg-bg/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 backdrop-blur">
+      <header className="sticky top-0 z-10 space-y-2 border-b border-line bg-bg px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <div className="flex items-center gap-3">
           <button onClick={onExit} className="min-h-10 rounded-lg border border-line px-3 text-sm">
             ‹ Filters
@@ -67,7 +67,7 @@ export function ReviewScreen({ card, index, total, summary, onSeek, onExit, grad
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 space-y-2 border-t border-line bg-bg/95 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <nav className="fixed inset-x-0 bottom-0 space-y-2 border-t border-line bg-bg px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {evaluating && card && (
           <>
             <p className="truncate text-xs text-muted">Evaluating into {evaluating.setName}</p>

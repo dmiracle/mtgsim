@@ -31,6 +31,7 @@ interface FilterFormProps {
   onCreateEvaluationSet: (name: string) => void;
   onRank: () => void;
   onStats: () => void;
+  onResume?: () => void;
 }
 
 const opts = (values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -76,8 +77,16 @@ export function FilterForm(props: FilterFormProps) {
   };
 
   return (
-    <div className="space-y-6 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-36">
-      <h1 className="text-2xl font-bold">Card Review</h1>
+    <div className="space-y-6 px-4 pb-36">
+      {/* Solid and sticky so content never scrolls under the translucent iOS status bar. */}
+      <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 border-b border-line bg-bg px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+        <h1 className="flex-1 text-2xl font-bold">Card Review</h1>
+        {props.onResume && (
+          <button onClick={props.onResume} className="min-h-10 rounded-lg border border-accent px-3 text-sm text-accent">
+            Resume ›
+          </button>
+        )}
+      </header>
 
       <Section title="Sets">
         <SetPicker
@@ -300,7 +309,7 @@ export function FilterForm(props: FilterFormProps) {
         />
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 flex gap-2 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 flex gap-2 border-t border-line bg-bg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button onClick={props.onReset} className="min-h-12 rounded-xl border border-line px-3">
           Reset
         </button>
