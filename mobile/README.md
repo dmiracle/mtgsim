@@ -83,6 +83,13 @@ https://mtgsim.tail4ca9d8.ts.net/ (tailnet only). The service runs whatever
 is checked out in this working tree. (`vite preview` was tried first but crashed on
 dropped client connections.)
 
+## Public access (Cloudflare Tunnel)
+
+https://mtgsim.goob3r.net/ reaches the same service through the `goob3r-app-proxy` tunnel, behind
+a Google login from the `mtgsim` Cloudflare Access application. The route, Access application, and
+DNS record live in Cloudflare, not this repo. `useCredentials` in `vite.config.ts` sends cookies
+with the manifest request, which Access would otherwise block.
+
 ## Install on a phone
 
 Open https://mtgsim.tail4ca9d8.ts.net/, then Share → **Add to Home Screen** (iOS) or **Install app** (Android).
