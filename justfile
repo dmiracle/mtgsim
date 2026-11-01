@@ -94,20 +94,26 @@ install-frontend:
 help:
     uv run mtgsim --help
 
-# --- launchd service: the API on :8001, which also serves the mobile PWA build ---
+# --- launchd service: the API on 127.0.0.1:18001 (also serves the mobile PWA build), ---
+# --- published over HTTPS on the tailnet only via tailscale serve                     ---
 
 launch_agents := env_var('HOME') / "Library/LaunchAgents"
 service := "com.mtgsim.api"
+service_port := "18001"
+tailscale := "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 
 # Build the mobile app and install + start the launchd service
 services-install: mobile-build
     mkdir -p {{launch_agents}} ~/Library/Logs/mtgsim
     launchctl bootout gui/$(id -u)/{{service}} 2>/dev/null || true
+    while launchctl print gui/$(id -u)/{{service}} >/dev/null 2>&1; do sleep 0.2; done
     cp deploy/launchd/{{service}}.plist {{launch_agents}}/
     launchctl bootstrap gui/$(id -u) {{launch_agents}}/{{service}}.plist
+    {{tailscale}} serve --bg --https=443 http://127.0.0.1:{{service_port}}
 
-# Stop and remove the launchd service
+# Stop and remove the launchd service and its tailscale serve route
 services-uninstall:
+    {{tailscale}} serve --https=443 off || true
     launchctl bootout gui/$(id -u)/{{service}} 2>/dev/null || true
     rm -f {{launch_agents}}/{{service}}.plist
 

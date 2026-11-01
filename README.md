@@ -231,17 +231,19 @@ mtgsim domain --help                  # Domain database operations (collection, 
 through filtered cards, grading them into tier lists, and building pairwise rankings.
 See [`mobile/README.md`](mobile/README.md) for details.
 
-It runs as a macOS LaunchAgent (`deploy/launchd/com.mtgsim.api.plist`): the API on `:8001`
-serves the built PWA from `mobile/dist`, starts at login, and restarts on crash. Logs go to
-`~/Library/Logs/mtgsim/api.log`.
+It runs as a macOS LaunchAgent (`deploy/launchd/com.mtgsim.api.plist`): the API on
+`127.0.0.1:18001` serves the built PWA from `mobile/dist`, starts at login, and restarts on
+crash. `tailscale serve` publishes it over HTTPS on the tailnet only, at
+https://dylans-macbook-pro-2.tail4ca9d8.ts.net/. Port 8001 stays free for development.
+Logs go to `~/Library/Logs/mtgsim/api.log`.
 
 ```bash
-just services-install         # build mobile/, install + start the agent
+just services-install         # build mobile/, install + start the agent, enable tailscale serve
 just mobile-deploy            # rebuild mobile/ (served immediately)
 just services-restart         # after backend changes
 just services-status          # running? pid?
 just services-logs            # tail the log
-just services-uninstall       # stop + remove
+just services-uninstall       # stop + remove the agent and the tailscale serve route
 ```
 
 ## Development

@@ -7,6 +7,10 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/dylan/a/mtgsim/mtgsim/.venv/bin/mtgsim-api</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>18001</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>/Users/dylan/a/mtgsim/mtgsim</string>

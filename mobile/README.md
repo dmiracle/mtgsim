@@ -51,11 +51,13 @@ just mobile-deploy        # after frontend changes: rebuild (served immediately)
 just services-restart     # after backend changes
 just services-status      # running? pid?
 just services-logs        # tail the log
-just services-uninstall   # stop + remove
+just services-uninstall   # stop + remove, and turn off the tailscale serve route
 ```
 
-`tailscale serve --https=443 http://localhost:8001` publishes it at
-https://dylans-macbook-pro-2.tail4ca9d8.ts.net/ (tailnet only). The service runs whatever
+The API listens on `127.0.0.1:18001` only (not reachable from the LAN, and `:8001` stays
+free for development). `services-install` runs `tailscale serve --bg --https=443
+http://127.0.0.1:18001`, which publishes it over HTTPS at
+https://dylans-macbook-pro-2.tail4ca9d8.ts.net/ (tailnet only) and persists across restarts. The service runs whatever
 is checked out in this working tree. (`vite preview` was tried first but crashed on
 dropped client connections.)
 
