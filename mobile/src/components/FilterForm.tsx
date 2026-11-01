@@ -80,7 +80,9 @@ export function FilterForm(props: FilterFormProps) {
     <div className="space-y-6 px-4 pb-36">
       {/* Solid and sticky so content never scrolls under the translucent iOS status bar. */}
       <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 border-b border-line bg-bg px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
-        <h1 className="flex-1 text-2xl font-bold">Card Review</h1>
+        <h1 className="flex-1 text-2xl font-bold">
+          Card Review <span className="font-mono text-xs font-normal text-muted/60">{__COMMIT__}</span>
+        </h1>
         {props.onResume && (
           <button onClick={props.onResume} className="min-h-10 rounded-lg border border-accent px-3 text-sm text-accent">
             Resume ›

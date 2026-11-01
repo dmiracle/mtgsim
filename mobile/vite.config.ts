@@ -2,8 +2,15 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+
+// Shown in the app's top bar so a phone can tell which build it is running;
+// "+" marks a build with uncommitted changes.
+const git = (cmd: string) => execSync(`git ${cmd}`).toString().trim();
+const commit = git('rev-parse --short HEAD') + (git('status --porcelain --untracked-files=no') ? '+' : '');
 
 export default defineConfig({
+  define: { __COMMIT__: JSON.stringify(commit) },
   plugins: [
     react(),
     tailwindcss(),

@@ -11,7 +11,8 @@ interface RankRoundProps {
   onExclude: (name: string) => void;
 }
 
-const LONG_PRESS_MS = 600;
+const LONG_PRESS_MS = 500;
+const MOVE_TOLERANCE_PX = 10;
 // Lifting the finger after a hold can fire a click onto the sheet that just
 // opened; taps this soon after it opens are ignored.
 const SHEET_GUARD_MS = 400;
@@ -27,20 +28,26 @@ export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: Rank
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
   const [confirmExclude, setConfirmExclude] = useState<{ name: string; at: number } | null>(null);
   const pressTimer = useRef<number | undefined>(undefined);
+  const pressStart = useRef({ x: 0, y: 0 });
   const longPressed = useRef(false);
   const toggle = (name: string) =>
     setOrder((o) => (o.includes(name) ? o.filter((n) => n !== name) : [...o, name]));
 
   // Holding a card asks to exclude it; the click that ends the hold must not also rank it.
-  // Scrolling cancels the pointer, so a scroll never counts as a hold.
-  const startPress = (name: string) => {
+  // Only real finger movement (a scroll) cancels a hold: iOS Safari can send
+  // pointercancel mid-hold, so that event is deliberately not used.
+  const startPress = (name: string, x: number, y: number) => {
     longPressed.current = false;
+    pressStart.current = { x, y };
     pressTimer.current = window.setTimeout(() => {
       longPressed.current = true;
       setConfirmExclude({ name, at: Date.now() });
     }, LONG_PRESS_MS);
   };
   const endPress = () => window.clearTimeout(pressTimer.current);
+  const movePress = (x: number, y: number) => {
+    if (Math.hypot(x - pressStart.current.x, y - pressStart.current.y) > MOVE_TOLERANCE_PX) endPress();
+  };
   const closeSheet = (exclude: string | null) => {
     if (Date.now() - confirmExclude!.at < SHEET_GUARD_MS) return;
     if (exclude) onExclude(exclude);
@@ -66,10 +73,11 @@ export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: Rank
             <div key={card.uuid} className="relative">
               <button
                 onClick={() => onCardClick(card.name)}
-                onPointerDown={() => startPress(card.name)}
+                onPointerDown={(e) => startPress(card.name, e.clientX, e.clientY)}
+                onPointerMove={(e) => movePress(e.clientX, e.clientY)}
+                onTouchMove={(e) => movePress(e.touches[0].clientX, e.touches[0].clientY)}
                 onPointerUp={endPress}
-                onPointerLeave={endPress}
-                onPointerCancel={endPress}
+                onTouchEnd={endPress}
                 onContextMenu={(e) => e.preventDefault()}
                 className="block w-full select-none [-webkit-touch-callout:none]"
                 aria-label={`Rank ${card.name}`}
