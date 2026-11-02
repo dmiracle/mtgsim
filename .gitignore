@@ -18,3 +18,4 @@ archive/
 
 .hypothesis/
 .playwright-mcp/
+.cloudflare/
