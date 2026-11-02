@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RANKING_POOL_MAX, useExcludeCard, useRanking, useRankingPool, useSubmitRound } from "../api";
 import { PageHeader } from "../components/PageHeader";
@@ -12,6 +12,11 @@ export function RankPage() {
   const pool = useRankingPool(ranking.data?.filters);
   const submitRound = useSubmitRound(id);
   const excludeCard = useExcludeCard(id);
+  const [roundSize, setRoundSize] = useState(() => Number(localStorage.getItem("rankRoundSize") ?? 4));
+  const chooseRoundSize = (size: number) => {
+    localStorage.setItem("rankRoundSize", String(size));
+    setRoundSize(size);
+  };
 
   const cards = useMemo(() => {
     const excluded = new Set(ranking.data?.excluded_names);
@@ -22,7 +27,7 @@ export function RankPage() {
     [cards, ranking.data?.comparisons],
   );
   // Recomputed only when the comparisons change, so the random draw stays put between renders.
-  const round = useMemo(() => nextRound(graph), [graph]);
+  const round = useMemo(() => nextRound(graph, roundSize), [graph, roundSize]);
   const settled = cards.length > 1 ? 1 - undeterminedPairs(graph, rankOrder(graph)).length / (cards.length - 1) : 0;
   const byName = new Map(cards.map((c) => [c.name, c]));
 
@@ -63,6 +68,20 @@ export function RankPage() {
             {cards.length} cards · {ranking.data?.comparison_count ?? 0} comparisons · {Math.round(settled * 100)}%
             settled
           </p>
+        </div>
+        <div className="flex rounded-lg bg-surface p-1 text-sm">
+          {[
+            [4, "Rank 4"],
+            [2, "Best of 2"],
+          ].map(([size, label]) => (
+            <button
+              key={size}
+              onClick={() => chooseRoundSize(size as number)}
+              className={`min-h-9 flex-1 rounded-md ${roundSize === size ? "bg-raised font-semibold" : "text-muted"}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         {round.kind === "done" ? (
           <div className="space-y-4 pt-16 text-center">

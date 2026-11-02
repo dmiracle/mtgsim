@@ -21,6 +21,8 @@ const PROMPT: Record<string, string> = {
   new: "Tap cards from best to worst. Tap ⤢ to see them large. Long-press a card to exclude it.",
   refine: "Tap cards from best to worst — these are still too close to call.",
   cycle: "These conflict with each other (A over B over C over A). Re-rank them to resolve it.",
+  pair: "Tap the better card. Tap ⤢ to see them large. Long-press a card to exclude it.",
+  pairCycle: "These are part of a conflict (A over B over C over A). Tap the better card to resolve it.",
 };
 
 export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: RankRoundProps) {
@@ -53,10 +55,15 @@ export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: Rank
     if (exclude) onExclude(exclude);
     setConfirmExclude(null);
   };
+  // With two cards, one tap picks the winner and saves the round.
+  const pair = cards.length === 2;
   const onCardClick = (name: string) => {
     if (longPressed.current) longPressed.current = false;
-    else toggle(name);
+    else if (pair) {
+      if (!submitting) onSubmit([name, ...cards.map((c) => c.name).filter((n) => n !== name)]);
+    } else toggle(name);
   };
+  const prompt = pair ? (kind === "cycle" ? PROMPT.pairCycle : PROMPT.pair) : PROMPT[kind];
   // The last card's place is implied once the others are picked.
   const complete = order.length >= cards.length - 1;
   const finalOrder = [...order, ...cards.map((c) => c.name).filter((n) => !order.includes(n))];
@@ -64,7 +71,7 @@ export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: Rank
   return (
     <div className="space-y-3 pb-24">
       <p className={`rounded-lg px-3 py-2 text-sm ${kind === "cycle" ? "bg-grade-f/20 text-fg" : "text-muted"}`}>
-        {PROMPT[kind]}
+        {prompt}
       </p>
       <div className="grid grid-cols-2 gap-3">
         {cards.map((card, cardIndex) => {
@@ -107,22 +114,24 @@ export function RankRound({ cards, kind, submitting, onSubmit, onExclude }: Rank
           );
         })}
       </div>
-      <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <button
-          onClick={() => setOrder([])}
-          disabled={!order.length}
-          className="min-h-12 rounded-xl border border-line px-4 disabled:opacity-30"
-        >
-          Clear
-        </button>
-        <button
-          onClick={() => onSubmit(finalOrder)}
-          disabled={!complete || submitting}
-          className="min-h-12 flex-1 rounded-xl bg-accent font-semibold text-bg disabled:opacity-30"
-        >
-          Save ranking
-        </button>
-      </div>
+      {!pair && (
+        <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button
+            onClick={() => setOrder([])}
+            disabled={!order.length}
+            className="min-h-12 rounded-xl border border-line px-4 disabled:opacity-30"
+          >
+            Clear
+          </button>
+          <button
+            onClick={() => onSubmit(finalOrder)}
+            disabled={!complete || submitting}
+            className="min-h-12 flex-1 rounded-xl bg-accent font-semibold text-bg disabled:opacity-30"
+          >
+            Save ranking
+          </button>
+        </div>
+      )}
       {confirmExclude && (
         <div className="fixed inset-0 z-30 flex items-end bg-bg/70" onClick={() => closeSheet(null)}>
           <div

@@ -17,3 +17,4 @@ type Story = StoryObj<typeof RankRound>;
 
 export const FourNewCards: Story = { args: { cards, kind: "new" } };
 export const ResolveCycle: Story = { args: { cards: cards.slice(0, 3), kind: "cycle" } };
+export const PickOneOfTwo: Story = { args: { cards: cards.slice(0, 2), kind: "new" } };
