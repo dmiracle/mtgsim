@@ -104,8 +104,19 @@ export function FilterForm(props: FilterFormProps) {
         <ChipRow options={opts(RARITIES)} selected={[filters.rarity]} onToggle={single("rarity")} />
       </Section>
 
-      <Section title="Color identity (any of)">
-        <ChipRow options={opts(COLORS)} selected={colors} onToggle={toggleColor} />
+      <Section title="Color identity">
+        <ChipRow
+          options={[...opts(COLORS), { value: "M", label: "Gold" }]}
+          selected={colors}
+          onToggle={toggleColor}
+        />
+        {colors.length > 0 && (
+          <p className="text-xs text-muted">
+            {colors.includes("M")
+              ? "Gold: multicolor cards that include every selected color."
+              : "Mono-colored cards of any selected color."}
+          </p>
+        )}
       </Section>
 
       <Section title="Mana value">
