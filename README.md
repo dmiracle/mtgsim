@@ -238,6 +238,12 @@ crash. A second agent (`com.mtgsim.tailscale`) runs a separate userspace `tailsc
 the API over HTTPS on the tailnet only, at https://mtgsim.tail4ca9d8.ts.net/. Port 8001 stays
 free for development. The agent registers `mtgsim` with portaware on start. Logs go to `~/Library/Logs/mtgsim/`.
 
+It is also public at https://mtgsim.goob3r.net/ through the `goob3r-app-proxy` Cloudflare Tunnel
+(the system `cloudflared` service; route to `127.0.0.1:18001`, configured in Cloudflare, not this
+repo). The `mtgsim` Access application requires a Google login, and the tunnel route rejects
+requests without a valid Access token. The app has no auth of its own, so never add a route for it
+without Access. The tailnet URL skips Access.
+
 ```bash
 just services-install         # build mobile/, install + start both agents, log in the mtgsim node, enable HTTPS
 just mobile-deploy            # rebuild mobile/ (served immediately)

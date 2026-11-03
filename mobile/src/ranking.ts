@@ -110,7 +110,12 @@ function shuffle<T>(items: T[], random: () => number): T[] {
 
 export function nextRound(graph: Graph, size = 4, random: () => number = Math.random): Round {
   const cycle = shortestCycle(graph);
-  if (cycle) return { kind: "cycle", names: cycle.slice(0, size) };
+  if (cycle) {
+    // Pairs come from adjacent cards, so each answer confirms or flips one edge of the cycle.
+    const start = Math.floor(random() * cycle.length);
+    const names = size === 2 ? [cycle[start], cycle[(start + 1) % cycle.length]] : cycle.slice(0, size);
+    return { kind: "cycle", names };
+  }
 
   const touched = new Set<string>();
   for (const [winner, beaten] of graph) {

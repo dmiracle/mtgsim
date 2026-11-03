@@ -24,6 +24,11 @@ class RankingComparison(BaseModel):
 
 class RankingDetail(RankingSummary):
     comparisons: list[RankingComparison] = []
+    excluded_names: list[str] = []
+
+
+class RankingExclusionRequest(BaseModel):
+    card_name: str = Field(min_length=1)
 
 
 class RankingRoundRequest(BaseModel):

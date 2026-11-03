@@ -50,7 +50,7 @@ export function saveFilters(filters: Filters) {
 }
 
 export function summarizeFilters(filters: Filters): string {
-  const { sort = "name", order = "asc", grade_list: _, not_in_tier_list: ungraded, unique, ...rest } = filters;
+  const { sort = "name", order = "asc", grade_list: _, eval_set: _e, not_in_tier_list: ungraded, unique, ...rest } = filters;
   const sortLabel = sort
     .split(",")
     .map((s) => SORTS.find((o) => o.value === s)?.label ?? s)

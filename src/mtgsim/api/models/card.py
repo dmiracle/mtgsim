@@ -52,6 +52,8 @@ class CardStatsResponse(BaseModel):
     type_distribution: dict[str, int]
     rarity_distribution: dict[str, int]
     color_distribution: dict[str, int]
+    power_distribution: dict[str, int] = {}
+    toughness_distribution: dict[str, int] = {}
     price_stats: PriceStats
 
 

@@ -202,11 +202,16 @@ async def get_card_stats(
     owns: bool | None = Query(None, description="Filter by ownership"),
     wants: bool | None = Query(None, description="Filter by want status"),
     unique: bool = Query(False, description="One printing per card name"),
+    user_tags: str | None = Query(None, description="Filter by user tags (comma-separated)"),
+    tier_list_id: int | None = Query(None, description="Filter to cards in this tier list"),
+    tiers: str | None = Query(None, description="With tier_list_id: restrict to these tiers (comma-separated)"),
+    not_in_tier_list: int | None = Query(None, description="Exclude cards already in this tier list"),
+    owns_platform: str | None = Query(None, pattern="^(paper|mtga)$", description="Filter by ownership platform"),
 ) -> CardStatsResponse:
     """Get aggregated statistics for filtered cards.
 
     Accepts the same filter parameters as GET /api/cards but returns
-    mana curve, type/rarity/color distributions, and price stats.
+    mana curve, type/rarity/color/power/toughness distributions, and price stats.
     """
     from mtgsim.api.data.cards import cards_data
 
@@ -233,6 +238,11 @@ async def get_card_stats(
         owns=owns,
         wants=wants,
         unique=unique,
+        user_tags=[t.strip() for t in user_tags.split(",") if t.strip()] if user_tags else None,
+        tier_list_id=tier_list_id,
+        tiers=[t.strip() for t in tiers.split(",") if t.strip()] if tiers else None,
+        not_in_tier_list=not_in_tier_list,
+        owns_platform=owns_platform,
     )
     return CardStatsResponse(**stats)
 

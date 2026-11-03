@@ -27,6 +27,10 @@ elsewhere with `API_URL=http://host:port npm run dev`.
 Separate from review: tap **Rank** on the filter screen, name a ranking, and it is
 created from the current filters (one printing per card name, up to 600 cards).
 
+- Basic lands are left out of every ranking.
+- **Long-press** a card in a round, then confirm, to exclude it (for cards too weak to keep
+  ranking). Excluded cards drop out of rounds and results; **Results** lists them with a
+  **Restore** button (`POST`/`DELETE /api/rankings/{id}/exclusions`).
 - Each round shows up to 4 cards; tap them best to worst and save. Tap ⤢ on a card
   to open it full-size, swipe left/right through the round's other cards, tap to close. A round is stored as
   every pair it implies (4 cards → 6 "A beats B" comparisons, `POST /api/rankings/{id}/rounds`).
@@ -37,6 +41,20 @@ created from the current filters (one printing per card name, up to 600 cards).
 - When every adjacent pair is decided the ranking is complete. **Results** shows the
   current order any time, flagging cards in a conflict and ties not yet decided.
 - Logic lives in `src/ranking.ts` with tests in `src/ranking.test.ts` (`npm test`).
+
+## Stats
+
+Tap **Stats** on the filter screen for charts of the cards the current filters match: mana value,
+card type, power, and toughness (values of 7 and up share a bar; `*` values are shown separately).
+Uses `GET /api/cards/stats`, which takes the same filters as `/api/cards`.
+
+## Evaluating
+
+Pick or create a set under **Evaluate into** on the filter screen. The review screen then shows
+four rows of 1-5 stars under the card: how valuable it is while **Developing** (early turns),
+at **Parity**, when **Behind**, and when **Ahead**. Tap a star to rate, tap the same star again
+to clear. Ratings save immediately and don't advance the card, and work alongside grading.
+Stored per card name in the set (`/api/evaluation-sets`).
 
 ## Running as a service (launchd)
 
@@ -64,6 +82,13 @@ that joins the tailnet as its own device, `mtgsim`, so the Mac app's Tailscale i
 https://mtgsim.tail4ca9d8.ts.net/ (tailnet only). The service runs whatever
 is checked out in this working tree. (`vite preview` was tried first but crashed on
 dropped client connections.)
+
+## Public access (Cloudflare Tunnel)
+
+https://mtgsim.goob3r.net/ reaches the same service through the `goob3r-app-proxy` tunnel, behind
+a Google login from the `mtgsim` Cloudflare Access application. The route, Access application, and
+DNS record live in Cloudflare, not this repo. `useCredentials` in `vite.config.ts` sends cookies
+with the manifest request, which Access would otherwise block.
 
 ## Install on a phone
 

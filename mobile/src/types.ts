@@ -65,4 +65,40 @@ export interface Ranking {
 
 export interface RankingDetail extends Ranking {
   comparisons: { winner_name: string; loser_name: string }[];
+  excluded_names: string[];
+}
+
+export const SITUATIONS = [
+  { key: "developing", label: "Developing" },
+  { key: "parity", label: "Parity" },
+  { key: "behind", label: "Behind" },
+  { key: "ahead", label: "Ahead" },
+] as const;
+
+export type Situation = (typeof SITUATIONS)[number]["key"];
+
+// Stars 1-5 per game state; null = not rated yet.
+export type Scores = Record<Situation, number | null>;
+
+export interface CardEvaluation extends Scores {
+  card_name: string;
+}
+
+export interface EvaluationSet {
+  id: number;
+  name: string;
+  set_code: string | null;
+  entry_count: number;
+}
+
+export interface EvaluationSetDetail extends EvaluationSet {
+  entries: CardEvaluation[];
+}
+
+export interface CardStats {
+  total: number;
+  mana_curve: Record<string, number>;
+  type_distribution: Record<string, number>;
+  power_distribution: Record<string, number>;
+  toughness_distribution: Record<string, number>;
 }

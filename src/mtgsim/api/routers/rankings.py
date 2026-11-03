@@ -1,11 +1,12 @@
 """API router for pairwise card rankings."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from mtgsim.api.data.rankings import rankings_data
 from mtgsim.api.models.ranking import (
     RankingCreateRequest,
     RankingDetail,
+    RankingExclusionRequest,
     RankingRoundRequest,
     RankingRoundResponse,
     RankingSummary,
@@ -41,6 +42,19 @@ async def add_round(ranking_id: int, req: RankingRoundRequest) -> RankingRoundRe
     if added is None:
         raise HTTPException(status_code=404, detail=f"Ranking not found: {ranking_id}")
     return RankingRoundResponse(comparisons_added=added)
+
+
+@router.post("/{ranking_id}/exclusions", status_code=204)
+async def exclude_card(ranking_id: int, req: RankingExclusionRequest) -> None:
+    """Leave a card out of the ranking: it no longer appears in rounds or results."""
+    if rankings_data.exclude_card(ranking_id, req.card_name) is None:
+        raise HTTPException(status_code=404, detail=f"Ranking not found: {ranking_id}")
+
+
+@router.delete("/{ranking_id}/exclusions", status_code=204)
+async def restore_card(ranking_id: int, card_name: str = Query(...)) -> None:
+    if not rankings_data.restore_card(ranking_id, card_name):
+        raise HTTPException(status_code=404, detail=f"Card not excluded from ranking {ranking_id}: {card_name}")
 
 
 @router.delete("/{ranking_id}", status_code=204)

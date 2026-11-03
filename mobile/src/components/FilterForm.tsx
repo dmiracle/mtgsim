@@ -11,7 +11,7 @@ import {
   toggleInList,
   type Filters,
 } from "../filters";
-import type { CardSet, TierList, UserTag } from "../types";
+import type { CardSet, EvaluationSet, TierList, UserTag } from "../types";
 import { ChipRow } from "./ChipRow";
 import { SetPicker } from "./SetPicker";
 
@@ -23,11 +23,15 @@ interface FilterFormProps {
   onSetQueryChange: (q: string) => void;
   userTags: UserTag[];
   tierLists: TierList[];
+  evaluationSets: EvaluationSet[];
   count: number | undefined;
   onStart: () => void;
   onReset: () => void;
   onCreateGradeList: (name: string) => void;
+  onCreateEvaluationSet: (name: string) => void;
   onRank: () => void;
+  onStats: () => void;
+  onResume?: () => void;
 }
 
 const opts = (values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -46,6 +50,7 @@ const inputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2.5 
 export function FilterForm(props: FilterFormProps) {
   const { filters, onChange } = props;
   const [newListName, setNewListName] = useState("");
+  const [newEvalSetName, setNewEvalSetName] = useState("");
   const set = (key: string, value: string) => onChange(setParam(filters, key, value));
   const toggle = (key: string) => (value: string) => onChange(toggleInList(filters, key, value));
   const single = (key: string) => (value: string) => set(key, filters[key] === value ? "" : value);
@@ -72,8 +77,18 @@ export function FilterForm(props: FilterFormProps) {
   };
 
   return (
-    <div className="space-y-6 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-36">
-      <h1 className="text-2xl font-bold">Card Review</h1>
+    <div className="space-y-6 px-4 pb-36">
+      {/* Solid and sticky so content never scrolls under the translucent iOS status bar. */}
+      <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 border-b border-line bg-bg px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+        <h1 className="flex-1 text-2xl font-bold">
+          Card Review <span className="font-mono text-xs font-normal text-muted/60">{__COMMIT__}</span>
+        </h1>
+        {props.onResume && (
+          <button onClick={props.onResume} className="min-h-10 rounded-lg border border-accent px-3 text-sm text-accent">
+            Resume ›
+          </button>
+        )}
+      </header>
 
       <Section title="Sets">
         <SetPicker
@@ -200,6 +215,35 @@ export function FilterForm(props: FilterFormProps) {
         </div>
       </Section>
 
+      <Section title="Evaluate into">
+        <select className={inputClass} value={filters.eval_set ?? ""} onChange={(e) => set("eval_set", e.target.value)}>
+          <option value="">Don't evaluate</option>
+          {props.evaluationSets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.entry_count} evaluated)
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-3">
+          <input
+            className={inputClass}
+            placeholder="New evaluation set name"
+            value={newEvalSetName}
+            onChange={(e) => setNewEvalSetName(e.target.value)}
+          />
+          <button
+            onClick={() => {
+              props.onCreateEvaluationSet(newEvalSetName.trim());
+              setNewEvalSetName("");
+            }}
+            disabled={!newEvalSetName.trim()}
+            className="min-h-11 shrink-0 rounded-lg border border-line px-4 disabled:opacity-40"
+          >
+            Create
+          </button>
+        </div>
+      </Section>
+
       <Section title="Price">
         <div className="flex gap-3">
           <input
@@ -267,19 +311,22 @@ export function FilterForm(props: FilterFormProps) {
         />
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <button onClick={props.onReset} className="min-h-12 rounded-xl border border-line px-4">
+      <div className="fixed inset-x-0 bottom-0 flex gap-2 border-t border-line bg-bg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <button onClick={props.onReset} className="min-h-12 rounded-xl border border-line px-3">
           Reset
         </button>
-        <button onClick={props.onRank} className="min-h-12 rounded-xl border border-accent px-4 text-accent">
+        <button onClick={props.onRank} className="min-h-12 rounded-xl border border-accent px-3 text-accent">
           Rank
+        </button>
+        <button onClick={props.onStats} className="min-h-12 rounded-xl border border-accent px-3 text-accent">
+          Stats
         </button>
         <button
           onClick={props.onStart}
           disabled={!props.count}
-          className="min-h-12 flex-1 rounded-xl bg-accent font-semibold text-bg disabled:opacity-40"
+          className="min-h-12 flex-1 whitespace-nowrap rounded-xl bg-accent font-semibold text-bg disabled:opacity-40"
         >
-          {props.count === undefined ? "Counting…" : `Review ${props.count.toLocaleString()} cards`}
+          {props.count === undefined ? "Counting…" : `Review ${props.count.toLocaleString()}`}
         </button>
       </div>
     </div>

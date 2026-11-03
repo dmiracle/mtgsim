@@ -55,3 +55,21 @@ test("comparisons outside the pool are ignored", () => {
   const graph = buildGraph(["A", "B"], [beat("A", "Z"), beat("Z", "B")]);
   assert.equal(nextRound(graph).kind, "new");
 });
+
+test("pair mode serves an adjacent pair of a cycle and resolves it", () => {
+  const names = ["A", "B", "C", "D", "E", "F"];
+  const truth = ["F", "E", "D", "C", "B", "A"];
+  let comparisons = [beat("A", "B"), beat("B", "C"), beat("C", "A")];
+  let rounds = 0;
+  for (;;) {
+    const graph = buildGraph(names, comparisons);
+    const next = nextRound(graph, 2);
+    if (next.kind === "done") break;
+    assert.equal(next.names.length, 2);
+    if (next.kind === "cycle") assert.ok(graph.get(next.names[0])!.has(next.names[1]));
+    const [w, l] = [...next.names].sort((a, b) => truth.indexOf(a) - truth.indexOf(b));
+    comparisons = [...comparisons, beat(w, l)];
+    assert.ok(++rounds < 100);
+  }
+  assert.equal(shortestCycle(buildGraph(names, comparisons)), null);
+});

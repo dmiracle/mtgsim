@@ -1,9 +1,20 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PAGE_SIZE, cardPageQuery, useCardPage, useSetGrade, useTierList } from "../api";
+import {
+  PAGE_SIZE,
+  cardPageQuery,
+  useCardPage,
+  useEvaluationSet,
+  useSetEvaluation,
+  useSetGrade,
+  useTierList,
+} from "../api";
 import { ReviewScreen } from "../components/ReviewScreen";
 import { LAST_REVIEW_KEY, summarizeFilters, type Filters } from "../filters";
+import type { Scores, Situation } from "../types";
+
+const UNRATED: Scores = { developing: null, parity: null, behind: null, ahead: null };
 
 const IMAGE_LOOKAHEAD = 3;
 
@@ -22,6 +33,14 @@ export function ReviewPage() {
   const gradeList = useTierList(filters.grade_list);
   const setGrade = useSetGrade(filters.grade_list);
   const grades = new Map(gradeList.data?.entries.map((e) => [e.card_name, e.tier]));
+  const evalSet = useEvaluationSet(filters.eval_set);
+  const setEvaluation = useSetEvaluation(filters.eval_set);
+  const evaluation = evalSet.data?.entries.find((e) => e.card_name === card?.name);
+  const scores: Scores = evaluation
+    ? { developing: evaluation.developing, parity: evaluation.parity, behind: evaluation.behind, ahead: evaluation.ahead }
+    : UNRATED;
+  const rate = (situation: Situation, stars: number | null) =>
+    setEvaluation.mutate({ cardName: card!.name, scores: { ...scores, [situation]: stars } });
 
   const seek = (i: number) => setParams({ ...filters, i: String(i) }, { replace: true });
 
@@ -81,6 +100,7 @@ export function ReviewPage() {
           ? { listName: gradeList.data.name, grade: grades.get(card?.name ?? ""), onGrade: grade }
           : undefined
       }
+      evaluating={evalSet.data ? { setName: evalSet.data.name, scores, onRate: rate } : undefined}
     />
   );
 }

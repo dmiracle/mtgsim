@@ -1,6 +1,19 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Filters } from "./filters";
-import type { Card, CardSet, Page, Ranking, RankingDetail, TierList, TierListDetail, UserTag } from "./types";
+import type {
+  Card,
+  CardSet,
+  CardStats,
+  EvaluationSet,
+  EvaluationSetDetail,
+  Page,
+  Ranking,
+  RankingDetail,
+  Scores,
+  TierList,
+  TierListDetail,
+  UserTag,
+} from "./types";
 
 export const PAGE_SIZE = 100;
 
@@ -42,6 +55,10 @@ export function useCardCount(filters: Filters) {
     select: (page) => page.pagination.total,
     placeholderData: keepPreviousData,
   });
+}
+
+export function useCardStats(filters: Filters) {
+  return useQuery({ queryKey: ["card-stats", filters], queryFn: () => get<CardStats>("/cards/stats", filters) });
 }
 
 export function cardPageQuery(filters: Filters, page: number) {
@@ -90,9 +107,12 @@ export function useSetGrade(listId: string | undefined) {
 export const RANKING_POOL_MAX = 600;
 
 export function rankingPoolFilters(filters: Filters): Filters {
-  const { grade_list: _g, not_in_tier_list: _n, i: _i, ...rest } = filters;
+  const { grade_list: _g, not_in_tier_list: _n, eval_set: _e, i: _i, ...rest } = filters;
   return { ...rest, unique: "true", sort: "name", order: "asc" };
 }
+
+// Basic lands are never worth ranking against real cards.
+const isBasicLand = (card: Card) => /\bBasic\b/.test(card.type ?? "");
 
 export function useRankingPool(filters: Filters | undefined) {
   return useQuery({
@@ -103,7 +123,7 @@ export function useRankingPool(filters: Filters | undefined) {
       for (let page = 1; ; page++) {
         const result = await get<Page<Card>>("/cards", { ...rankingPoolFilters(filters!), page, limit: PAGE_SIZE });
         if (result.pagination.total > RANKING_POOL_MAX) return { cards: [], total: result.pagination.total };
-        cards.push(...result.data);
+        cards.push(...result.data.filter((c) => !isBasicLand(c)));
         if (page >= result.pagination.pages) return { cards, total: result.pagination.total };
       }
     },
@@ -143,5 +163,60 @@ export function useSubmitRound(id: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ["ranking", id] });
       queryClient.invalidateQueries({ queryKey: ["rankings"] });
     },
+  });
+}
+
+export function useEvaluationSets() {
+  return useQuery({ queryKey: ["evaluation-sets"], queryFn: () => get<EvaluationSet[]>("/evaluation-sets") });
+}
+
+export function useEvaluationSet(id: string | undefined) {
+  return useQuery({
+    queryKey: ["evaluation-set", id],
+    queryFn: () => get<EvaluationSetDetail>(`/evaluation-sets/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useCreateEvaluationSet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; set_code?: string }) =>
+      send("POST", "/evaluation-sets", body) as Promise<EvaluationSet>,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["evaluation-sets"] }),
+  });
+}
+
+// Sends a card's full scores. The cache is updated first so quick taps across
+// rows each build on the previous tap instead of on a stale refetch.
+export function useSetEvaluation(setId: string | undefined) {
+  const queryClient = useQueryClient();
+  const key = ["evaluation-set", setId];
+  return useMutation({
+    mutationFn: ({ cardName, scores }: { cardName: string; scores: Scores }) =>
+      send("PUT", `/evaluation-sets/${setId}/entries`, { card_name: cardName, ...scores }),
+    onMutate: ({ cardName, scores }) =>
+      queryClient.setQueryData<EvaluationSetDetail>(key, (set) =>
+        set && {
+          ...set,
+          entries: [...set.entries.filter((e) => e.card_name !== cardName), { card_name: cardName, ...scores }],
+        },
+      ),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: key });
+      queryClient.invalidateQueries({ queryKey: ["evaluation-sets"] });
+    },
+  });
+}
+
+// Excluded cards drop out of a ranking's rounds and results; restoring brings them back.
+export function useExcludeCard(id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardName, exclude }: { cardName: string; exclude: boolean }) =>
+      exclude
+        ? send("POST", `/rankings/${id}/exclusions`, { card_name: cardName })
+        : send("DELETE", `/rankings/${id}/exclusions?${new URLSearchParams({ card_name: cardName })}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ranking", id] }),
   });
 }
