@@ -177,21 +177,23 @@ def apply_card_filters(
 
         clauses = []
         if has_multicolor:
+            # Filter on the card's own colors (mana cost / color indicator), not color identity,
+            # so a color pip in rules text does not change its color (Warp Speed is green, not gold).
             # Gold: multicolor cards (2+ colors) that include every selected color.
-            conditions = [func.json_array_length(M.color_identity) >= 2]
+            conditions = [func.json_array_length(M.colors) >= 2]
             for c in wubrg:
-                conditions.append(func.json_extract(M.color_identity, "$").contains(f'"{c}"'))
+                conditions.append(func.json_extract(M.colors, "$").contains(f'"{c}"'))
             clauses.append(and_(*conditions))
         elif wubrg:
             # Plain colors (no gold): only mono-colored cards of a selected color.
             clauses.append(
                 and_(
-                    func.json_array_length(M.color_identity) == 1,
-                    or_(*[func.json_extract(M.color_identity, "$").contains(f'"{c}"') for c in wubrg]),
+                    func.json_array_length(M.colors) == 1,
+                    or_(*[func.json_extract(M.colors, "$").contains(f'"{c}"') for c in wubrg]),
                 )
             )
         if has_colorless:
-            clauses.append(func.json_array_length(M.color_identity) == 0)
+            clauses.append(func.json_array_length(M.colors) == 0)
         if clauses:
             query = query.where(or_(*clauses))
     if mana_values:

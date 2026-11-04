@@ -99,38 +99,51 @@ class TestSearchCards:
         response = client.get("/api/cards?colors=G")
         assert response.status_code == 200
         for card in response.json()["data"]:
-            assert card["color_identity"] == ["G"]
+            assert card["colors"] == ["G"]
 
     def test_search_cards_filter_by_colors_multiple(self, client):
         """Multiple plain colors return mono-colored cards of any selected color."""
         response = client.get("/api/cards?colors=WU")
         assert response.status_code == 200
         for card in response.json()["data"]:
-            assert card["color_identity"] in (["W"], ["U"])
+            assert card["colors"] in (["W"], ["U"])
 
     def test_search_cards_filter_gold_with_color(self, client):
         """Gold plus a color returns multicolor cards that include that color."""
         response = client.get("/api/cards?colors=GM")
         assert response.status_code == 200
         for card in response.json()["data"]:
-            assert len(card["color_identity"]) >= 2
-            assert "G" in card["color_identity"]
+            assert len(card["colors"]) >= 2
+            assert "G" in card["colors"]
 
     def test_search_cards_filter_gold_with_two_colors(self, client):
         """Gold plus two colors returns multicolor cards including both colors."""
         response = client.get("/api/cards?colors=GRM")
         assert response.status_code == 200
         for card in response.json()["data"]:
-            assert len(card["color_identity"]) >= 2
-            assert "G" in card["color_identity"]
-            assert "R" in card["color_identity"]
+            assert len(card["colors"]) >= 2
+            assert "G" in card["colors"]
+            assert "R" in card["colors"]
 
     def test_search_cards_filter_colorless(self, client):
-        """Colorless returns only cards with empty color identity."""
+        """Colorless returns only cards with no colors."""
         response = client.get("/api/cards?colors=C")
         assert response.status_code == 200
         for card in response.json()["data"]:
-            assert card["color_identity"] == []
+            assert card["colors"] == []
+
+    def test_search_cards_color_ignores_rules_text_pips(self, client):
+        """Warp Speed costs {2}{G} with a blue ability: it is green, not gold."""
+        warp_speed = {"q": "Warp Speed", "set": "TRK"}
+        green = client.get("/api/cards", params={**warp_speed, "colors": "G"}).json()
+        gold = client.get("/api/cards", params={**warp_speed, "colors": "M"}).json()
+        assert green["pagination"]["total"] > 0
+        assert gold["pagination"]["total"] == 0
+
+    def test_search_cards_hybrid_cost_is_gold(self, client):
+        """Hybrid pips of two colors count as gold."""
+        response = client.get("/api/cards", params={"q": "Quillspike", "colors": "M"}).json()
+        assert "Quillspike" in {card["name"] for card in response["data"]}
 
     def test_search_cards_filter_by_price_range(self, client):
         """Filter by price range works."""
