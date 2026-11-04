@@ -104,7 +104,7 @@ export function FilterForm(props: FilterFormProps) {
         <ChipRow options={opts(RARITIES)} selected={listParam(filters, "rarity")} onToggle={toggle("rarity")} />
       </Section>
 
-      <Section title="Color identity">
+      <Section title="Color">
         <ChipRow
           options={[...opts(COLORS), { value: "M", label: "Gold" }]}
           selected={colors}

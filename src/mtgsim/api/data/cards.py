@@ -632,12 +632,7 @@ class CardsData:
                     query = query.where(MJCard.rarity == rarity)
                 if card_type:
                     query = query.where(MJCard.type_line.contains(card_type))
-                if colors:
-                    from sqlalchemy import or_
-
-                    query = query.where(
-                        or_(*[func.json_extract(MJCard.color_identity, "$").contains(f'"{c}"') for c in colors])
-                    )
+                query = apply_card_filters(query, colors=colors)
                 return session.exec(query.group_by(tag_model.tag).order_by(tag_model.tag)).all()
 
             from mtgdb.models import UserCardTag
