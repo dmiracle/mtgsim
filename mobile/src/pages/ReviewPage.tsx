@@ -80,7 +80,9 @@ export function ReviewPage() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  useEffect(() => window.scrollTo(0, 0), [index]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [index]);
 
   // Results can shrink under us (ungraded-only grading), so clamp the position.
   useEffect(() => {
