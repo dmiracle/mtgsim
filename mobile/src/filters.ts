@@ -6,6 +6,7 @@ export const DEFAULT_FILTERS: Filters = { sort: "number", order: "asc" };
 
 export const RARITIES = ["common", "uncommon", "rare", "mythic"];
 export const COLORS = ["W", "U", "B", "R", "G"];
+export const CARD_TYPES = ["Creature", "Instant", "Sorcery", "Enchantment", "Artifact", "Planeswalker", "Land", "Battle"];
 export const MANA_VALUES = ["0", "1", "2", "3", "4", "5", "6", "7"];
 export const FORMATS = ["standard", "pioneer", "modern", "legacy", "vintage", "commander", "brawl", "historic", "pauper"];
 export const TIERS = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"];
