@@ -126,4 +126,4 @@ export const evaluationSets: EvaluationSet[] = [
 ];
 
 // TRK commons, one printing per name (GET /api/cards/stats).
-export const cardStats: CardStats = {"total": 96, "mana_curve": {"3": 19, "4": 12, "2": 26, "0": 16, "1": 12, "6": 4, "5": 7}, "type_distribution": {"Sorcery": 11, "Creature": 47, "Land": 16, "Instant": 13, "Artifact": 7, "Enchantment": 2}, "power_distribution": {"3": 12, "4": 10, "2": 17, "0": 1, "1": 6, "6": 1, "5": 2, "7": 1}, "toughness_distribution": {"4": 8, "2": 11, "3": 10, "1": 15, "5": 4, "6": 2}};
+export const cardStats: CardStats = {"total": 96, "mana_curve": {"3": 19, "4": 12, "2": 26, "0": 16, "1": 12, "6": 4, "5": 7}, "color_distribution": {"B": 15, "U": 15, "G": 15, "R": 15, "C": 21, "W": 15}, "multicolor_count": 0, "type_distribution": {"Sorcery": 11, "Creature": 47, "Land": 16, "Instant": 13, "Artifact": 7, "Enchantment": 2}, "power_distribution": {"3": 12, "4": 10, "2": 17, "0": 1, "1": 6, "6": 1, "5": 2, "7": 1}, "toughness_distribution": {"4": 8, "2": 11, "3": 10, "1": 15, "5": 4, "6": 2}};

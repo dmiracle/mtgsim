@@ -220,7 +220,7 @@ sequenceDiagram
 
 **Endpoints:**
 - `GET /api/cards` - Search cards with filters
-- `GET /api/cards/stats` - Mana curve and type/rarity/color/power/toughness distributions for the same filters
+- `GET /api/cards/stats` - Mana curve, type/rarity/color/power/toughness distributions, and multicolor count for the same filters
   (including user tags and tier lists)
 - `GET /api/cards/{uuid}` - Get card details
 

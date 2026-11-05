@@ -283,6 +283,13 @@ class TestCardStats:
         assert sum(data["power_distribution"].values()) == data["total"]
         assert sum(data["toughness_distribution"].values()) == data["total"]
 
+    def test_stats_multicolor_count_matches_gold_filter(self, client):
+        data = client.get("/api/cards/stats?sets=DMU&unique=true").json()
+        gold = client.get("/api/cards/stats?sets=DMU&unique=true&colors=M").json()
+        assert gold["total"] > 0
+        assert data["multicolor_count"] == gold["total"]
+        assert gold["multicolor_count"] == gold["total"]
+
     def test_stats_respects_tier_list_filter(self, client):
         tier_list = client.post("/api/tier-lists", json={"name": "Stats filter test"}).json()
         try:

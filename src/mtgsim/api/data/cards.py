@@ -484,6 +484,7 @@ class CardsData:
                     "type_distribution": {},
                     "rarity_distribution": {},
                     "color_distribution": {},
+                    "multicolor_count": 0,
                     "power_distribution": {},
                     "toughness_distribution": {},
                     "price_stats": {"total": 0, "average": 0, "median": 0, "count_with_price": 0},
@@ -501,6 +502,7 @@ class CardsData:
             type_dist: dict[str, int] = {}
             rarity_dist: dict[str, int] = {}
             color_dist: dict[str, int] = {}
+            multicolor_count = 0
             power_dist: dict[str, int] = {}
             toughness_dist: dict[str, int] = {}
 
@@ -547,6 +549,8 @@ class CardsData:
                         color_dist[c] = color_dist.get(c, 0) + 1
                     if not colors_json:
                         color_dist["C"] = color_dist.get("C", 0) + 1
+                    if len(colors_json) >= 2:
+                        multicolor_count += 1
 
             # Price stats: single query with count/sum/avg + median via percentile
             price_query = (
@@ -590,6 +594,7 @@ class CardsData:
                 "type_distribution": type_dist,
                 "rarity_distribution": rarity_dist,
                 "color_distribution": color_dist,
+                "multicolor_count": multicolor_count,
                 "power_distribution": power_dist,
                 "toughness_distribution": toughness_dist,
                 "price_stats": {
