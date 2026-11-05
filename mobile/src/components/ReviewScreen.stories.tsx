@@ -18,17 +18,64 @@ export const Swipeable: StoryObj = {
         summary="TRK · common · W · Mana value ↑"
         onSeek={setIndex}
         onExit={() => {}}
+        onToggleTag={() => {}}
+      />
+    );
+  },
+};
+
+export const Tagging: StoryObj = {
+  render: () => {
+    const [index, setIndex] = useState(0);
+    const [tags, setTags] = useState<Record<string, string[]>>({ [cards[1].name]: ["removal", "card advantage"] });
+    const card = { ...cards[index], user_tags: tags[cards[index].name] ?? [] };
+    return (
+      <ReviewScreen
+        card={card}
+        index={index}
+        total={cards.length}
+        summary="TRK · common · W · Collector # ↑"
+        onSeek={setIndex}
+        onExit={() => {}}
+        onToggleTag={(tag) =>
+          setTags({
+            ...tags,
+            [card.name]: card.user_tags.includes(tag)
+              ? card.user_tags.filter((t) => t !== tag)
+              : [...card.user_tags, tag],
+          })
+        }
       />
     );
   },
 };
 
 export const Loading: StoryObj = {
-  render: () => <ReviewScreen card={undefined} index={40} total={120} summary="TRK" onSeek={() => {}} onExit={() => {}} />,
+  render: () => (
+    <ReviewScreen
+      card={undefined}
+      index={40}
+      total={120}
+      summary="TRK"
+      onSeek={() => {}}
+      onExit={() => {}}
+      onToggleTag={() => {}}
+    />
+  ),
 };
 
 export const NoMatches: StoryObj = {
-  render: () => <ReviewScreen card={undefined} index={0} total={0} summary="TRK · mythic · price ≥ $500" onSeek={() => {}} onExit={() => {}} />,
+  render: () => (
+    <ReviewScreen
+      card={undefined}
+      index={0}
+      total={0}
+      summary="TRK · mythic · price ≥ $500"
+      onSeek={() => {}}
+      onExit={() => {}}
+      onToggleTag={() => {}}
+    />
+  ),
 };
 
 export const Grading: StoryObj = {
@@ -44,6 +91,7 @@ export const Grading: StoryObj = {
         summary="TRK · common · W · Collector # ↑"
         onSeek={setIndex}
         onExit={() => {}}
+        onToggleTag={() => {}}
         grading={{
           listName: "TRK draft",
           grade: grades[card.name],
@@ -75,6 +123,7 @@ export const Evaluating: StoryObj = {
         summary="TRK · common · W · Collector # ↑"
         onSeek={setIndex}
         onExit={() => {}}
+        onToggleTag={() => {}}
         evaluating={{
           setName: "TRK draft",
           scores: current,

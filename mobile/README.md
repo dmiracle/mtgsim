@@ -112,4 +112,7 @@ Service workers need a secure context, so offline caching only kicks in on
   everywhere tier lists do and can be used as a filter/sort ("Tier list" section).
   "Ungraded only" (`not_in_tier_list=<id>`) hides cards already in the grade list, so
   each grade drops the card and the next ungraded one takes its place.
+- **Quick tags:** the review screen always shows **Payoff**, **Enabler**, **Removal**, and
+  **Card Advantage** buttons. One tap adds the user tag to the card name, another removes it,
+  and the card doesn't advance (`POST/DELETE /api/user-tags/assignments`).
 - Card images from Scryfall are cached by the service worker (cache-first, 30 days).
