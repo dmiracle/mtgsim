@@ -103,6 +103,35 @@ export function useSetGrade(listId: string | undefined) {
   });
 }
 
+// Tags belong to a card name, so every cached printing updates at once. Cached pages
+// aren't refetched, so a card untagged under a tag filter stays put while reviewing.
+// The shared scope sends quick taps in order, so on-then-off can't arrive reversed.
+export function useToggleTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    scope: { id: "user-tags" },
+    mutationFn: ({ cardName, tag, on }: { cardName: string; tag: string; on: boolean }) =>
+      on
+        ? send("POST", "/user-tags/assignments", { card_name: cardName, tag })
+        : send("DELETE", `/user-tags/assignments?${new URLSearchParams({ card_name: cardName, tag })}`),
+    onMutate: ({ cardName, tag, on }) =>
+      queryClient.setQueriesData<Page<Card>>({ queryKey: ["cards"] }, (page) =>
+        page && {
+          ...page,
+          data: page.data.map((c) =>
+            c.name === cardName
+              ? { ...c, user_tags: on ? [...c.user_tags, tag] : c.user_tags.filter((t) => t !== tag) }
+              : c,
+          ),
+        },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["card-count"] });
+    },
+  });
+}
+
 // Rankings cover every card a filter matches, so the pool is capped to stay rankable.
 export const RANKING_POOL_MAX = 600;
 

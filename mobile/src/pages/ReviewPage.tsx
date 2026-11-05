@@ -9,6 +9,7 @@ import {
   useSetEvaluation,
   useSetGrade,
   useTierList,
+  useToggleTag,
 } from "../api";
 import { ReviewScreen } from "../components/ReviewScreen";
 import { LAST_REVIEW_KEY, summarizeFilters, type Filters } from "../filters";
@@ -41,6 +42,8 @@ export function ReviewPage() {
     : UNRATED;
   const rate = (situation: Situation, stars: number | null) =>
     setEvaluation.mutate({ cardName: card!.name, scores: { ...scores, [situation]: stars } });
+
+  const toggleTag = useToggleTag();
 
   const seek = (i: number) => setParams({ ...filters, i: String(i) }, { replace: true });
 
@@ -80,7 +83,9 @@ export function ReviewPage() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  useEffect(() => window.scrollTo(0, 0), [index]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [index]);
 
   // Results can shrink under us (ungraded-only grading), so clamp the position.
   useEffect(() => {
@@ -95,6 +100,7 @@ export function ReviewPage() {
       summary={summarizeFilters(filters)}
       onSeek={seek}
       onExit={() => navigate("/")}
+      onToggleTag={(tag) => toggleTag.mutate({ cardName: card!.name, tag, on: !card!.user_tags.includes(tag) })}
       grading={
         gradeList.data
           ? { listName: gradeList.data.name, grade: grades.get(card?.name ?? ""), onGrade: grade }

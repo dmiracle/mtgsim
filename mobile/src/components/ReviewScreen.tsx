@@ -3,6 +3,7 @@ import type { Card, Scores, Situation } from "../types";
 import { CardView } from "./CardView";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { GradeBar } from "./GradeBar";
+import { QuickTags } from "./QuickTags";
 
 interface ReviewScreenProps {
   card: Card | undefined;
@@ -11,13 +12,24 @@ interface ReviewScreenProps {
   summary: string;
   onSeek: (index: number) => void;
   onExit: () => void;
+  onToggleTag: (tag: string) => void;
   grading?: { listName: string; grade: string | undefined; onGrade: (tier: string | null) => void };
   evaluating?: { setName: string; scores: Scores; onRate: (situation: Situation, stars: number | null) => void };
 }
 
 const SWIPE_PX = 50;
 
-export function ReviewScreen({ card, index, total, summary, onSeek, onExit, grading, evaluating }: ReviewScreenProps) {
+export function ReviewScreen({
+  card,
+  index,
+  total,
+  summary,
+  onSeek,
+  onExit,
+  onToggleTag,
+  grading,
+  evaluating,
+}: ReviewScreenProps) {
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const prev = () => index > 0 && onSeek(index - 1);
   const next = () => index < total - 1 && onSeek(index + 1);
@@ -56,7 +68,7 @@ export function ReviewScreen({ card, index, total, summary, onSeek, onExit, grad
       </header>
 
       <main
-        className={`flex-1 px-4 pt-4 ${grading && evaluating ? "pb-[30rem]" : evaluating ? "pb-80" : grading ? "pb-60" : "pb-28"}`}
+        className={`flex-1 px-4 pt-4 ${grading && evaluating ? "pb-[33rem]" : evaluating ? "pb-[23rem]" : grading ? "pb-[18rem]" : "pb-40"}`}
         onTouchStart={(e) => (touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
         onTouchEnd={onTouchEnd}
       >
@@ -74,6 +86,7 @@ export function ReviewScreen({ card, index, total, summary, onSeek, onExit, grad
             <EvaluationPanel scores={evaluating.scores} onRate={evaluating.onRate} />
           </>
         )}
+        {card && <QuickTags tags={card.user_tags} onToggle={onToggleTag} />}
         {grading && card && (
           <>
             <p className="truncate text-xs text-muted">Grading into {grading.listName}</p>
