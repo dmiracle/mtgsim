@@ -98,6 +98,8 @@ export interface EvaluationSetDetail extends EvaluationSet {
 export interface CardStats {
   total: number;
   mana_curve: Record<string, number>;
+  color_distribution: Record<string, number>;
+  multicolor_count: number;
   type_distribution: Record<string, number>;
   power_distribution: Record<string, number>;
   toughness_distribution: Record<string, number>;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { histogram, largestFirst } from "./stats.ts";
+import { colorBreakdown, histogram, largestFirst } from "./stats.ts";
 
 test("fills gaps from zero and merges values at the cap", () => {
   assert.deepEqual(histogram({ "1": 2, "3": 1, "7": 1, "9": 2 }, 7), [
@@ -27,6 +27,20 @@ test("keeps negative values and puts star values last", () => {
 
 test("empty distribution has no buckets", () => {
   assert.deepEqual(histogram({}, 7), []);
+});
+
+test("colors keep WUBRG order with gold and colorless last, skipping empty ones", () => {
+  const buckets = colorBreakdown({ G: 2, C: 4, W: 3 }, 1);
+  assert.deepEqual(buckets.map((b) => [b.label, b.count]), [
+    ["White", 3],
+    ["Green", 2],
+    ["Gold", 1],
+    ["Colorless", 4],
+  ]);
+});
+
+test("no cards means no color buckets", () => {
+  assert.deepEqual(colorBreakdown({}, 0), []);
 });
 
 test("types sort largest first", () => {

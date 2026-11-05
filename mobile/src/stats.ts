@@ -1,6 +1,22 @@
 export interface Bucket {
   label: string;
   count: number;
+  barClass?: string;
+}
+
+// Multicolor cards count toward each of their colors as well as Gold, so the
+// bars can add up to more than the total. Colors with no cards are left out.
+export function colorBreakdown(dist: Record<string, number>, multicolor: number): Bucket[] {
+  const buckets: Bucket[] = [
+    { label: "White", count: dist.W ?? 0, barClass: "bg-mana-w" },
+    { label: "Blue", count: dist.U ?? 0, barClass: "bg-mana-u" },
+    { label: "Black", count: dist.B ?? 0, barClass: "bg-mana-b" },
+    { label: "Red", count: dist.R ?? 0, barClass: "bg-mana-r" },
+    { label: "Green", count: dist.G ?? 0, barClass: "bg-mana-g" },
+    { label: "Gold", count: multicolor, barClass: "bg-accent" },
+    { label: "Colorless", count: dist.C ?? 0, barClass: "bg-mana-c" },
+  ];
+  return buckets.filter((b) => b.count > 0);
 }
 
 // Integer keys become one bar per value from the lowest to `cap` (empty values

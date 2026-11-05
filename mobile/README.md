@@ -45,8 +45,9 @@ created from the current filters (one printing per card name, up to 600 cards).
 ## Stats
 
 Tap **Stats** on the filter screen for charts of the cards the current filters match: mana value,
-card type, power, and toughness (values of 7 and up share a bar; `*` values are shown separately).
-Uses `GET /api/cards/stats`, which takes the same filters as `/api/cards`.
+color, card type, power, and toughness (values of 7 and up share a bar; `*` values are shown separately).
+Multicolor cards count toward each of their colors as well as **Gold**, so the color bars can add up to
+more than the total. Uses `GET /api/cards/stats`, which takes the same filters as `/api/cards`.
 
 ## Evaluating
 

@@ -12,7 +12,7 @@ export function BarList({ title, buckets }: { title: string; buckets: Bucket[] }
           <div key={b.label} className="flex items-center gap-2 text-sm">
             <span className="w-24 shrink-0 truncate">{b.label}</span>
             <div className="flex-1">
-              <div className="h-5 rounded-r bg-accent" style={{ width: `${(b.count / max) * 100}%` }} />
+              <div className={`h-5 rounded-r ${b.barClass ?? "bg-accent"}`} style={{ width: `${(b.count / max) * 100}%` }} />
             </div>
             <span className="w-10 shrink-0 text-right tabular-nums text-muted">{b.count}</span>
           </div>
