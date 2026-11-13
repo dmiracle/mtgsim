@@ -36,7 +36,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallbackDenylist: [/^\/api/],
+        // /cdn-cgi/ is Cloudflare Access's login callback; serving index.html there would trap an expired session.
+        navigateFallbackDenylist: [/^\/api/, /^\/cdn-cgi\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/cards\.scryfall\.io\//,
