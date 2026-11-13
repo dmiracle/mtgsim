@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
+  CARD_TYPES,
   COLORS,
   FORMATS,
   MANA_VALUES,
@@ -127,13 +128,11 @@ export function FilterForm(props: FilterFormProps) {
         />
       </Section>
 
-      <Section title="Type, name, rules text">
-        <input
-          className={inputClass}
-          placeholder="Type (e.g. Creature)"
-          value={filters.type ?? ""}
-          onChange={(e) => set("type", e.target.value)}
-        />
+      <Section title="Type">
+        <ChipRow options={opts(CARD_TYPES)} selected={listParam(filters, "type")} onToggle={toggle("type")} />
+      </Section>
+
+      <Section title="Name, rules text">
         <input
           className={inputClass}
           placeholder="Name contains"
